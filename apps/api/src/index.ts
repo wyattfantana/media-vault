@@ -18,6 +18,7 @@ import { authRouter } from './routes/auth.js';
 import { downloadsRouter } from './routes/downloads.js';
 import { mediaRouter } from './routes/media.js';
 import { jellyfinRouter } from './routes/jellyfin.js';
+import searchRouter from './routes/search.js';
 import { logger, httpLogger } from './logger.js';
 import { downloadWorker } from './workers/download.worker.js';
 
@@ -211,6 +212,7 @@ app.use('/api/v1/products', productsRouter);
 app.use('/api/v1/downloads', downloadsRouter);
 app.use('/api/v1/media', mediaRouter);
 app.use('/api/v1/jellyfin', jellyfinRouter);
+app.use('/api/v1/search', searchRouter);
 
 // Legacy routes (redirect to v1 for backward compatibility)
 app.use('/api/clients', clientsRouter);

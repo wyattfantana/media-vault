@@ -5,6 +5,7 @@ import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Downloads } from './pages/Downloads';
 import { Browse } from './pages/Browse';
+import { Search } from './pages/Search';
 import { Media } from './pages/Media';
 import { Clients } from './pages/Clients';
 import { Estimates } from './pages/Estimates';
@@ -52,6 +53,7 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="downloads" element={<Downloads />} />
             <Route path="browse" element={<Browse />} />
+            <Route path="search" element={<Search />} />
             <Route path="media" element={<Media />} />
             <Route path="clients" element={<Clients />} />
             <Route path="estimates" element={<Estimates />} />

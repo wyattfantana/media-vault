@@ -256,6 +256,68 @@ export class YtDlpService extends EventEmitter {
   }
 
   /**
+   * Search YouTube for videos
+   */
+  async searchYouTube(query: string, limit: number = 20): Promise<VideoInfo[]> {
+    return new Promise((resolve, reject) => {
+      const args = [
+        '--dump-json',
+        '--flat-playlist',
+        `ytsearch${limit}:${query}`
+      ];
+
+      const process = spawn(this.ytdlpPath, args);
+      let output = '';
+      let errorOutput = '';
+
+      process.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      process.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      process.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`YouTube search failed: ${errorOutput}`));
+          return;
+        }
+
+        try {
+          const results: VideoInfo[] = [];
+          const lines = output.trim().split('\n').filter(line => line.trim());
+
+          for (const line of lines) {
+            try {
+              const info = JSON.parse(line);
+              results.push({
+                id: info.id || '',
+                title: info.title || '',
+                description: info.description || '',
+                thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || '',
+                duration: info.duration || 0,
+                uploader: info.uploader || info.channel || '',
+                uploadDate: info.upload_date || '',
+                viewCount: info.view_count || 0,
+                likeCount: info.like_count || 0,
+                formats: [],
+                url: info.url || `https://www.youtube.com/watch?v=${info.id}`
+              });
+            } catch (err) {
+              console.error('Failed to parse search result:', err);
+            }
+          }
+
+          resolve(results);
+        } catch (err) {
+          reject(new Error(`Failed to parse search results: ${err}`));
+        }
+      });
+    });
+  }
+
+  /**
    * Check if yt-dlp is installed and accessible
    */
   async checkInstallation(): Promise<{ installed: boolean; version: string }> {
