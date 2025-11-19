@@ -1,80 +1,108 @@
-# Universal App Starter
+# MediaVault
 
-**A production-ready, full-stack monorepo template for building web, desktop, and mobile applications.**
+**Your Personal Media Hub - Self-hosted media download and management platform**
 
-This template provides a complete starting point with authentication, database, API, and UI components already configured and working.
+MediaVault is a powerful, self-hosted application for downloading and organizing media from BBC iPlayer, YouTube, and social media platforms. Built with a modern tech stack and designed for ease of use.
 
-## 🚀 What's Included
+## 🎬 Features
 
-### **Applications**
-- **Web App** - React + Vite + TypeScript + Tailwind CSS
-- **Desktop App** - Tauri (Rust) with offline database support
-- **API Server** - Express + TypeORM + PostgreSQL + Better Auth
-- **Mobile** - iOS & Android via Tauri Mobile (ready to build)
+### Content Sources
+- **BBC iPlayer** - Browse and download 9000+ TV and radio programmes (DRM-free via get_iplayer)
+- **YouTube** - Download videos, playlists, and channels
+- **Social Media** - TikTok, Instagram, Reddit, Twitch, and more (via yt-dlp)
 
-### **Authentication** (Better Auth)
-- ✅ Email/password authentication
-- ✅ Google OAuth (configurable)
-- ✅ Facebook OAuth (configurable)
-- ✅ Session management (7-day expiry)
-- ✅ Custom sign-up/sign-in pages
-- ✅ Protected routes
-- ✅ User profile management
-- ✅ Separate admin authentication system
+### Media Management
+- 🗂️ **Automatic Organization** - Files sorted into Movies, TV Shows, Music, Documentaries, or custom folders
+- 📊 **Download Queue** - Background worker processes downloads automatically
+- 🎨 **Netflix-Style Interface** - Beautiful grid browse with thumbnails and descriptions
+- 🔍 **Advanced Search** - Filter by channel, sort by recently added or expiring soon
+- 📺 **Jellyfin Ready** - Organized folder structure perfect for Jellyfin media server
 
-### **Infrastructure**
-- ✅ Structured logging with Pino
-- ✅ Pagination on all list endpoints
-- ✅ API versioning (/api/v1/*)
-- ✅ Enhanced health check monitoring
-- ✅ Multi-origin CORS support
-- ✅ Helmet security headers
-- ✅ Database migrations with TypeORM
+### BBC iPlayer Browse
+- Search across all TV and radio programmes
+- Filter by channel (BBC One, Two, Three, Four, News, Parliament, Alba, Radio stations)
+- Sort by Recently Added, Expiring Soon, or Name A-Z
+- View programme thumbnails, descriptions, and availability countdown
+- One-click download with automatic category detection
 
-### **Database**
-- PostgreSQL with TypeORM
-- Better Auth tables (user, session, account, verification, organization, member, invitation)
-- Sample entities (Client, Estimate, Invoice, Product, Settings)
-- Automated migrations
+### Download Management
+- Real-time progress tracking
+- Support for both yt-dlp and get_iplayer
+- Automatic quality selection (best available)
+- Subtitle download support
+- Custom folder naming
+- Download history with status tracking
+
+## 🛠️ Tech Stack
+
+- **Frontend:** React + TypeScript + Vite + TailwindCSS
+- **Backend:** Express + TypeScript + PostgreSQL + Better Auth
+- **Database:** PostgreSQL with TypeORM
+- **Tools:** get_iplayer, yt-dlp
+- **Architecture:** Turborepo monorepo
 
 ## 📋 Prerequisites
 
 - **Node.js** >= 20.0.0
 - **npm** >= 10.0.0
 - **PostgreSQL** >= 14
-- **Rust** (for desktop/mobile builds)
+- **get_iplayer** (for BBC iPlayer downloads)
+- **yt-dlp** (for YouTube & social media downloads)
+
+### Installing Tools
+
+**get_iplayer:**
+```bash
+# Clone get_iplayer
+git clone https://github.com/get-iplayer/get_iplayer.git ~/get_iplayer
+
+# Install Perl dependencies
+sudo apt-get install libwww-perl liblwp-protocol-https-perl libxml-libxml-perl ffmpeg atomicparsley
+```
+
+**yt-dlp:**
+```bash
+# Install to ~/bin/
+sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O ~/bin/yt-dlp
+sudo chmod a+rx ~/bin/yt-dlp
+```
 
 ## 🏁 Quick Start
 
 ### 1. Clone and Install
 
-\`\`\`bash
-git clone https://github.com/YOUR_USERNAME/YOUR_PROJECT_NAME.git
-cd YOUR_PROJECT_NAME
+```bash
+git clone https://github.com/wyattfantana/media-vault.git
+cd media-vault
 npm install
-\`\`\`
+```
 
 ### 2. Database Setup
 
-\`\`\`bash
+```bash
 # Create PostgreSQL database
-createdb your_app_name
+createdb mediavault
 
-# Run Better Auth migration
+# Run migrations
 cd apps/api
 npx tsx src/scripts/migrate-better-auth.ts
-\`\`\`
+psql mediavault < src/migrations/002_create_media_tables.sql
+```
+
+Or use the setup script:
+```bash
+chmod +x setup-database.sh
+./setup-database.sh
+```
 
 ### 3. Environment Variables
 
-Copy \`.env.example\` files and configure:
-
 **apps/api/.env:**
-\`\`\`bash
+```bash
 # Database
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=your_app_name
+POSTGRES_DB=mediavault
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_password
 
@@ -82,105 +110,95 @@ POSTGRES_PASSWORD=your_password
 PORT=3001
 NODE_ENV=development
 
-# Better Auth (Optional OAuth)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-FACEBOOK_CLIENT_ID=your_facebook_app_id
-FACEBOOK_CLIENT_SECRET=your_facebook_app_secret
-
-# Admin Authentication
-ADMIN_USERNAME=admin_secure_random
-ADMIN_PASSWORD=your_strong_password
-SESSION_SECRET=your_session_secret
-\`\`\`
+# Better Auth
+BETTER_AUTH_SECRET=your_random_secret_key
+BETTER_AUTH_URL=http://localhost:3001
+```
 
 **apps/web/.env:**
-\`\`\`bash
+```bash
 VITE_API_URL=http://localhost:3001
-\`\`\`
+```
 
-### 4. Run Development Servers
+### 4. Configure Tool Paths
 
-\`\`\`bash
+Update paths in the backend services if needed:
+- `apps/api/src/services/get-iplayer.service.ts` (line 10)
+- `apps/api/src/services/ytdlp.service.ts` (line 8)
+
+### 5. Run Development Servers
+
+```bash
 # Start all services
 npm run dev
 
 # Or start individually:
 npm run dev:api      # API server on http://localhost:3001
 npm run dev:web      # Web app on http://localhost:5173
-npm run dev:desktop  # Desktop app
-\`\`\`
+```
+
+## 🎯 Usage
+
+1. **Sign Up/Sign In** - Create your account at http://localhost:5173
+2. **Browse iPlayer** - Click "Browse iPlayer" to search BBC programmes
+3. **Download Media** - Click "Download" on any programme or use the Downloads page for custom URLs
+4. **Manage Downloads** - View progress and history in the Downloads page
+5. **Access Media** - Files are organized in the `downloads/` folder by category
+
+## 📁 Folder Structure
+
+```
+downloads/
+├── Movies/
+├── TV/
+├── Music/
+├── Documentaries/
+└── [Custom Folders]/
+```
+
+Perfect for scanning into Jellyfin or other media servers!
 
 ## 🔐 Authentication
 
-### User Authentication
-- **Sign Up**: \`/sign-up\` - Email/password + OAuth options
-- **Sign In**: \`/sign-in\` - Email/password + OAuth options
-- **Profile**: \`/profile\` - View account info and sign out
+- Email/password authentication via Better Auth
+- Session management with 7-day expiry
+- Protected routes (must be logged in to download)
+- User-specific download history
 
-### Admin Authentication (Separate System)
-- **Admin Login**: \`/system/control\` - Hardcoded credentials
-- **Admin Dashboard**: \`/system/dashboard\` - Admin panel
-- Rate limited (3 attempts / 15 min)
-- 30-minute session timeout
+## 📡 API Endpoints
 
-## 📚 API Documentation
+- **Downloads:** `GET/POST /api/v1/downloads`
+- **BBC iPlayer Search:** `GET /api/v1/iplayer/search?query=...`
+- **Media Library:** `GET /api/v1/media`
+- **Jellyfin Integration:** `GET /api/v1/jellyfin/items`
 
-- **Health Check**: \`GET /health\`
-- **Auth Routes**: \`POST /api/auth/sign-up\`, \`/api/auth/sign-in\`, etc.
-- **API v1**: \`/api/v1/clients\`, \`/api/v1/products\`, etc.
-- **Pagination**: All list endpoints support \`?page=1&limit=20\`
+## 🚧 Roadmap
 
-## 🏗️ Customization
+See [PROJECT_STATUS.md](PROJECT_STATUS.md) for detailed roadmap and development status.
 
-### Remove Sample Entities
-The template includes sample entities (Client, Estimate, Invoice, Product). To remove them:
+**Upcoming Features:**
+- Unified search (BBC + YouTube in one search)
+- YouTube channel/playlist browse
+- BBC series tracking with auto-download
+- Social media browse pages
+- Advanced automation and scheduling
 
-1. Delete entity files in \`apps/api/src/entities/\`
-2. Delete corresponding route files in \`apps/api/src/routes/\`
-3. Remove route imports from \`apps/api/src/index.ts\`
-4. Delete frontend pages referencing these entities
+## 🐛 Known Limitations
 
-### Add Your Own Features
-1. Create new entities in \`apps/api/src/entities/\`
-2. Add routes in \`apps/api/src/routes/\`
-3. Build frontend pages in \`apps/web/src/pages/\`
-
-## 🔒 Security Features
-
-- ✅ Better Auth session management
-- ✅ Helmet security headers
-- ✅ CORS configuration
-- ✅ SQL injection prevention (TypeORM)
-- ✅ Input validation (Zod schemas)
-- ✅ Password hashing (Better Auth)
-- ✅ Rate limiting on admin login
-- ✅ Production error handling
-
-## 📦 Deployment
-
-### Web App
-\`\`\`bash
-npm run build:web
-# Deploy apps/web/dist directory
-\`\`\`
-
-### API Server
-\`\`\`bash
-npm run build:api
-# Deploy apps/api directory
-\`\`\`
-
-### Desktop App
-\`\`\`bash
-npm run build:desktop
-# Find installers in apps/desktop/src-tauri/target/release/bundle/
-\`\`\`
+- UK commercial broadcasters (Channel 4, ITVX, My5) are DRM-protected and cannot be downloaded
+- Some international broadcasters have broken extractors in yt-dlp
+- Currently focused on reliable sources: BBC iPlayer, YouTube, and social media
 
 ## 📄 License
 
-MIT - feel free to use this template for any project!
+MIT License - Feel free to use and modify!
+
+## 🙏 Credits
+
+- **get_iplayer** - BBC iPlayer downloader
+- **yt-dlp** - Universal video downloader
+- Built with Better Auth, TypeORM, React, and Turborepo
 
 ---
 
-**Built with:** Better Auth • TypeORM • React • Tauri • Turborepo • Vite
+**Made with ❤️ for media enthusiasts who want control over their content**
