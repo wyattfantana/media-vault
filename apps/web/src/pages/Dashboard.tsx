@@ -1,60 +1,201 @@
+import { useEffect, useState } from 'react';
+
+interface Stats {
+  downloads: {
+    total: number;
+    pending: number;
+    downloading: number;
+    completed: number;
+    failed: number;
+  };
+  media: {
+    total_items: number;
+    total_size: number;
+    total_duration: number;
+    by_type: Array<{
+      type: string;
+      count: string;
+      total_size: string;
+    }>;
+  };
+}
+
+interface Download {
+  id: string;
+  title: string;
+  url: string;
+  status: string;
+  progress: number;
+  downloader: string;
+  created_at: string;
+}
+
 export function Dashboard() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [recentDownloads, setRecentDownloads] = useState<Download[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch download stats
+      const downloadsRes = await fetch('http://localhost:3001/api/v1/downloads?limit=5', {
+        credentials: 'include'
+      });
+
+      if (downloadsRes.ok) {
+        const downloadsData = await downloadsRes.json();
+        setRecentDownloads(downloadsData.downloads || []);
+
+        // Calculate download stats
+        const downloadStats = {
+          total: downloadsData.total || 0,
+          pending: downloadsData.downloads.filter((d: Download) => d.status === 'pending').length,
+          downloading: downloadsData.downloads.filter((d: Download) => d.status === 'downloading').length,
+          completed: downloadsData.downloads.filter((d: Download) => d.status === 'completed').length,
+          failed: downloadsData.downloads.filter((d: Download) => d.status === 'failed').length
+        };
+
+        // Fetch media stats
+        const mediaRes = await fetch('http://localhost:3001/api/v1/media/stats', {
+          credentials: 'include'
+        });
+
+        if (mediaRes.ok) {
+          const mediaData = await mediaRes.json();
+          setStats({
+            downloads: downloadStats,
+            media: mediaData.total
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'downloading':
+        return 'bg-blue-100 text-blue-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500">Loading dashboard...</div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Media Dashboard</h1>
+        <button
+          onClick={fetchDashboardData}
+          className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700"
+        >
+          Refresh
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Clients</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+              <p className="text-sm text-gray-600">Total Downloads</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {stats?.downloads.total || 0}
+              </p>
             </div>
             <div className="w-12 h-12 bg-brand-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
               </svg>
             </div>
+          </div>
+          <div className="mt-4 flex gap-2 text-xs">
+            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+              {stats?.downloads.pending || 0} pending
+            </span>
+            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+              {stats?.downloads.downloading || 0} active
+            </span>
           </div>
         </div>
 
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Pending Estimates</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
-            </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Pending Invoices</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
-            </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">£0</p>
+              <p className="text-sm text-gray-600">Completed</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {stats?.downloads.completed || 0}
+              </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Media Files</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {stats?.media.total_items || 0}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Storage Used</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {formatBytes(stats?.media.total_size || 0)}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
               </svg>
             </div>
           </div>
@@ -63,13 +204,94 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Recent Estimates</h2>
-          <p className="text-gray-500 text-sm">No estimates yet</p>
+          <h2 className="text-lg font-semibold mb-4">Recent Downloads</h2>
+          {recentDownloads.length === 0 ? (
+            <p className="text-gray-500 text-sm">No downloads yet</p>
+          ) : (
+            <div className="space-y-3">
+              {recentDownloads.map((download) => (
+                <div key={download.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {download.title || download.url}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`px-2 py-1 text-xs rounded ${getStatusColor(download.status)}`}>
+                        {download.status}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {download.downloader}
+                      </span>
+                      {download.status === 'downloading' && (
+                        <span className="text-xs text-blue-600">
+                          {download.progress}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Recent Invoices</h2>
-          <p className="text-gray-500 text-sm">No invoices yet</p>
+          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+          <div className="space-y-3">
+            <a
+              href="/downloads"
+              className="block p-4 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">New Download</p>
+                  <p className="text-sm text-gray-600">Add a new video or audio download</p>
+                </div>
+              </div>
+            </a>
+
+            <a
+              href="/media"
+              className="block p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Browse Media</p>
+                  <p className="text-sm text-gray-600">View your media library</p>
+                </div>
+              </div>
+            </a>
+
+            <a
+              href="http://localhost:8096"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Open Jellyfin</p>
+                  <p className="text-sm text-gray-600">Stream your media</p>
+                </div>
+              </div>
+            </a>
+          </div>
         </div>
       </div>
     </div>

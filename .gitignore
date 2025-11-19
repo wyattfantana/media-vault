@@ -98,3 +98,6 @@ logs/
 
 # Backup
 *-backup/
+
+# Downloaded media files
+downloads/

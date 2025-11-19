@@ -56,6 +56,12 @@ export const auth = betterAuth({
     window: 60, // 1 minute
     max: 10, // 10 requests per minute
   },
+  trustedOrigins: [
+    'http://localhost:5173', // Web app
+    'http://localhost:3000', // Desktop app
+    'tauri://localhost',     // Tauri
+    process.env.CORS_ORIGIN,
+  ].filter(Boolean) as string[],
 });
 
 export type Session = typeof auth.$Infer.Session;

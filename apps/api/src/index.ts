@@ -15,7 +15,11 @@ import { invoicesRouter } from './routes/invoices.js';
 import { productsRouter } from './routes/products.js';
 import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
+import { downloadsRouter } from './routes/downloads.js';
+import { mediaRouter } from './routes/media.js';
+import { jellyfinRouter } from './routes/jellyfin.js';
 import { logger, httpLogger } from './logger.js';
+import { downloadWorker } from './workers/download.worker.js';
 
 // =========================================
 // ENVIRONMENT VARIABLE VALIDATION (Issue #5)
@@ -204,6 +208,9 @@ app.use('/api/v1/clients', clientsRouter);
 app.use('/api/v1/estimates', estimatesRouter);
 app.use('/api/v1/invoices', invoicesRouter);
 app.use('/api/v1/products', productsRouter);
+app.use('/api/v1/downloads', downloadsRouter);
+app.use('/api/v1/media', mediaRouter);
+app.use('/api/v1/jellyfin', jellyfinRouter);
 
 // Legacy routes (redirect to v1 for backward compatibility)
 app.use('/api/clients', clientsRouter);
@@ -270,6 +277,9 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
 
+  // Stop download worker
+  downloadWorker.stop();
+
   if (AppDataSource.isInitialized) {
     await AppDataSource.destroy();
     logger.info('Database connection closed');
@@ -280,6 +290,9 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully...');
+
+  // Stop download worker
+  downloadWorker.stop();
 
   if (AppDataSource.isInitialized) {
     await AppDataSource.destroy();
@@ -297,6 +310,9 @@ async function bootstrap() {
     logger.info('Connecting to database...');
     await AppDataSource.initialize();
     logger.info('Database connected (TypeORM initialized)');
+
+    // Start download worker
+    downloadWorker.start();
 
     app.listen(PORT, () => {
       logger.info({ port: PORT, url: `http://localhost:${PORT}` }, 'API server running');
