@@ -30,9 +30,25 @@ interface Download {
   created_at: string;
 }
 
+interface PlatformData {
+  platform: string;
+  total: number;
+  completed: number;
+  failed: number;
+}
+
+interface StorageData {
+  category: string;
+  count: number;
+  size: number;
+  duration: number;
+}
+
 export function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentDownloads, setRecentDownloads] = useState<Download[]>([]);
+  const [platformData, setPlatformData] = useState<PlatformData[]>([]);
+  const [storageData, setStorageData] = useState<StorageData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -71,6 +87,22 @@ export function Dashboard() {
             media: mediaData.total
           });
         }
+      }
+
+      // Fetch analytics data
+      const [platformRes, storageRes] = await Promise.all([
+        fetch('http://localhost:3001/api/v1/analytics/platform-distribution', { credentials: 'include' }),
+        fetch('http://localhost:3001/api/v1/analytics/storage-breakdown', { credentials: 'include' })
+      ]);
+
+      if (platformRes.ok) {
+        const platformAnalytics = await platformRes.json();
+        setPlatformData(platformAnalytics.distribution || []);
+      }
+
+      if (storageRes.ok) {
+        const storageAnalytics = await storageRes.json();
+        setStorageData(storageAnalytics.breakdown || []);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
@@ -292,6 +324,86 @@ export function Dashboard() {
               </div>
             </a>
           </div>
+        </div>
+      </div>
+
+      {/* Analytics Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Platform Distribution */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4">Downloads by Platform</h2>
+          {platformData.length === 0 ? (
+            <p className="text-gray-500 text-sm">No platform data yet</p>
+          ) : (
+            <div className="space-y-3">
+              {platformData.slice(0, 6).map((platform) => {
+                const maxTotal = Math.max(...platformData.map(p => p.total));
+                const widthPercent = (platform.total / maxTotal) * 100;
+                const successRate = platform.total > 0
+                  ? Math.round((platform.completed / platform.total) * 100)
+                  : 0;
+
+                return (
+                  <div key={platform.platform}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-700">{platform.platform}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-600">{platform.total} total</span>
+                        <span className="text-green-600">{successRate}% success</span>
+                      </div>
+                    </div>
+                    <div className="relative h-6 bg-gray-100 rounded-lg overflow-hidden">
+                      <div
+                        className="absolute h-full bg-gradient-to-r from-brand-500 to-brand-600 flex items-center justify-end pr-2"
+                        style={{ width: `${widthPercent}%` }}
+                      >
+                        {widthPercent > 20 && (
+                          <span className="text-xs font-medium text-white">{platform.completed}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Storage Breakdown */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4">Storage by Category</h2>
+          {storageData.length === 0 ? (
+            <p className="text-gray-500 text-sm">No storage data yet</p>
+          ) : (
+            <div className="space-y-3">
+              {storageData.slice(0, 6).map((category) => {
+                const maxSize = Math.max(...storageData.map(c => c.size));
+                const widthPercent = (category.size / maxSize) * 100;
+
+                return (
+                  <div key={category.category}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-700">{category.category}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-600">{category.count} files</span>
+                        <span className="text-purple-600">{formatBytes(category.size)}</span>
+                      </div>
+                    </div>
+                    <div className="relative h-6 bg-gray-100 rounded-lg overflow-hidden">
+                      <div
+                        className="absolute h-full bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-end pr-2"
+                        style={{ width: `${widthPercent}%` }}
+                      >
+                        {widthPercent > 20 && (
+                          <span className="text-xs font-medium text-white">{formatBytes(category.size)}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

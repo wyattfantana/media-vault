@@ -24,6 +24,18 @@ export function Layout() {
           </NavLink>
 
           <NavLink
+            to="/discover"
+            className={({ isActive }) =>
+              `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
+            }
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Discover
+          </NavLink>
+
+          <NavLink
             to="/downloads"
             className={({ isActive }) =>
               `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
@@ -36,30 +48,6 @@ export function Layout() {
           </NavLink>
 
           <NavLink
-            to="/browse"
-            className={({ isActive }) =>
-              `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
-            }
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            Browse iPlayer
-          </NavLink>
-
-          <NavLink
-            to="/search"
-            className={({ isActive }) =>
-              `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
-            }
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Unified Search
-          </NavLink>
-
-          <NavLink
             to="/media"
             className={({ isActive }) =>
               `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
@@ -68,7 +56,19 @@ export function Layout() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
-            Media Library
+            Library
+          </NavLink>
+
+          <NavLink
+            to="/favorites"
+            className={({ isActive }) =>
+              `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
+            }
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            Favorites
           </NavLink>
 
           <NavLink

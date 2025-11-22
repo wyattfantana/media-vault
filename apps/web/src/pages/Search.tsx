@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 interface SearchResult {
-  source: 'bbc_iplayer' | 'youtube';
+  source: 'bbc_iplayer' | 'youtube' | 'soundcloud';
   id: string;
   title: string;
   description: string;
@@ -36,7 +36,7 @@ export function Search() {
     try {
       const sources = selectedSources.join(',');
       const res = await fetch(
-        `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(searchQuery)}&sources=${sources}&limit=40`,
+        `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(searchQuery)}&sources=${sources}&limit=100`,
         { credentials: 'include' }
       );
 
@@ -63,6 +63,7 @@ export function Search() {
 
     setDownloading(true);
     try {
+      // Use get_iplayer for BBC, yt-dlp for all other platforms
       const downloader = selectedResult.source === 'bbc_iplayer' ? 'get_iplayer' : 'yt-dlp';
       const url = selectedResult.source === 'bbc_iplayer'
         ? `https://www.bbc.co.uk/iplayer/episode/${selectedResult.id}`
@@ -121,8 +122,8 @@ export function Search() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Search</h1>
-        <p className="text-gray-600">Search across BBC iPlayer and YouTube</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Unified Search</h1>
+        <p className="text-gray-600">Search across BBC iPlayer, YouTube, and SoundCloud</p>
       </div>
 
       {/* Search Form */}
@@ -138,7 +139,7 @@ export function Search() {
           />
         </div>
 
-        <div className="flex items-center gap-6 mb-4">
+        <div className="flex flex-wrap items-center gap-6 mb-4">
           <span className="text-sm font-medium text-gray-700">Search in:</span>
           <label className="flex items-center gap-2">
             <input
@@ -169,6 +170,21 @@ export function Search() {
               className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
             />
             <span className="text-sm">YouTube</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selectedSources.includes('soundcloud')}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedSources([...selectedSources, 'soundcloud']);
+                } else {
+                  setSelectedSources(selectedSources.filter(s => s !== 'soundcloud'));
+                }
+              }}
+              className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            <span className="text-sm">SoundCloud</span>
           </label>
         </div>
 
@@ -207,12 +223,15 @@ export function Search() {
                     </div>
                   )}
                   <div className="absolute top-2 left-2">
-                    <span className={`px-2 py-1 text-xs rounded ${
+                    <span className={`px-2 py-1 text-xs font-medium rounded ${
                       result.source === 'bbc_iplayer'
                         ? 'bg-red-600 text-white'
-                        : 'bg-red-500 text-white'
+                        : result.source === 'youtube'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-orange-500 text-white' // soundcloud
                     }`}>
-                      {result.source === 'bbc_iplayer' ? 'BBC' : 'YouTube'}
+                      {result.source === 'bbc_iplayer' ? 'BBC' :
+                       result.source === 'youtube' ? 'YouTube' : 'SoundCloud'}
                     </span>
                   </div>
                 </div>
@@ -227,7 +246,7 @@ export function Search() {
                     {result.source === 'bbc_iplayer' ? result.channel : result.uploader}
                   </p>
 
-                  {result.source === 'youtube' && result.viewCount && (
+                  {result.source !== 'bbc_iplayer' && result.viewCount && (
                     <p className="text-xs text-gray-500 mb-2">
                       {formatViewCount(result.viewCount)}
                     </p>

@@ -20,6 +20,15 @@ export default {
           800: '#075985',
           900: '#0c4a6e',
         }
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
+        }
+      },
+      animation: {
+        fadeIn: 'fadeIn 0.2s ease-in-out'
       }
     },
   },

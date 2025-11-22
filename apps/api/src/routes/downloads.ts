@@ -283,6 +283,47 @@ downloadsRouter.get('/supported-sites', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/v1/downloads/check-duplicate/:encodedUrl - Check if URL has already been downloaded
+downloadsRouter.get('/check-duplicate/:encodedUrl', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const url = decodeURIComponent(req.params.encodedUrl);
+
+    // Check in downloads table (in-progress or completed downloads)
+    const existingDownload = await AppDataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('downloads', 'd')
+      .where('d.user_id = :userId AND d.url = :url', { userId, url })
+      .andWhere("d.status IN ('pending', 'downloading', 'completed')")
+      .getRawOne();
+
+    // Check in media table (already downloaded and saved)
+    const existingMedia = await AppDataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('media', 'm')
+      .where('m.user_id = :userId AND m.source = :url', { userId, url })
+      .getRawOne();
+
+    const isDuplicate = !!(existingDownload || existingMedia);
+
+    res.json({
+      isDuplicate,
+      existingDownload: existingDownload || null,
+      existingMedia: existingMedia || null,
+      message: isDuplicate
+        ? existingDownload
+          ? `Already ${existingDownload.status} in queue`
+          : 'Already downloaded'
+        : 'No duplicate found'
+    });
+  } catch (err) {
+    console.error('Failed to check duplicate:', err);
+    res.status(500).json({ error: 'Failed to check duplicate' });
+  }
+});
+
 // GET /api/v1/downloads/status - Get downloader status
 downloadsRouter.get('/status', requireAuth, async (req, res) => {
   try {

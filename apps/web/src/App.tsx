@@ -3,16 +3,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
+import { Discover } from './pages/Discover';
 import { Downloads } from './pages/Downloads';
-import { Browse } from './pages/Browse';
-import { Search } from './pages/Search';
 import { Media } from './pages/Media';
-import { Clients } from './pages/Clients';
-import { Estimates } from './pages/Estimates';
-import { Invoices } from './pages/Invoices';
-import { Products } from './pages/Products';
+import { Favorites } from './pages/Favorites';
 import { Settings } from './pages/Settings';
-import { Profile } from './pages/Profile';
+import { YouTube } from './pages/YouTube';
+import { SoundCloud } from './pages/SoundCloud';
+import { Rumble } from './pages/Rumble';
+import { TikTok } from './pages/TikTok';
+import { Twitch } from './pages/Twitch';
+import { Reddit } from './pages/Reddit';
+import { Vimeo } from './pages/Vimeo';
 import { SignUp } from './pages/auth/SignUp';
 import { SignIn } from './pages/auth/SignIn';
 import { AdminLogin } from './pages/admin/AdminLogin';
@@ -51,16 +53,18 @@ function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="discover" element={<Discover />} />
             <Route path="downloads" element={<Downloads />} />
-            <Route path="browse" element={<Browse />} />
-            <Route path="search" element={<Search />} />
             <Route path="media" element={<Media />} />
-            <Route path="clients" element={<Clients />} />
-            <Route path="estimates" element={<Estimates />} />
-            <Route path="invoices" element={<Invoices />} />
-            <Route path="products" element={<Products />} />
+            <Route path="favorites" element={<Favorites />} />
+            <Route path="youtube" element={<YouTube />} />
+            <Route path="soundcloud" element={<SoundCloud />} />
+            <Route path="rumble" element={<Rumble />} />
+            <Route path="tiktok" element={<TikTok />} />
+            <Route path="twitch" element={<Twitch />} />
+            <Route path="reddit" element={<Reddit />} />
+            <Route path="vimeo" element={<Vimeo />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>
       </BrowserRouter>

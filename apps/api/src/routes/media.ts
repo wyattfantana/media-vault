@@ -307,6 +307,169 @@ mediaRouter.delete('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/v1/media/bulk-organize - Reorganize multiple media files
+mediaRouter.post('/bulk-organize', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { mediaIds, targetFolder, mode = 'copy' } = req.body;
+
+    if (!mediaIds || !Array.isArray(mediaIds) || mediaIds.length === 0) {
+      return res.status(400).json({ error: 'mediaIds array is required' });
+    }
+
+    if (!targetFolder) {
+      return res.status(400).json({ error: 'targetFolder is required' });
+    }
+
+    const results = {
+      succeeded: [] as string[],
+      failed: [] as Array<{ id: string; error: string }>
+    };
+
+    // Ensure target folder exists
+    await fs.mkdir(targetFolder, { recursive: true });
+
+    for (const mediaId of mediaIds) {
+      try {
+        const mediaItem = await AppDataSource
+          .createQueryBuilder()
+          .select('*')
+          .from('media', 'm')
+          .where('m.id = :id AND m.user_id = :userId', { id: mediaId, userId })
+          .getRawOne();
+
+        if (!mediaItem) {
+          results.failed.push({ id: mediaId, error: 'Media not found' });
+          continue;
+        }
+
+        const oldPath = mediaItem.file_path;
+        const fileName = path.basename(oldPath);
+        const newPath = path.join(targetFolder, fileName);
+
+        // Check if old file exists
+        try {
+          await fs.access(oldPath);
+        } catch {
+          results.failed.push({ id: mediaId, error: 'Source file not found' });
+          continue;
+        }
+
+        // Move or copy the file
+        if (mode === 'move') {
+          await fs.rename(oldPath, newPath);
+        } else {
+          await fs.copyFile(oldPath, newPath);
+        }
+
+        // Update database
+        await AppDataSource
+          .createQueryBuilder()
+          .update('media')
+          .set({ file_path: newPath })
+          .where('id = :id', { id: mediaId })
+          .execute();
+
+        results.succeeded.push(mediaId);
+      } catch (err) {
+        results.failed.push({
+          id: mediaId,
+          error: err instanceof Error ? err.message : 'Unknown error'
+        });
+      }
+    }
+
+    res.json({
+      message: `Reorganized ${results.succeeded.length} of ${mediaIds.length} files`,
+      results
+    });
+  } catch (err) {
+    console.error('Failed to reorganize media:', err);
+    res.status(500).json({ error: 'Failed to reorganize media' });
+  }
+});
+
+// POST /api/v1/media/find-duplicates - Find duplicate media files
+mediaRouter.post('/find-duplicates', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { method = 'source' } = req.body;
+
+    let duplicates: any[] = [];
+
+    if (method === 'source') {
+      // Find duplicates by source URL
+      const results = await AppDataSource.query(`
+        SELECT source, COUNT(*) as count, array_agg(id) as media_ids, array_agg(title) as titles
+        FROM media
+        WHERE user_id = $1 AND source IS NOT NULL
+        GROUP BY source
+        HAVING COUNT(*) > 1
+        ORDER BY count DESC
+      `, [userId]);
+
+      duplicates = results.map((row: any) => ({
+        source: row.source,
+        count: parseInt(row.count),
+        mediaIds: row.media_ids,
+        titles: row.titles
+      }));
+    } else if (method === 'title') {
+      // Find duplicates by title
+      const results = await AppDataSource.query(`
+        SELECT title, COUNT(*) as count, array_agg(id) as media_ids, array_agg(file_path) as file_paths
+        FROM media
+        WHERE user_id = $1
+        GROUP BY title
+        HAVING COUNT(*) > 1
+        ORDER BY count DESC
+      `, [userId]);
+
+      duplicates = results.map((row: any) => ({
+        title: row.title,
+        count: parseInt(row.count),
+        mediaIds: row.media_ids,
+        filePaths: row.file_paths
+      }));
+    } else if (method === 'filename') {
+      // Find duplicates by filename (basename of file_path)
+      const allMedia = await AppDataSource
+        .createQueryBuilder()
+        .select('*')
+        .from('media', 'm')
+        .where('m.user_id = :userId', { userId })
+        .getRawMany();
+
+      const filenameMap = new Map<string, any[]>();
+      allMedia.forEach(media => {
+        const filename = path.basename(media.file_path);
+        if (!filenameMap.has(filename)) {
+          filenameMap.set(filename, []);
+        }
+        filenameMap.get(filename)!.push(media);
+      });
+
+      duplicates = Array.from(filenameMap.entries())
+        .filter(([_, items]) => items.length > 1)
+        .map(([filename, items]) => ({
+          filename,
+          count: items.length,
+          mediaIds: items.map(i => i.id),
+          filePaths: items.map(i => i.file_path)
+        }));
+    }
+
+    res.json({
+      method,
+      total: duplicates.length,
+      duplicates
+    });
+  } catch (err) {
+    console.error('Failed to find duplicates:', err);
+    res.status(500).json({ error: 'Failed to find duplicates' });
+  }
+});
+
 // GET /api/v1/media/:id/stream - Stream media file
 mediaRouter.get('/:id/stream', requireAuth, async (req, res) => {
   try {

@@ -8,8 +8,10 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 
 ### Content Sources
 - **BBC iPlayer** - Browse and download 9000+ TV and radio programmes (DRM-free via get_iplayer)
-- **YouTube** - Download videos, playlists, and channels
-- **Social Media** - TikTok, Instagram, Reddit, Twitch, and more (via yt-dlp)
+- **YouTube** - Channel/playlist browsing with multi-select bulk download, pagination, Load All
+- **SoundCloud** - Search and download tracks, playlists, and albums
+- **Social Media** - TikTok, Reddit, Twitch, Vimeo, Rumble support (via yt-dlp)
+- **Universal URL Support** - Extract and download from any yt-dlp compatible platform
 
 ### Media Management
 - 🗂️ **Automatic Organization** - Files sorted into Movies, TV Shows, Music, Documentaries, or custom folders
@@ -17,6 +19,10 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 - 🎨 **Netflix-Style Interface** - Beautiful grid browse with thumbnails and descriptions
 - 🔍 **Advanced Search** - Filter by channel, sort by recently added or expiring soon
 - 📺 **Jellyfin Ready** - Organized folder structure perfect for Jellyfin media server
+- ✅ **Multi-Select Downloads** - Select multiple videos and download in bulk
+- ⭐ **Favorites/Bookmarks** - Save YouTube channels and playlists for quick access
+- 🎛️ **Download Presets** - Create platform-specific presets (e.g., 320kbps audio for SoundCloud)
+- 🌐 **Discover Tab** - Browse all platforms in one unified interface with persistent tabs
 
 ### BBC iPlayer Browse
 - Search across all TV and radio programmes
@@ -25,6 +31,17 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 - View programme thumbnails, descriptions, and availability countdown
 - One-click download with automatic category detection
 
+### YouTube Browse
+- Browse channels with pagination and "Load All" support
+- **Accurate video counts** - Background counting shows true channel size (e.g., 3486 videos)
+- Browse playlists with full metadata (playlist name, channel, video count)
+- Multi-select videos with checkboxes
+- Bulk download selected videos
+- Channel info display (name, subscriber count, accurate video count)
+- Load More and Load All functionality for large channels
+- **Bookmark channels** - Save favorites with automatic video count updates
+- Smart URL matching - Handles various YouTube URL formats automatically
+
 ### Download Management
 - Real-time progress tracking
 - Support for both yt-dlp and get_iplayer
@@ -32,6 +49,7 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 - Subtitle download support
 - Custom folder naming
 - Download history with status tracking
+- Category-based organization (Movies, TV, Music, Documentaries, Custom)
 
 ## 🛠️ Tech Stack
 
@@ -87,6 +105,9 @@ createdb mediavault
 cd apps/api
 npx tsx src/scripts/migrate-better-auth.ts
 psql mediavault < src/migrations/002_create_media_tables.sql
+psql mediavault < src/migrations/003_create_bookmarks_table.sql
+psql mediavault < src/migrations/004_create_presets_table.sql
+psql mediavault < src/migrations/005_add_platform_to_presets.sql
 ```
 
 Or use the setup script:
@@ -174,19 +195,39 @@ Perfect for scanning into Jellyfin or other media servers!
 
 ## 🚧 Roadmap
 
-See [PROJECT_STATUS.md](PROJECT_STATUS.md) for detailed roadmap and development status.
+### ✅ Completed
+- BBC iPlayer integration with 9000+ programmes
+- YouTube channel/playlist browsing with pagination and accurate video counts
+- Multi-select and bulk download
+- SoundCloud, TikTok, Reddit, Vimeo, Twitch support
+- Category-based organization
+- Download queue with background worker
+- **Favorites/Bookmarks System** - Save YouTube channels and playlists with smart URL matching
+- **Platform-Specific Presets** - Save download settings per platform (e.g., audio-only for SoundCloud)
+- **Discover Tab** - Unified browsing interface with session persistence across all platforms
+- **All Platforms Feed** - Trending content from YouTube, SoundCloud, BBC iPlayer in one place
+- Queue Management Dashboard with real-time progress tracking
+- Download History with grid/table view modes
 
-**Upcoming Features:**
-- Unified search (BBC + YouTube in one search)
-- YouTube channel/playlist browse
-- BBC series tracking with auto-download
-- Social media browse pages
-- Advanced automation and scheduling
+### 🚀 In Progress
+- Enhanced Unified Search - Search across all platforms simultaneously
+- Smart Organization - Auto-folders, duplicate detection
+- Statistics Dashboard - Analytics and usage stats
+- Media Library Browser - View and organize downloaded media
+
+### 📋 Planned
+- Notification system for completed downloads
+- Media player integration for in-app playback
+- Scheduled downloads
+- Auto-update for bookmarked channels
+- Advanced filtering and sorting
+- Mobile-responsive improvements
 
 ## 🐛 Known Limitations
 
 - UK commercial broadcasters (Channel 4, ITVX, My5) are DRM-protected and cannot be downloaded
 - Some international broadcasters have broken extractors in yt-dlp
+- **Rumble temporarily limited** - Anti-bot protection blocking automated access (awaiting yt-dlp update)
 - Currently focused on reliable sources: BBC iPlayer, YouTube, and social media
 
 ## 📄 License
