@@ -23,6 +23,14 @@ interface ArtistInfo {
   url: string;
 }
 
+interface Preset {
+  id: string;
+  name: string;
+  category: string;
+  custom_folder?: string;
+  platform?: string;
+}
+
 export function SoundCloud() {
   const [inputUrl, setInputUrl] = useState('');
   const [type, setType] = useState<'user' | 'playlist' | 'search'>('user');
@@ -41,17 +49,57 @@ export function SoundCloud() {
   const [autoTriggered, setAutoTriggered] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [loadingTrackCount, setLoadingTrackCount] = useState(false);
+  const [bookmarking, setBookmarking] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [showLoadAllConfirm, setShowLoadAllConfirm] = useState(false);
+  const [loadAllProgress, setLoadAllProgress] = useState(0);
 
-  // Clear old cache on mount
+  // Restore state from sessionStorage on mount
   useEffect(() => {
-    sessionStorage.removeItem('soundcloud-page-state');
+    const saved = sessionStorage.getItem('soundcloud-page-state');
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state.inputUrl) setInputUrl(state.inputUrl);
+        if (state.type) setType(state.type);
+        if (state.tracks) setTracks(state.tracks);
+        if (state.artistInfo) setArtistInfo(state.artistInfo);
+        if (state.hasMore !== undefined) setHasMore(state.hasMore);
+        if (state.currentUrl) setCurrentUrl(state.currentUrl);
+        if (state.currentType) setCurrentType(state.currentType);
+        if (state.isBookmarked !== undefined) setIsBookmarked(state.isBookmarked);
+      } catch (err) {
+        console.error('Failed to restore SoundCloud state:', err);
+      }
+    }
   }, []);
+
+  // Save state to sessionStorage whenever it changes
+  useEffect(() => {
+    if (tracks.length > 0 || artistInfo) {
+      const state = {
+        inputUrl,
+        type,
+        tracks,
+        artistInfo,
+        hasMore,
+        currentUrl,
+        currentType,
+        isBookmarked
+      };
+      sessionStorage.setItem('soundcloud-page-state', JSON.stringify(state));
+    }
+  }, [inputUrl, type, tracks, artistInfo, hasMore, currentUrl, currentType, isBookmarked]);
 
   // Auto-browse when URL parameter is present (from Favorites page)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlParam = urlParams.get('url');
-    if (urlParam && !autoTriggered) {
+    // Only auto-load if it's a SoundCloud URL
+    if (urlParam && !autoTriggered && urlParam.includes('soundcloud.com')) {
       setInputUrl(urlParam);
       const isPlaylist = urlParam.includes('/sets/');
       setType(isPlaylist ? 'playlist' : 'user');
@@ -65,6 +113,40 @@ export function SoundCloud() {
       handleBrowse({ preventDefault: () => {} } as React.FormEvent);
     }
   }, [autoTriggered, inputUrl]);
+
+  // Fetch presets when download modal opens
+  useEffect(() => {
+    if (showDownloadModal) {
+      fetchPresets();
+    }
+  }, [showDownloadModal]);
+
+  const fetchPresets = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/api/v1/presets?platform=soundcloud', {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPresets(data.presets || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch presets:', err);
+    }
+  };
+
+  const handlePresetChange = (presetId: string) => {
+    setSelectedPreset(presetId);
+    if (presetId) {
+      const preset = presets.find(p => p.id === presetId);
+      if (preset) {
+        setCategory(preset.category);
+        if (preset.custom_folder) {
+          setCustomFolder(preset.custom_folder);
+        }
+      }
+    }
+  };
 
   const checkBookmark = async (url: string) => {
     try {
@@ -89,80 +171,89 @@ export function SoundCloud() {
     setTracks([]);
     setArtistInfo(null);
     setHasMore(false);
-    setCurrentUrl(inputUrl);
-    setCurrentType(type);
+
+    // Convert artist name to search query
+    let searchQuery = inputUrl.trim();
+
+    // If it's a soundcloud URL, extract artist name
+    if (searchQuery.includes('soundcloud.com/')) {
+      const parts = searchQuery.split('/');
+      const scIndex = parts.findIndex(p => p === 'soundcloud.com');
+      if (scIndex >= 0 && parts[scIndex + 1]) {
+        searchQuery = parts[scIndex + 1].replace(/-/g, ' ').replace(/\//g, ' ').trim();
+      }
+    }
+
+    setCurrentUrl(searchQuery);  // Store the search query
+    setCurrentType('user');
 
     try {
-      const isSearch = !inputUrl.startsWith('http');
+      // Search for tracks (100 to match YouTube initial load)
+      const res = await fetch(
+        `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(searchQuery)}&sources=soundcloud&limit=100`,
+        { credentials: 'include' }
+      );
 
-      if (isSearch) {
-        // Text search
-        const res = await fetch(
-          `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(inputUrl)}&sources=soundcloud&limit=50`,
-          { credentials: 'include' }
-        );
+      if (res.ok) {
+        const data = await res.json();
+        const fetchedTracks = (data.results || []).map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          description: r.description || '',
+          thumbnail: r.thumbnail || '',
+          url: r.url,
+          duration: r.duration,
+          uploader: r.uploader,
+          uploadDate: r.uploadDate,
+          viewCount: r.viewCount
+        }));
+        setTracks(fetchedTracks);
+        setHasMore(fetchedTracks.length >= 90);  // Show Load All button
 
-        if (res.ok) {
-          const data = await res.json();
-          const fetchedTracks = (data.results || []).map((r: any) => ({
-            id: r.id,
-            title: r.title,
-            description: r.description || '',
-            thumbnail: r.thumbnail || '',
-            url: r.url,
-            duration: r.duration,
-            uploader: r.uploader,
-            uploadDate: r.uploadDate,
-            viewCount: r.viewCount
-          }));
-          setTracks(fetchedTracks);
-          setHasMore(fetchedTracks.length === 50);
-        } else {
-          alert('Failed to search SoundCloud');
-        }
-      } else {
-        // URL-based browsing (artist/user or playlist)
-        const extractRes = await fetch(
-          `http://localhost:3001/api/v1/search/extract?url=${encodeURIComponent(inputUrl)}&limit=50`,
-          { credentials: 'include' }
-        );
+        // Build artist profile from first track
+        if (fetchedTracks.length > 0) {
+          const firstTrack = fetchedTracks[0];
 
-        if (extractRes.ok) {
-          const data = await extractRes.json();
-          const fetchedTracks = (data.videos || []).map((v: any) => ({
-            id: v.id,
-            title: v.title,
-            description: v.description || '',
-            thumbnail: v.thumbnail || '',
-            url: v.url,
-            duration: v.duration,
-            uploader: v.uploader,
-            uploadDate: v.uploadDate,
-            viewCount: v.viewCount
-          }));
-          setTracks(fetchedTracks);
-          setHasMore(fetchedTracks.length === 50);
+          // Extract ACTUAL artist URL from track URL (don't construct it)
+          // Track URLs are like: https://api.soundcloud.com/tracks/123 or https://soundcloud.com/artist/track
+          let artistUrl = null;
 
-          // For user URLs, get artist info
-          if (!inputUrl.includes('/sets/')) {
-            // Extract artist info from first track or create placeholder
-            if (fetchedTracks.length > 0) {
-              const firstTrack = fetchedTracks[0];
-              setArtistInfo({
-                id: firstTrack.id,
-                name: firstTrack.uploader || 'Unknown Artist',
-                description: '',
-                thumbnail: firstTrack.thumbnail || '',
-                followerCount: 0,
-                trackCount: fetchedTracks.length,
-                url: inputUrl
-              });
-              checkBookmark(inputUrl);
+          // Try to extract from track URL
+          if (firstTrack.url && firstTrack.url.includes('soundcloud.com/')) {
+            const parts = firstTrack.url.split('/');
+            const scIndex = parts.findIndex(p => p === 'soundcloud.com');
+            if (scIndex >= 0 && parts[scIndex + 1]) {
+              artistUrl = `https://soundcloud.com/${parts[scIndex + 1]}`;
             }
           }
-        } else {
-          alert('Failed to load SoundCloud content');
+
+          // Fallback: construct from uploader name (might not work)
+          if (!artistUrl) {
+            artistUrl = `https://soundcloud.com/${(firstTrack.uploader || searchQuery).toLowerCase().replace(/\s+/g, '-')}`;
+          }
+
+          const highQualityThumbnail = (firstTrack.thumbnail || '')
+            .replace(/-large\.jpg/g, '-t500x500.jpg')
+            .replace(/-t67x67\.jpg/g, '-t500x500.jpg')
+            .replace(/-t120x120\.jpg/g, '-t500x500.jpg')
+            .replace(/-small\.jpg/g, '-t500x500.jpg')
+            .replace(/-crop\.jpg/g, '-t500x500.jpg')
+            .replace(/-mini\.jpg/g, '-t500x500.jpg');
+
+          const info = {
+            id: firstTrack.id,
+            name: firstTrack.uploader || searchQuery,
+            description: '',
+            thumbnail: highQualityThumbnail,
+            followerCount: 0,
+            trackCount: fetchedTracks.length,
+            url: artistUrl
+          };
+          setArtistInfo(info);
+          checkBookmark(artistUrl);
         }
+      } else {
+        alert('Failed to search SoundCloud');
       }
     } catch (err) {
       console.error('Browse error:', err);
@@ -236,10 +327,12 @@ export function SoundCloud() {
 
   const toggleBookmark = async () => {
     if (!artistInfo) return;
+    setBookmarking(true);
 
     try {
       if (isBookmarked) {
         // Remove bookmark
+        console.log('[Bookmark] Removing bookmark for URL:', artistInfo.url);
         const res = await fetch(
           `http://localhost:3001/api/v1/bookmarks?url=${encodeURIComponent(artistInfo.url)}`,
           {
@@ -248,11 +341,14 @@ export function SoundCloud() {
           }
         );
 
+        console.log('[Bookmark] Delete response status:', res.status);
         if (res.ok) {
+          console.log('[Bookmark] Bookmark removed successfully');
           setIsBookmarked(false);
-          alert('Removed from favorites');
         } else {
-          alert('Failed to remove bookmark');
+          const error = await res.json();
+          console.error('[Bookmark] Failed to remove:', error);
+          alert(`Failed to remove bookmark: ${error.error || 'Unknown error'}`);
         }
       } else {
         // Add bookmark
@@ -274,7 +370,6 @@ export function SoundCloud() {
 
         if (res.ok) {
           setIsBookmarked(true);
-          alert(`Added "${artistInfo.name}" to favorites!`);
         } else {
           const error = await res.json();
           alert(`Failed to bookmark: ${error.error}`);
@@ -282,6 +377,93 @@ export function SoundCloud() {
       }
     } catch (err) {
       alert('Failed to update bookmark');
+    } finally {
+      setBookmarking(false);
+    }
+  };
+
+  const handleLoadAllClick = () => {
+    // Check if we have artist info with track count estimate
+    const trackCount = artistInfo?.trackCount || 0;
+
+    if (trackCount > 500) {
+      setShowLoadAllConfirm(true);
+    } else {
+      loadAll();
+    }
+  };
+
+  const loadAll = async () => {
+    setShowLoadAllConfirm(false);
+    setLoadingAll(true);
+    setLoadAllProgress(50);
+
+    try {
+      // SoundCloud search returns tracks from MULTIPLE uploaders (unlike YouTube)
+      // So just search with maximum limit to get as many results as possible
+      console.log(`[Load All] Searching for all tracks matching: ${currentUrl}`);
+      const res = await fetch(
+        `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(currentUrl)}&sources=soundcloud&limit=500`,
+        { credentials: 'include' }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const allTracks = (data.results || []).map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          description: r.description || '',
+          thumbnail: r.thumbnail || '',
+          url: r.url,
+          duration: r.duration,
+          uploader: r.uploader,
+          uploadDate: r.uploadDate,
+          viewCount: r.viewCount
+        }));
+
+        console.log(`[Load All] Got ${allTracks.length} total tracks from search`);
+        setTracks(allTracks);
+        setLoadAllProgress(100);
+
+        // Update artist info with count
+        if (artistInfo) {
+          setArtistInfo({ ...artistInfo, trackCount: allTracks.length });
+
+          // Update bookmark
+          if (isBookmarked && artistInfo.url) {
+            try {
+              const bookmarkRes = await fetch(
+                `http://localhost:3001/api/v1/bookmarks/check/${encodeURIComponent(artistInfo.url)}`,
+                { credentials: 'include' }
+              );
+              if (bookmarkRes.ok) {
+                const bookmarkData = await bookmarkRes.json();
+                if (bookmarkData.isBookmarked && bookmarkData.bookmark) {
+                  await fetch(
+                    `http://localhost:3001/api/v1/bookmarks/${bookmarkData.bookmark.id}`,
+                    {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ video_count: allTracks.length })
+                    }
+                  );
+                }
+              }
+            } catch (err) {
+              console.error('Failed to update bookmark:', err);
+            }
+          }
+        }
+      }
+
+      setHasMore(false);
+    } catch (err) {
+      console.error('Load all error:', err);
+      alert('Failed to load all tracks');
+    } finally {
+      setLoadingAll(false);
+      setLoadAllProgress(0);
     }
   };
 
@@ -313,6 +495,7 @@ export function SoundCloud() {
         setSelectedTrack(null);
         setCategory('music');
         setCustomFolder('');
+        setSelectedPreset('');
       } else {
         const error = await res.json();
         alert(`Failed to queue download: ${error.error}`);
@@ -368,7 +551,7 @@ export function SoundCloud() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">SoundCloud Browse - NEW VERSION</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">SoundCloud Browse</h1>
         <p className="text-gray-600">Browse artists, playlists, or search for tracks - with artist profiles!</p>
       </div>
 
@@ -428,37 +611,61 @@ export function SoundCloud() {
                 {artistInfo.followerCount > 0 && (
                   <span>{formatCount(artistInfo.followerCount)} followers</span>
                 )}
-                <span>{tracks.length > 0 ? tracks.length : artistInfo.trackCount} tracks</span>
+                {tracks.length > 0 && (
+                  <span>{formatCount(tracks.length)} tracks{hasMore ? '+' : ''}</span>
+                )}
               </div>
 
               {artistInfo.description && (
                 <p className="text-gray-700 mb-4 line-clamp-3">{artistInfo.description}</p>
               )}
 
-              <button
-                onClick={toggleBookmark}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isBookmarked
-                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    : 'bg-brand-600 text-white hover:bg-brand-700'
-                }`}
-              >
-                {isBookmarked ? (
-                  <>
-                    <svg className="w-5 h-5 inline-block mr-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                    Remove from Favorites
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                    Add to Favorites
-                  </>
+              <div className="flex gap-2">
+                <button
+                  onClick={toggleBookmark}
+                  disabled={bookmarking}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isBookmarked
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-brand-600 text-white hover:bg-brand-700'
+                  }`}
+                >
+                  {isBookmarked ? (
+                    <>
+                      <svg className="w-5 h-5 inline-block mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      Remove from Favorites
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      Add to Favorites
+                    </>
+                  )}
+                </button>
+
+                {hasMore && !loadingAll && (
+                  <button
+                    onClick={handleLoadAllClick}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700"
+                  >
+                    Load All Tracks
+                  </button>
                 )}
-              </button>
+
+                {loadingAll && (
+                  <div className="flex items-center gap-2 px-4 py-2">
+                    <svg className="animate-spin h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="text-sm text-gray-600">Loading all... {loadAllProgress}%</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -490,12 +697,27 @@ export function SoundCloud() {
                 <div className="relative aspect-square bg-gray-200">
                   {track.thumbnail && track.thumbnail.startsWith('http') ? (
                     <img
-                      src={track.thumbnail}
+                      src={(() => {
+                        const original = track.thumbnail;
+                        const replaced = original
+                          .replace(/-large\.jpg/g, '-t500x500.jpg')
+                          .replace(/-t67x67\.jpg/g, '-t500x500.jpg')
+                          .replace(/-t120x120\.jpg/g, '-t500x500.jpg')
+                          .replace(/-small\.jpg/g, '-t500x500.jpg')
+                          .replace(/-crop\.jpg/g, '-t500x500.jpg')
+                          .replace(/-mini\.jpg/g, '-t500x500.jpg');
+                        if (index === 0) {
+                          console.log('[SoundCloud Thumbnail] Original:', original);
+                          console.log('[SoundCloud Thumbnail] Replaced:', replaced);
+                        }
+                        return replaced;
+                      })()}
                       alt={track.title}
                       className="w-full h-full object-cover"
                       loading="lazy"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
+                        console.log('[SoundCloud] Failed to load thumbnail:', track.thumbnail);
                         target.style.display = 'none';
                       }}
                     />
@@ -515,7 +737,7 @@ export function SoundCloud() {
 
                 {/* Content */}
                 <div className="p-3">
-                  <h3 className="font-medium text-sm line-clamp-2 mb-1">
+                  <h3 className="font-medium text-sm line-clamp-2 min-h-[3rem] mb-2">
                     {track.title}
                   </h3>
 
@@ -571,6 +793,27 @@ export function SoundCloud() {
               <strong>{selectedTrack.title}</strong>
             </p>
 
+            {presets.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Use Preset (Optional)
+                </label>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => handlePresetChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                >
+                  <option value="">Manual Settings</option>
+                  {presets.map(preset => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                      {preset.platform === 'soundcloud' ? ' (SoundCloud)' : preset.platform ? ` (${preset.platform})` : ' (Global)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Category
@@ -619,7 +862,34 @@ export function SoundCloud() {
                   setSelectedTrack(null);
                   setCategory('music');
                   setCustomFolder('');
+                  setSelectedPreset('');
                 }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Load All Confirmation Modal */}
+      {showLoadAllConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Load All Tracks?</h3>
+            <p className="text-gray-600 mb-6">
+              This artist has over 500 tracks. Loading all tracks may take a while and use significant resources. Do you want to continue?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={loadAll}
+                className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700"
+              >
+                Yes, Load All
+              </button>
+              <button
+                onClick={() => setShowLoadAllConfirm(false)}
                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
               >
                 Cancel

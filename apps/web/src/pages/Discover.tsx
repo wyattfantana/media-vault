@@ -12,8 +12,15 @@ import { Vimeo } from './Vimeo';
 type Tab = 'all' | 'youtube' | 'bbc' | 'soundcloud' | 'rumble' | 'tiktok' | 'twitch' | 'reddit' | 'vimeo';
 
 export function Discover() {
-  // Restore last active tab from sessionStorage, default to 'all'
+  // Restore last active tab from sessionStorage or URL parameter, default to 'all'
   const [activeTab, setActiveTab] = useState<Tab>(() => {
+    // Check URL parameter first
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam) {
+      return tabParam as Tab;
+    }
+    // Fall back to sessionStorage
     const saved = sessionStorage.getItem('discover-active-tab');
     return (saved as Tab) || 'all';
   });

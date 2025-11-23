@@ -54,9 +54,9 @@ export function Favorites() {
 
   const handleVisit = (url: string) => {
     if (url.includes('youtube.com')) {
-      window.location.href = '/youtube?url=' + encodeURIComponent(url);
+      window.location.href = '/discover?tab=youtube&url=' + encodeURIComponent(url);
     } else if (url.includes('soundcloud.com')) {
-      window.location.href = '/soundcloud?url=' + encodeURIComponent(url);
+      window.location.href = '/discover?tab=soundcloud&url=' + encodeURIComponent(url);
     } else {
       window.location.href = url;
     }
@@ -174,7 +174,7 @@ export function Favorites() {
             <div key={bookmark.id} className="card hover:shadow-lg transition-shadow">
               {/* Thumbnail */}
               {bookmark.thumbnail && bookmark.thumbnail.trim() !== '' ? (
-                <div className="aspect-video bg-gray-200 rounded-lg mb-3 overflow-hidden">
+                <div className={`${bookmark.type === 'soundcloud_user' ? 'aspect-square' : 'aspect-video'} bg-gray-200 rounded-lg mb-3 overflow-hidden relative`}>
                   <img
                     src={bookmark.thumbnail}
                     alt={bookmark.title}
@@ -195,12 +195,30 @@ export function Favorites() {
                       }
                     }}
                   />
+                  {/* Video/Track Count Badge */}
+                  {bookmark.video_count && bookmark.video_count > 0 && (
+                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h18M3 16h18" />
+                      </svg>
+                      {formatCount(bookmark.video_count)} {bookmark.type === 'soundcloud_user' ? 'tracks' : 'videos'}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="aspect-video bg-gray-100 rounded-lg mb-3 flex items-center justify-center text-gray-400">
+                <div className={`${bookmark.type === 'soundcloud_user' ? 'aspect-square' : 'aspect-video'} bg-gray-100 rounded-lg mb-3 flex items-center justify-center text-gray-400 relative`}>
                   <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                   </svg>
+                  {/* Video/Track Count Badge */}
+                  {bookmark.video_count && bookmark.video_count > 0 && (
+                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h18M3 16h18" />
+                      </svg>
+                      {formatCount(bookmark.video_count)} {bookmark.type === 'soundcloud_user' ? 'tracks' : 'videos'}
+                    </div>
+                  )}
                 </div>
               )}
 

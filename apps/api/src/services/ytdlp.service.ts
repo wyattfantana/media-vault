@@ -469,6 +469,59 @@ export class YtDlpService extends EventEmitter {
   }
 
   /**
+   * Get SoundCloud user track count (separate call for performance)
+   * Uses flat-playlist with get-id for fast counting
+   */
+  async getSoundCloudUserTrackCount(userUrl: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const countArgs = [
+        '--flat-playlist',
+        '--get-id',
+        '--quiet',
+        '--no-warnings',
+        '--skip-download',
+        '--playlist-end', '9999',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        '--add-header', 'Referer:https://soundcloud.com/',
+        '--add-header', 'Origin:https://soundcloud.com',
+        '--add-header', 'Accept:*/*',
+        '--add-header', 'Accept-Language:en-US,en;q=0.9',
+        '--extractor-retries', '5',
+        '--no-check-certificate',
+        userUrl
+      ];
+
+      console.log(`[SoundCloud Track Count] Fetching track IDs for: ${userUrl}`);
+      const countProcess = spawn(this.ytdlpPath, countArgs);
+      let countOutput = '';
+      let errorOutput = '';
+
+      countProcess.stdout.on('data', (data) => {
+        countOutput += data.toString();
+      });
+
+      countProcess.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      countProcess.on('close', (countCode) => {
+        if (countCode !== 0) {
+          console.error(`[SoundCloud Track Count] Error for ${userUrl}:`, errorOutput);
+          resolve(0);
+          return;
+        }
+
+        // Count track IDs (one per line)
+        const trackIds = countOutput.trim().split('\n').filter(line => line.length > 0);
+        const trackCount = trackIds.length;
+
+        console.log(`[SoundCloud Track Count] User: ${userUrl}, Count: ${trackCount} tracks`);
+        resolve(trackCount);
+      });
+    });
+  }
+
+  /**
    * Get YouTube playlist information
    */
   async getPlaylistInfo(playlistUrl: string): Promise<any> {

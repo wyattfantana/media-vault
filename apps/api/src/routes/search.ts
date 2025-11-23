@@ -88,7 +88,7 @@ router.get('/unified', async (req, res) => {
     // Search SoundCloud
     if (sources.includes('soundcloud') || sources.includes('sc')) {
       try {
-        const scResults = await ytdlpService.searchPlatform('sc', query, Math.min(limit, 100));
+        const scResults = await ytdlpService.searchPlatform('sc', query, limit);
 
         results.push(...scResults.map(audio => ({
           source: 'soundcloud' as const,
@@ -252,6 +252,56 @@ router.get('/youtube/channel/count', async (req, res) => {
   } catch (error) {
     console.error('Get channel video count error:', error);
     res.status(500).json({ error: 'Failed to get video count' });
+  }
+});
+
+/**
+ * Get SoundCloud user track count
+ * GET /api/v1/search/soundcloud/user/count?url=...
+ */
+router.get('/soundcloud/user/count', async (req, res) => {
+  try {
+    const userUrl = req.query.url as string;
+
+    if (!userUrl) {
+      return res.status(400).json({ error: 'User URL is required' });
+    }
+
+    const trackCount = await ytdlpService.getSoundCloudUserTrackCount(userUrl);
+
+    // Automatically update any bookmarks for this user with the accurate count
+    try {
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (session?.user) {
+        const userId = session.user.id;
+
+        // Check if there's a bookmark for this user
+        const bookmark = await AppDataSource
+          .createQueryBuilder()
+          .select('*')
+          .from('bookmarks', 'b')
+          .where('b.user_id = :userId AND b.url = :url', { userId, url: userUrl })
+          .getRawOne();
+
+        if (bookmark && bookmark.video_count !== trackCount) {
+          await AppDataSource
+            .createQueryBuilder()
+            .update('bookmarks')
+            .set({ video_count: trackCount })
+            .where('id = :id', { id: bookmark.id })
+            .execute();
+          console.log(`[SoundCloud Track Count] Auto-updated bookmark ${bookmark.id} with count: ${trackCount}`);
+        }
+      }
+    } catch (err) {
+      // Silently fail - bookmark update is not critical
+      console.error('[SoundCloud Track Count] Failed to auto-update bookmark:', err);
+    }
+
+    res.json({ trackCount });
+  } catch (error) {
+    console.error('Get SoundCloud track count error:', error);
+    res.status(500).json({ error: 'Failed to get track count' });
   }
 });
 

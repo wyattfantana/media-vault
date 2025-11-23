@@ -24,6 +24,14 @@ interface ChannelInfo {
   url: string;
 }
 
+interface Preset {
+  id: string;
+  name: string;
+  category: string;
+  custom_folder?: string;
+  platform?: string;
+}
+
 export function YouTube() {
   const [inputUrl, setInputUrl] = useState('');
   const [type, setType] = useState<'channel' | 'playlist'>('channel');
@@ -48,6 +56,8 @@ export function YouTube() {
   const [bookmarking, setBookmarking] = useState(false);
   const [autoTriggered, setAutoTriggered] = useState(false);
   const [loadingVideoCount, setLoadingVideoCount] = useState(false);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
 
   // Restore state from sessionStorage on mount
   useEffect(() => {
@@ -93,7 +103,8 @@ export function YouTube() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlParam = urlParams.get('url');
-    if (urlParam && !autoTriggered) {
+    // Only auto-load if it's a YouTube URL
+    if (urlParam && !autoTriggered && (urlParam.includes('youtube.com') || urlParam.includes('youtu.be'))) {
       setInputUrl(urlParam);
       // Determine if it's a channel or playlist
       const isPlaylist = urlParam.includes('/playlist');
@@ -113,6 +124,40 @@ export function YouTube() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [currentUrl, channelInfo]);
+
+  // Fetch presets when download modal opens
+  useEffect(() => {
+    if (showDownloadModal) {
+      fetchPresets();
+    }
+  }, [showDownloadModal]);
+
+  const fetchPresets = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/api/v1/presets?platform=youtube', {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPresets(data.presets || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch presets:', err);
+    }
+  };
+
+  const handlePresetChange = (presetId: string) => {
+    setSelectedPreset(presetId);
+    if (presetId) {
+      const preset = presets.find(p => p.id === presetId);
+      if (preset) {
+        setCategory(preset.category);
+        if (preset.custom_folder) {
+          setCustomFolder(preset.custom_folder);
+        }
+      }
+    }
+  };
 
   // Trigger browse after state is set
   useEffect(() => {
@@ -964,6 +1009,27 @@ export function YouTube() {
               <strong>{selectedVideo.title}</strong>
             </p>
 
+            {presets.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Use Preset (Optional)
+                </label>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => handlePresetChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                >
+                  <option value="">Manual Settings</option>
+                  {presets.map(preset => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                      {preset.platform === 'youtube' ? ' (YouTube)' : preset.platform ? ` (${preset.platform})` : ' (Global)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Category
@@ -1012,6 +1078,7 @@ export function YouTube() {
                   setSelectedVideo(null);
                   setCategory('movies');
                   setCustomFolder('');
+                  setSelectedPreset('');
                 }}
                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
               >
