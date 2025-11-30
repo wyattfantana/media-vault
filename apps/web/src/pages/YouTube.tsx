@@ -35,6 +35,8 @@ interface Preset {
 export function YouTube() {
   const [inputUrl, setInputUrl] = useState('');
   const [type, setType] = useState<'channel' | 'playlist'>('channel');
+  const [searchMode, setSearchMode] = useState<'url' | 'search'>('url');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null);
@@ -236,6 +238,39 @@ export function YouTube() {
 
   const handleBrowse = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Handle search mode
+    if (searchMode === 'search') {
+      if (!searchQuery.trim()) return;
+
+      setLoading(true);
+      setChannelInfo(null);
+      setVideos([]);
+      setHasMore(false);
+
+      try {
+        const res = await fetch(
+          `http://localhost:3001/api/v1/search/youtube?q=${encodeURIComponent(searchQuery)}&limit=50`,
+          { credentials: 'include' }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setVideos(data.results || []);
+          setHasMore(false); // Search results don't support pagination
+        } else {
+          alert('Search failed');
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+        alert('Search failed');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Handle URL mode (existing logic)
     if (!inputUrl.trim()) return;
 
     setLoading(true);
@@ -693,64 +728,113 @@ export function YouTube() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">YouTube Browse</h1>
-        <p className="text-gray-600">Browse YouTube channels and playlists</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">YouTube</h1>
+        <p className="text-gray-600">Search videos or browse channels and playlists</p>
       </div>
 
-      {/* Browse Form */}
+      {/* Browse/Search Form */}
       <form onSubmit={handleBrowse} className="card mb-6">
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Type
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Mode
           </label>
           <div className="flex gap-4">
             <label className="flex items-center gap-2">
               <input
                 type="radio"
-                value="channel"
-                checked={type === 'channel'}
-                onChange={(e) => setType(e.target.value as 'channel' | 'playlist')}
+                value="url"
+                checked={searchMode === 'url'}
+                onChange={(e) => setSearchMode(e.target.value as 'url' | 'search')}
                 className="text-brand-600 focus:ring-brand-500"
               />
-              <span className="text-sm">Channel</span>
+              <span className="text-sm">Browse by URL</span>
             </label>
             <label className="flex items-center gap-2">
               <input
                 type="radio"
-                value="playlist"
-                checked={type === 'playlist'}
-                onChange={(e) => setType(e.target.value as 'channel' | 'playlist')}
+                value="search"
+                checked={searchMode === 'search'}
+                onChange={(e) => setSearchMode(e.target.value as 'url' | 'search')}
                 className="text-brand-600 focus:ring-brand-500"
               />
-              <span className="text-sm">Playlist</span>
+              <span className="text-sm">Search Videos</span>
             </label>
           </div>
         </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {type === 'channel' ? 'Channel URL' : 'Playlist URL'}
-          </label>
-          <input
-            type="url"
-            value={inputUrl}
-            onChange={(e) => setInputUrl(e.target.value)}
-            placeholder={
-              type === 'channel'
-                ? 'https://www.youtube.com/@channelname or https://www.youtube.com/c/channelname'
-                : 'https://www.youtube.com/playlist?list=...'
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-            required
-          />
-        </div>
+        {searchMode === 'url' ? (
+          <>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Type
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    value="channel"
+                    checked={type === 'channel'}
+                    onChange={(e) => setType(e.target.value as 'channel' | 'playlist')}
+                    className="text-brand-600 focus:ring-brand-500"
+                  />
+                  <span className="text-sm">Channel</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    value="playlist"
+                    checked={type === 'playlist'}
+                    onChange={(e) => setType(e.target.value as 'channel' | 'playlist')}
+                    className="text-brand-600 focus:ring-brand-500"
+                  />
+                  <span className="text-sm">Playlist</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {type === 'channel' ? 'Channel URL' : 'Playlist URL'}
+              </label>
+              <input
+                type="url"
+                value={inputUrl}
+                onChange={(e) => setInputUrl(e.target.value)}
+                placeholder={
+                  type === 'channel'
+                    ? 'https://www.youtube.com/@channelname or https://www.youtube.com/c/channelname'
+                    : 'https://www.youtube.com/playlist?list=...'
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                required
+              />
+            </div>
+          </>
+        ) : (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Search Query
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Enter keywords to search YouTube..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              required
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Search for videos across all of YouTube (up to 50 results)
+            </p>
+          </div>
+        )}
 
         <button
           type="submit"
           disabled={loading}
           className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50"
         >
-          {loading ? 'Loading...' : 'Browse'}
+          {loading ? 'Loading...' : searchMode === 'search' ? 'Search' : 'Browse'}
         </button>
       </form>
 

@@ -3,13 +3,15 @@ import { Browse } from './Browse';
 import { YouTube } from './YouTube';
 import { AllPlatforms } from './AllPlatforms';
 import { SoundCloud } from './SoundCloud';
-import { Rumble } from './Rumble';
 import { TikTok } from './TikTok';
 import { Twitch } from './Twitch';
 import { Reddit } from './Reddit';
-import { Vimeo } from './Vimeo';
+import Movies from './Movies';
+import TVShows from './TVShows';
+import Documentaries from './Documentaries';
+import { Favorites } from './Favorites';
 
-type Tab = 'all' | 'youtube' | 'bbc' | 'soundcloud' | 'rumble' | 'tiktok' | 'twitch' | 'reddit' | 'vimeo';
+type Tab = 'all' | 'youtube' | 'bbc' | 'soundcloud' | 'tiktok' | 'twitch' | 'reddit' | 'movies' | 'tvshows' | 'documentaries' | 'favorites';
 
 export function Discover() {
   // Restore last active tab from sessionStorage or URL parameter, default to 'all'
@@ -27,14 +29,16 @@ export function Discover() {
 
   const tabs = [
     { id: 'all' as const, label: 'All Platforms', icon: '🌐', description: 'Trending' },
+    { id: 'movies' as const, label: 'Movies', icon: '🎬', description: 'Browse' },
+    { id: 'tvshows' as const, label: 'TV Shows', icon: '📺', description: 'Series' },
+    { id: 'documentaries' as const, label: 'Documentaries', icon: '🎞️', description: 'Films' },
+    { id: 'favorites' as const, label: 'Favorites', icon: '⭐', description: 'Saved' },
     { id: 'youtube' as const, label: 'YouTube', icon: '▶️', description: 'Channels' },
-    { id: 'bbc' as const, label: 'BBC iPlayer', icon: '📺', description: 'Programmes' },
+    { id: 'bbc' as const, label: 'BBC iPlayer', icon: '📻', description: 'Programmes' },
     { id: 'soundcloud' as const, label: 'SoundCloud', icon: '🎧', description: 'Tracks' },
-    { id: 'rumble' as const, label: 'Rumble', icon: '📹', description: 'Videos' },
     { id: 'tiktok' as const, label: 'TikTok', icon: '🎵', description: 'Clips' },
     { id: 'twitch' as const, label: 'Twitch', icon: '🎮', description: 'VODs' },
     { id: 'reddit' as const, label: 'Reddit', icon: '🔴', description: 'Video Posts' },
-    { id: 'vimeo' as const, label: 'Vimeo', icon: '🎬', description: 'Videos' },
   ];
 
   // Save active tab to sessionStorage whenever it changes
@@ -80,6 +84,18 @@ export function Discover() {
         <div className={activeTab === 'all' ? 'block animate-fadeIn' : 'hidden'}>
           <AllPlatforms />
         </div>
+        <div className={activeTab === 'movies' ? 'block animate-fadeIn' : 'hidden'}>
+          <Movies />
+        </div>
+        <div className={activeTab === 'tvshows' ? 'block animate-fadeIn' : 'hidden'}>
+          <TVShows />
+        </div>
+        <div className={activeTab === 'documentaries' ? 'block animate-fadeIn' : 'hidden'}>
+          <Documentaries />
+        </div>
+        <div className={activeTab === 'favorites' ? 'block animate-fadeIn' : 'hidden'}>
+          <Favorites />
+        </div>
         <div className={activeTab === 'youtube' ? 'block animate-fadeIn' : 'hidden'}>
           <YouTube />
         </div>
@@ -89,9 +105,6 @@ export function Discover() {
         <div className={activeTab === 'soundcloud' ? 'block animate-fadeIn' : 'hidden'}>
           <SoundCloud />
         </div>
-        <div className={activeTab === 'rumble' ? 'block animate-fadeIn' : 'hidden'}>
-          <Rumble />
-        </div>
         <div className={activeTab === 'tiktok' ? 'block animate-fadeIn' : 'hidden'}>
           <TikTok />
         </div>
@@ -100,9 +113,6 @@ export function Discover() {
         </div>
         <div className={activeTab === 'reddit' ? 'block animate-fadeIn' : 'hidden'}>
           <Reddit />
-        </div>
-        <div className={activeTab === 'vimeo' ? 'block animate-fadeIn' : 'hidden'}>
-          <Vimeo />
         </div>
       </div>
     </div>

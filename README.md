@@ -7,22 +7,28 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 ## 🎬 Features
 
 ### Content Sources
+- **TMDB Movie Database** - Browse 1000s of movies, TV shows, and documentaries with ratings, posters, and trailers
+  - 🎬 Movies - Discover trending, top-rated, and genre-specific films
+  - 📺 TV Shows - Browse series by popularity, genre, and release date
+  - 🎞️ Documentaries - Specialized categories (History, War, Crime, Music, Drama)
+  - ⭐ IMDb Integration - Enhanced ratings and metadata
 - **BBC iPlayer** - Browse and download 9000+ TV and radio programmes (DRM-free via get_iplayer)
 - **YouTube** - Channel/playlist browsing with multi-select bulk download, pagination, Load All
 - **SoundCloud** - Search and download tracks, playlists, and albums
-- **Social Media** - TikTok, Reddit, Twitch, Vimeo, Rumble support (via yt-dlp)
+- **Social Media** - TikTok, Reddit, Twitch support (via yt-dlp)
 - **Universal URL Support** - Extract and download from any yt-dlp compatible platform
 
 ### Media Management
 - 🗂️ **Automatic Organization** - Files sorted into Movies, TV Shows, Music, Documentaries, or custom folders
 - 📊 **Download Queue** - Background worker processes downloads automatically
-- 🎨 **Netflix-Style Interface** - Beautiful grid browse with thumbnails and descriptions
-- 🔍 **Advanced Search** - Filter by channel, sort by recently added or expiring soon
+- 🎨 **Netflix-Style Interface** - Beautiful grid browse with thumbnails, ratings, and descriptions
+- 🔍 **Advanced Search** - Filter by genre, rating, year, popularity across all content types
 - 📺 **Jellyfin Ready** - Organized folder structure perfect for Jellyfin media server
 - ✅ **Multi-Select Downloads** - Select multiple videos and download in bulk
-- ⭐ **Favorites/Bookmarks** - Save YouTube channels and playlists for quick access
+- ⭐ **Favorites/Bookmarks** - Save YouTube channels, playlists, and favorite movies/shows
 - 🎛️ **Download Presets** - Create platform-specific presets (e.g., 320kbps audio for SoundCloud)
 - 🌐 **Discover Tab** - Browse all platforms in one unified interface with persistent tabs
+- 🎯 **Smart Filtering** - Adjustable quality filters for finding best content (rating, votes, year)
 
 ### BBC iPlayer Browse
 - Search across all TV and radio programmes
@@ -53,9 +59,10 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React + TypeScript + Vite + TailwindCSS
+- **Frontend:** React + TypeScript + Vite + TailwindCSS + Lucide Icons
 - **Backend:** Express + TypeScript + PostgreSQL + Better Auth
 - **Database:** PostgreSQL with TypeORM
+- **APIs:** TMDB API (movies/TV metadata), YouTube Data API, BBC iPlayer API
 - **Tools:** get_iplayer, yt-dlp
 - **Architecture:** Turborepo monorepo
 
@@ -134,6 +141,12 @@ NODE_ENV=development
 # Better Auth
 BETTER_AUTH_SECRET=your_random_secret_key
 BETTER_AUTH_URL=http://localhost:3001
+
+# TMDB API (for movie/TV browsing)
+TMDB_API_KEY=your_tmdb_api_key  # Get free key at https://www.themoviedb.org/settings/api
+
+# YouTube API (optional - for channel metadata)
+YOUTUBE_API_KEY=your_youtube_api_key  # Get at https://console.cloud.google.com
 ```
 
 **apps/web/.env:**
@@ -188,23 +201,35 @@ Perfect for scanning into Jellyfin or other media servers!
 
 ## 📡 API Endpoints
 
+- **TMDB:**
+  - `GET /api/v1/tmdb/trending/movie` - Trending movies
+  - `GET /api/v1/tmdb/trending/tv` - Trending TV shows
+  - `GET /api/v1/tmdb/discover/movies?genre=99` - Discover with filters
+  - `GET /api/v1/tmdb/search/movies?q=query` - Search movies
+  - `GET /api/v1/tmdb/search/tv?q=query` - Search TV shows
 - **Downloads:** `GET/POST /api/v1/downloads`
-- **BBC iPlayer Search:** `GET /api/v1/iplayer/search?query=...`
-- **Media Library:** `GET /api/v1/media`
-- **Jellyfin Integration:** `GET /api/v1/jellyfin/items`
+- **BBC iPlayer:** `GET /api/v1/iplayer/search?query=...`
+- **YouTube:** `GET /api/v1/youtube/channel/:id`
+- **Bookmarks:** `GET/POST/DELETE /api/v1/bookmarks`
+- **Presets:** `GET/POST/DELETE /api/v1/presets`
 
 ## 🚧 Roadmap
 
 ### ✅ Completed
+- **TMDB Integration** - Browse movies, TV shows, and documentaries with full metadata
+  - Genre-based filtering and browsing
+  - IMDb rating enrichment
+  - Netflix-style UI with posters and backdrops
+  - Advanced filters (rating, votes, year, sort options)
 - BBC iPlayer integration with 9000+ programmes
 - YouTube channel/playlist browsing with pagination and accurate video counts
 - Multi-select and bulk download
-- SoundCloud, TikTok, Reddit, Vimeo, Twitch support
-- Category-based organization
+- SoundCloud, TikTok, Reddit, Twitch support
+- Category-based organization (Movies, TV, Music, Documentaries)
 - Download queue with background worker
 - **Favorites/Bookmarks System** - Save YouTube channels and playlists with smart URL matching
 - **Platform-Specific Presets** - Save download settings per platform (e.g., audio-only for SoundCloud)
-- **Discover Tab** - Unified browsing interface with session persistence across all platforms
+- **Discover Tab** - Unified browsing interface with persistent tabs across all platforms
 - **All Platforms Feed** - Trending content from YouTube, SoundCloud, BBC iPlayer in one place
 - Queue Management Dashboard with real-time progress tracking
 - Download History with grid/table view modes
