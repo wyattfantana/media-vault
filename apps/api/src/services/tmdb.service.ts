@@ -314,7 +314,7 @@ export class TMDBService {
   /**
    * Get popular TV shows
    */
-  async getPopularTVShows(page: number = 1): Promise<{ results: TMDBTVShow[]; total_pages: number }> {
+  async getPopularTVShows(page: number = 1): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
     try {
       const response = await axios.get(`${TMDB_BASE_URL}/tv/popular`, {
         params: {
@@ -325,11 +325,58 @@ export class TMDBService {
 
       return {
         results: response.data.results,
-        total_pages: response.data.total_pages
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
       };
     } catch (error) {
       console.error('[TMDB] Popular TV shows error:', error);
       throw new Error('Failed to get popular TV shows');
+    }
+  }
+
+  /**
+   * Get top rated TV shows
+   */
+  async getTopRatedTVShows(page: number = 1): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
+    try {
+      const response = await axios.get(`${TMDB_BASE_URL}/tv/top_rated`, {
+        params: {
+          api_key: this.apiKey,
+          page
+        }
+      });
+
+      return {
+        results: response.data.results,
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
+      };
+    } catch (error) {
+      console.error('[TMDB] Top rated TV shows error:', error);
+      throw new Error('Failed to get top rated TV shows');
+    }
+  }
+
+  /**
+   * Get on the air TV shows (currently airing)
+   */
+  async getOnTheAirTVShows(page: number = 1): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
+    try {
+      const response = await axios.get(`${TMDB_BASE_URL}/tv/on_the_air`, {
+        params: {
+          api_key: this.apiKey,
+          page
+        }
+      });
+
+      return {
+        results: response.data.results,
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
+      };
+    } catch (error) {
+      console.error('[TMDB] On the air TV shows error:', error);
+      throw new Error('Failed to get on the air TV shows');
     }
   }
 
@@ -389,6 +436,50 @@ export class TMDBService {
     } catch (error) {
       console.error('[TMDB] Discover movies error:', error);
       throw new Error('Failed to discover movies');
+    }
+  }
+
+  /**
+   * Discover TV shows with filters
+   */
+  async discoverTVShows(filters: {
+    genre?: string | number;
+    exclude_genres?: string | number;
+    year_from?: number;
+    year_to?: number;
+    sort_by?: 'popularity.desc' | 'vote_average.desc' | 'first_air_date.desc' | 'vote_count.desc';
+    page?: number;
+    min_rating?: number;
+    min_votes?: number;
+  } = {}): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
+    try {
+      // Only apply minimum requirements if explicitly provided (not undefined)
+      const minVotes = filters.min_votes !== undefined ? filters.min_votes : undefined;
+      const minRating = filters.min_rating !== undefined ? filters.min_rating : undefined;
+
+      const response = await axios.get(`${TMDB_BASE_URL}/discover/tv`, {
+        params: {
+          api_key: this.apiKey,
+          with_genres: filters.genre,
+          without_genres: filters.exclude_genres,
+          'first_air_date.gte': filters.year_from ? `${filters.year_from}-01-01` : undefined,
+          'first_air_date.lte': filters.year_to ? `${filters.year_to}-12-31` : undefined,
+          sort_by: filters.sort_by || 'popularity.desc',
+          page: filters.page || 1,
+          'vote_average.gte': minRating,
+          'vote_count.gte': minVotes,
+          include_adult: false
+        }
+      });
+
+      return {
+        results: response.data.results,
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
+      };
+    } catch (error) {
+      console.error('[TMDB] Discover TV shows error:', error);
+      throw new Error('Failed to discover TV shows');
     }
   }
 

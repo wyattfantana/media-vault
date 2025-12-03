@@ -2,6 +2,7 @@ import express from 'express';
 import { auth } from '../auth.js';
 import { ytdlpService } from '../services/ytdlp.service.js';
 import { getIPlayerService } from '../services/get-iplayer.service.js';
+import { qbittorrentService, QBittorrentService } from '../services/qbittorrent.service.js';
 import { AppDataSource } from '../data-source.js';
 
 export const downloadsRouter = express.Router();
@@ -101,36 +102,50 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'URL is required' });
     }
 
+    // Check if this is a torrent (magnet link or .torrent file)
+    const isTorrent = QBittorrentService.isTorrentUrl(url);
+
     // Get video info first
     let title = '';
     let description = '';
     let thumbnail = '';
     let metadata = {};
+    let actualDownloader = downloader;
 
-    try {
-      if (downloader === 'yt-dlp') {
-        const info = await ytdlpService.getVideoInfo(url);
-        title = info.title;
-        description = info.description;
-        thumbnail = info.thumbnail;
-        metadata = info;
-      } else if (downloader === 'get_iplayer') {
-        // For iPlayer, we'll need the PID
-        const pidMatch = url.match(/[a-z0-9]{8}/i);
-        if (pidMatch) {
-          const programmes = await getIPlayerService.getProgrammeInfo(pidMatch[0]);
-          if (programmes.length > 0) {
-            const prog = programmes[0];
-            title = `${prog.name} - ${prog.episode}`;
-            description = prog.description;
-            thumbnail = prog.thumbnail;
-            metadata = prog;
+    // If it's a torrent, force qbittorrent downloader
+    if (isTorrent) {
+      actualDownloader = 'qbittorrent';
+
+      // For torrents, we'll use the URL as title for now
+      // We'll update it once qBittorrent fetches the metadata
+      title = url.startsWith('magnet:') ? 'Torrent Download' : url.split('/').pop() || 'Torrent Download';
+      metadata = { isTorrent: true, magnetLink: url };
+    } else {
+      try {
+        if (downloader === 'yt-dlp') {
+          const info = await ytdlpService.getVideoInfo(url);
+          title = info.title;
+          description = info.description;
+          thumbnail = info.thumbnail;
+          metadata = info;
+        } else if (downloader === 'get_iplayer') {
+          // For iPlayer, we'll need the PID
+          const pidMatch = url.match(/[a-z0-9]{8}/i);
+          if (pidMatch) {
+            const programmes = await getIPlayerService.getProgrammeInfo(pidMatch[0]);
+            if (programmes.length > 0) {
+              const prog = programmes[0];
+              title = `${prog.name} - ${prog.episode}`;
+              description = prog.description;
+              thumbnail = prog.thumbnail;
+              metadata = prog;
+            }
           }
         }
+      } catch (err) {
+        console.error('Failed to get video info:', err);
+        // Continue anyway, we'll use the URL as fallback
       }
-    } catch (err) {
-      console.error('Failed to get video info:', err);
-      // Continue anyway, we'll use the URL as fallback
     }
 
     // Create download record
@@ -144,7 +159,7 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
         title: title || url,
         description,
         thumbnail,
-        downloader,
+        downloader: actualDownloader,
         status: 'pending',
         progress: 0,
         metadata: JSON.stringify(metadata),
@@ -156,6 +171,56 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
       .execute();
 
     const download = insertResult.raw[0];
+
+    // If it's a torrent, immediately add it to qBittorrent
+    if (isTorrent) {
+      try {
+        const savePath = customFolder
+          ? `/home/beerm/media-vault/downloads/${customFolder}`
+          : `/home/beerm/media-vault/downloads/${category}`;
+
+        const result = await qbittorrentService.addTorrent(url, {
+          savePath,
+          category: category.toLowerCase(),
+          paused: false
+        });
+
+        if (result.success) {
+          // Update status to downloading
+          await AppDataSource
+            .createQueryBuilder()
+            .update('downloads')
+            .set({ status: 'downloading' })
+            .where('id = :id', { id: download.id })
+            .execute();
+
+          download.status = 'downloading';
+        } else {
+          // Mark as failed
+          await AppDataSource
+            .createQueryBuilder()
+            .update('downloads')
+            .set({ status: 'failed', error: result.message })
+            .where('id = :id', { id: download.id })
+            .execute();
+
+          download.status = 'failed';
+          download.error = result.message;
+        }
+      } catch (err: any) {
+        console.error('Failed to add torrent to qBittorrent:', err);
+        // Update download status
+        await AppDataSource
+          .createQueryBuilder()
+          .update('downloads')
+          .set({ status: 'failed', error: err.message })
+          .where('id = :id', { id: download.id })
+          .execute();
+
+        download.status = 'failed';
+        download.error = err.message;
+      }
+    }
 
     res.status(201).json(download);
   } catch (err) {

@@ -7,11 +7,17 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 ## 🎬 Features
 
 ### Content Sources
-- **TMDB Movie Database** - Browse 1000s of movies, TV shows, and documentaries with ratings, posters, and trailers
+- **TMDB Movie Database** - Browse 200,000+ movies and TV shows with ratings, posters, and trailers
   - 🎬 Movies - Discover trending, top-rated, and genre-specific films
-  - 📺 TV Shows - Browse series by popularity, genre, and release date
+  - 📺 TV Shows - Browse 200,000+ series by popularity, genre, and release date
   - 🎞️ Documentaries - Specialized categories (History, War, Crime, Music, Drama)
-  - ⭐ IMDb Integration - Enhanced ratings and metadata
+  - ⭐ Advanced Filtering - Filter by rating, votes, year range, and multiple genres
+  - 🧲 **Torrent Integration** - One-click access to curated torrent sites (1337x, PirateBay, Ext.to)
+- **Torrent Downloads** - Full qBittorrent integration for magnet links and .torrent files
+  - Automatic detection and handling of magnet links
+  - Real-time progress tracking via qBittorrent Web UI
+  - Category-based organization with custom save paths
+  - Pause/resume/delete torrent management
 - **BBC iPlayer** - Browse and download 9000+ TV and radio programmes (DRM-free via get_iplayer)
 - **YouTube** - Channel/playlist browsing with multi-select bulk download, pagination, Load All
 - **SoundCloud** - Search and download tracks, playlists, and albums
@@ -73,6 +79,7 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 - **PostgreSQL** >= 14
 - **get_iplayer** (for BBC iPlayer downloads)
 - **yt-dlp** (for YouTube & social media downloads)
+- **qBittorrent-nox** (for torrent downloads)
 
 ### Installing Tools
 
@@ -90,6 +97,19 @@ sudo apt-get install libwww-perl liblwp-protocol-https-perl libxml-libxml-perl f
 # Install to ~/bin/
 sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O ~/bin/yt-dlp
 sudo chmod a+rx ~/bin/yt-dlp
+```
+
+**qBittorrent-nox (headless torrent client):**
+```bash
+# Install qBittorrent without GUI
+sudo apt-get install -y qbittorrent-nox
+
+# Start qBittorrent Web UI (run in background)
+qbittorrent-nox --webui-port=8080 &
+
+# Access Web UI at http://localhost:8080
+# Default credentials: admin/adminadmin
+# Configure download path in Web UI settings
 ```
 
 ## 🏁 Quick Start
@@ -147,6 +167,12 @@ TMDB_API_KEY=your_tmdb_api_key  # Get free key at https://www.themoviedb.org/set
 
 # YouTube API (optional - for channel metadata)
 YOUTUBE_API_KEY=your_youtube_api_key  # Get at https://console.cloud.google.com
+
+# qBittorrent Web API (for torrent downloads)
+QBITTORRENT_HOST=localhost
+QBITTORRENT_PORT=8080
+QBITTORRENT_USERNAME=admin
+QBITTORRENT_PASSWORD=adminadmin
 ```
 
 **apps/web/.env:**
@@ -221,6 +247,12 @@ Perfect for scanning into Jellyfin or other media servers!
   - IMDb rating enrichment
   - Netflix-style UI with posters and backdrops
   - Advanced filters (rating, votes, year, sort options)
+  - **Torrent site integration** - One-click access to 5 popular torrent sites from movie/TV/doc cards
+- **qBittorrent Integration** - Full torrent download support
+  - Automatic magnet link detection and handling
+  - Web API integration for torrent management
+  - Real-time progress tracking
+  - Category-based organization with custom save paths
 - BBC iPlayer integration with 9000+ programmes
 - YouTube channel/playlist browsing with pagination and accurate video counts
 - Multi-select and bulk download
@@ -235,12 +267,19 @@ Perfect for scanning into Jellyfin or other media servers!
 - Download History with grid/table view modes
 
 ### 🚀 In Progress
+- **Jellyfin Integration** - Automatic media library synchronization
+  - Path configuration for MediaVault downloads folder
+  - Auto-scan on download completion
+- **Torrent Progress Sync** - Real-time qBittorrent progress to MediaVault database
 - Enhanced Unified Search - Search across all platforms simultaneously
 - Smart Organization - Auto-folders, duplicate detection
 - Statistics Dashboard - Analytics and usage stats
 - Media Library Browser - View and organize downloaded media
 
 ### 📋 Planned
+- **Torrent Management UI** - Show download/upload speeds, pause/resume from MediaVault
+- **Auto-seeding controls** - Stop seeding after X hours or ratio
+- **qBittorrent systemd service** - Auto-start on boot
 - Notification system for completed downloads
 - Media player integration for in-app playback
 - Scheduled downloads

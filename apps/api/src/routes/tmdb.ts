@@ -308,20 +308,62 @@ router.get('/upcoming/movies', async (req, res) => {
 });
 
 /**
- * Get popular TV shows
- * GET /api/v1/tmdb/popular/tv?page=1
+ * Get popular TV shows with filters
+ * GET /api/v1/tmdb/popular/tv?page=1&genre=10759&min_rating=7&min_votes=1000&year_from=2020&year_to=2024&sort_by=vote_average.desc&enrich=true
  */
 router.get('/popular/tv', async (req, res) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
+    const filters = {
+      genre: req.query.genre as string | undefined,
+      exclude_genres: req.query.exclude_genres as string | undefined,
+      page: req.query.page ? parseInt(req.query.page as string) : 1,
+      min_rating: req.query.min_rating ? parseFloat(req.query.min_rating as string) : undefined,
+      min_votes: req.query.min_votes ? parseInt(req.query.min_votes as string) : undefined,
+      year_from: req.query.year_from ? parseInt(req.query.year_from as string) : undefined,
+      year_to: req.query.year_to ? parseInt(req.query.year_to as string) : undefined,
+      sort_by: (req.query.sort_by as any) || 'popularity.desc'
+    };
+
+    const enrich = req.query.enrich === 'true';
 
     if (!tmdbService.isConfigured()) {
       return res.status(503).json({ error: 'TMDB is not configured' });
     }
 
-    const results = await tmdbService.getPopularTVShows(page);
+    // Check if any filters (other than sortBy) are applied
+    const hasActualFilters = filters.genre || filters.exclude_genres || filters.min_rating || filters.min_votes ||
+                             filters.year_from || filters.year_to;
 
-    const transformedResults = {
+    let results;
+    if (hasActualFilters || filters.sort_by !== 'popularity.desc') {
+      // Use discover endpoint for sorting and filtering
+      // Only pass min_votes and min_rating if they have actual values (not 0 or undefined)
+      const discoverFilters: any = {
+        genre: filters.genre,
+        exclude_genres: filters.exclude_genres,
+        year_from: filters.year_from,
+        year_to: filters.year_to,
+        sort_by: filters.sort_by,
+        page: filters.page
+      };
+
+      // Only add min_rating if it's greater than 0
+      if (filters.min_rating && filters.min_rating > 0) {
+        discoverFilters.min_rating = filters.min_rating;
+      }
+
+      // Only add min_votes if it's greater than 0
+      if (filters.min_votes && filters.min_votes > 0) {
+        discoverFilters.min_votes = filters.min_votes;
+      }
+
+      results = await tmdbService.discoverTVShows(discoverFilters);
+    } else {
+      // Use popular endpoint only for default popularity sort
+      results = await tmdbService.getPopularTVShows(filters.page);
+    }
+
+    let transformedResults = {
       ...results,
       results: results.results.map(show => ({
         ...show,
@@ -330,6 +372,12 @@ router.get('/popular/tv', async (req, res) => {
         year: show.first_air_date ? show.first_air_date.substring(0, 4) : null
       }))
     };
+
+    // Enrich with IMDB if requested
+    if (enrich) {
+      const enrichedResults = await enrichMoviesWithImdb(transformedResults.results);
+      transformedResults = { ...transformedResults, results: enrichedResults };
+    }
 
     res.json(transformedResults);
   } catch (error) {

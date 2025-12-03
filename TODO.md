@@ -1,5 +1,41 @@
 # MediaVault TODO
 
+## Completed (Session: 2025-12-03)
+
+### Torrent Integration - qBittorrent
+- [x] Replaced Goojara with curated torrent site buttons (1337x, PirateBay, Ext.to)
+- [x] Installed qBittorrent-nox v4.6.3 headless client
+- [x] Configured qBittorrent Web UI on port 8080 (credentials: admin/adminadmin)
+- [x] Created comprehensive qBittorrent service (`/apps/api/src/services/qbittorrent.service.ts`)
+  - Login/authentication with Web API
+  - Add torrents via magnet links or .torrent URLs
+  - Get torrent list with progress tracking
+  - Pause/resume/delete torrent management
+  - Category and save path configuration
+- [x] Updated downloads route to detect and handle magnet links/torrents automatically
+- [x] Fixed database constraint to allow 'qbittorrent' as valid downloader type
+- [x] Implemented automatic torrent detection (magnet: prefix or .torrent extension)
+- [x] Added immediate torrent submission to qBittorrent on download creation
+- [x] Updated Movies.tsx with 3-column grid layout and color-coded torrent buttons
+- [x] Updated TVShows.tsx with same torrent site integration
+- [x] Updated Documentaries.tsx with same torrent site integration
+- [x] Successfully tested end-to-end torrent workflow
+
+### Technical Changes
+- Modified `/apps/api/src/routes/downloads.ts` - Added torrent detection and qBittorrent integration
+- Created `/apps/api/src/services/qbittorrent.service.ts` - Full qBittorrent Web API client
+- Updated `/apps/web/src/pages/Movies.tsx` - 5 torrent sites with 3-column layout
+- Updated `/apps/web/src/pages/TVShows.tsx` - Same torrent site updates
+- Updated `/apps/web/src/pages/Documentaries.tsx` - Same torrent site updates
+- Modified database schema - Added 'qbittorrent' to downloads.downloader constraint
+- Configured `/home/beerm/.config/qBittorrent/qBittorrent.conf` - Downloads to `/home/beerm/media-vault/downloads/torrents`
+
+### System Services
+- qBittorrent Web UI: http://localhost:8080 (admin/adminadmin)
+- MediaVault API: http://localhost:3001
+- MediaVault Web: http://localhost:5173
+- Jellyfin: http://localhost:8096
+
 ## Completed (Session: 2025-11-23)
 
 ### SoundCloud Browse Improvements
@@ -23,6 +59,36 @@
 
 ## Pending / Future Work
 
+### **PRIORITY: Jellyfin Integration (Path Mismatch)**
+- [ ] **Configure Jellyfin to access MediaVault downloads**
+  - **Current Issue:** Downloads go to `/home/beerm/media-vault/downloads/Law & Order: Special Victims Unit (1999)` but Jellyfin watches `/home/beerm/media-toolkit/downloads`
+  - **Recommended Solution:** Add `/home/beerm/media-vault/downloads` as TV Shows library in Jellyfin
+  - **Alternative 1:** Move completed downloads to `/home/beerm/media-toolkit/downloads/TV/`
+  - **Alternative 2:** Reconfigure qBittorrent to download directly to Jellyfin's folder
+- [ ] Test that completed torrents appear in Jellyfin automatically
+- [ ] Set up automatic library scan on download completion
+
+### Torrent System Enhancements
+- [ ] **Sync qBittorrent progress to MediaVault database**
+  - Currently torrents are tracked in qBittorrent but progress not synced to downloads table
+  - Create background worker to poll qBittorrent API and update download status/progress
+- [ ] **Handle torrent completion**
+  - Update download status to 'completed' when torrent finishes
+  - Optional: Move from temp folder to final destination
+  - Optional: Stop seeding after X hours or ratio reached
+- [ ] **Add qBittorrent systemd service** for auto-start on boot
+- [ ] **Frontend UI for torrent management**
+  - Show download speed, upload speed, ETA from qBittorrent
+  - Pause/resume torrents from MediaVault UI
+  - Delete torrents with option to keep/remove files
+- [ ] **Download speed limits and bandwidth controls**
+- [ ] **Seeding management** - Configure when to stop seeding
+
+### Worker Service Improvements
+- [ ] **Fix worker environment variables** - Worker needs POSTGRES_HOST, etc. for database connection
+- [ ] Add proper error handling for failed downloads
+- [ ] Implement download retry logic with exponential backoff
+
 ### SoundCloud Enhancements
 - [ ] Investigate workaround for 300-result search limit
   - Option 1: Direct artist profile URL extraction (bypasses search API)
@@ -36,11 +102,7 @@
 - [ ] Implement proper error boundaries for React components
 - [ ] Add retry logic for failed API calls
 - [ ] Optimize thumbnail loading (lazy loading, placeholder images)
-
-### Media Server Integration
-- [ ] Jellyfin integration setup
-- [ ] Automatic media library scanning
-- [ ] Metadata synchronization
+- [ ] Duplicate detection before adding torrents (check if already downloaded)
 
 ### Future Features
 - [ ] User preferences/settings page
@@ -51,5 +113,42 @@
 
 ---
 
-**Last Updated:** 2025-11-23
-**Current Focus:** SoundCloud browse functionality parity with YouTube
+## Session Notes (2025-12-03)
+
+### What We Accomplished
+Successfully integrated full torrent download support into MediaVault:
+1. Browse movies/TV/docs and click torrent site buttons (1337x, PirateBay, Ext.to)
+2. Copy magnet links from torrent sites
+3. Paste into MediaVault download field
+4. Torrents automatically detected and sent to qBittorrent
+5. Downloads tracked in database and accessible via qBittorrent Web UI
+
+### Technical Implementation
+- Created qBittorrent service with full Web API integration
+- Added automatic magnet link detection in downloads route
+- Updated database schema to support 'qbittorrent' downloader
+- Implemented 3-button torrent search UI across all media pages
+- Successfully tested end-to-end workflow
+
+### Known Issues to Address
+1. **Jellyfin path configuration** - Need to add MediaVault downloads folder to Jellyfin library
+2. **Progress tracking sync** - qBittorrent progress not syncing to MediaVault database
+3. **Worker environment** - Background worker missing database credentials
+
+### Quick Reference
+```bash
+# Start qBittorrent Web UI
+qbittorrent-nox --webui-port=8080 &
+
+# Start MediaVault servers
+cd /home/beerm/media-vault/apps/api && npm run dev &
+cd /home/beerm/media-vault/apps/web && npm run dev &
+
+# Database access
+PGPASSWORD=mediavault123 psql -h localhost -U mediavault -d mediavault
+```
+
+---
+
+**Last Updated:** 2025-12-03
+**Current Focus:** Torrent integration complete - **NEXT: Jellyfin path configuration**

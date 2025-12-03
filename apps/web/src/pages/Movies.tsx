@@ -402,14 +402,19 @@ export default function Movies() {
     performSearch(searchQuery);
   };
 
-  const searchGoojara = (movie: Movie) => {
+  const search1337x = (movie: Movie) => {
     const query = encodeURIComponent(`${movie.title} ${movie.year || ''}`);
-    window.open(`https://ww1.goojara.to/search/?q=${query}`, '_blank');
+    window.open(`https://1337x.to/search/${query}/1/`, '_blank');
   };
 
   const searchPirateBay = (movie: Movie) => {
     const query = encodeURIComponent(`${movie.title} ${movie.year || ''}`);
-    window.open(`https://piratebay.party/search/${query}/1/99/0`, '_blank');
+    window.open(`https://thepiratebay.org/search.php?q=${query}`, '_blank');
+  };
+
+  const searchExtTo = (movie: Movie) => {
+    const query = encodeURIComponent(`${movie.title} ${movie.year || ''}`);
+    window.open(`https://ext.to/search?q=${query}`, '_blank');
   };
 
   const handleDownload = async (movie: Movie) => {
@@ -933,20 +938,27 @@ export default function Movies() {
                 </div>
 
                 <div>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="grid grid-cols-3 gap-2 mb-3">
                     <button
-                      onClick={() => searchGoojara(selectedMovie)}
-                      className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors"
+                      onClick={() => search1337x(selectedMovie)}
+                      className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
                     >
                       <Search className="w-4 h-4" />
-                      Goojara
+                      1337x
                     </button>
                     <button
                       onClick={() => searchPirateBay(selectedMovie)}
-                      className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors"
+                      className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
                     >
                       <Search className="w-4 h-4" />
                       PirateBay
+                    </button>
+                    <button
+                      onClick={() => searchExtTo(selectedMovie)}
+                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
+                    >
+                      <Search className="w-4 h-4" />
+                      Ext.to
                     </button>
                   </div>
                   <input

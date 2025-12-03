@@ -40,7 +40,8 @@ export default function TVShows() {
   const [loading, setLoading] = useState(false);
   const [selectedShow, setSelectedShow] = useState<TVShow | null>(null);
   const [downloadUrl, setDownloadUrl] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('browse');
+  const [viewMode, setViewMode] = useState<ViewMode>('all-shows');
+  const isInitialMount = React.useRef(true);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -59,7 +60,21 @@ export default function TVShows() {
   const [allShows, setAllShows] = useState<TVShow[]>([]);
   const [allShowsPage, setAllShowsPage] = useState(1);
   const [allShowsTotalPages, setAllShowsTotalPages] = useState(1);
+  const [allShowsTotalResults, setAllShowsTotalResults] = useState(0);
   const [allShowsLoading, setAllShowsLoading] = useState(false);
+  const [loadingMultiplePages, setLoadingMultiplePages] = useState(false);
+
+  // All Shows filters (default to quality shows for better initial experience)
+  const [allShowsFilters, setAllShowsFilters] = useState({
+    minRating: 7.0,
+    minVotes: 500,
+    yearFrom: null as number | null,
+    yearTo: null as number | null,
+    sortBy: 'vote_average.desc' as 'vote_average.desc' | 'popularity.desc' | 'first_air_date.desc',
+    selectedGenres: [] as number[],
+    excludeGenres: [16, 10762] as number[] // Exclude Animation and Kids by default
+  });
+  const [showAllShowsFilters, setShowAllShowsFilters] = useState(false);
 
   // Genre filters
   const [genreFilters, setGenreFilters] = useState({
@@ -84,8 +99,15 @@ export default function TVShows() {
 
   useEffect(() => {
     fetchGenres();
-    loadBrowseSections();
+    setShowAllShowsFilters(true); // Show filters by default
+    // Load shows with default filters
+    loadShows();
   }, []);
+
+  // Function to load shows based on current filters
+  const loadShows = () => {
+    loadManyPages(1, 10, 'all-shows');
+  };
 
   const fetchGenres = async () => {
     try {
@@ -306,51 +328,144 @@ export default function TVShows() {
 
   const openAllShowsView = async () => {
     setViewMode('all-shows');
+    setShowAllShowsFilters(true); // Show filters by default
     setAllShowsPage(1);
+    setAllShowsFilters({
+      minRating: 0,
+      minVotes: 0,
+      yearFrom: null,
+      yearTo: null,
+      sortBy: 'popularity.desc',
+      selectedGenres: [],
+      excludeGenres: []
+    });
     await fetchAllShows(1, 'all-shows');
   };
 
-  const fetchAllShows = async (page: number, mode: 'all-shows' | 'top-rated') => {
+  // Auto-apply filters when they change (skip initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (viewMode === 'all-shows' || viewMode === 'top-rated') {
+      const timeoutId = setTimeout(() => {
+        console.log('Applying filters:', allShowsFilters);
+        loadManyPages(1, 10, viewMode, false);
+      }, 500); // Debounce for 500ms
+      return () => clearTimeout(timeoutId);
+    }
+  }, [allShowsFilters.minRating, allShowsFilters.minVotes, allShowsFilters.sortBy, allShowsFilters.yearFrom, allShowsFilters.yearTo, allShowsFilters.selectedGenres, allShowsFilters.excludeGenres]);
+
+  const fetchAllShows = async (page: number, mode: 'all-shows' | 'top-rated', append = false) => {
     setAllShowsLoading(true);
     try {
-      let url: string;
-      if (mode === 'top-rated') {
-        // Top rated: high rating threshold (7.5+) with strict vote requirements
-        url = `${API_BASE}/tmdb/popular/tv?sort_by=vote_average.desc&page=${page}&min_rating=7.5&min_votes=2000&enrich=true`;
-      } else {
-        // All shows: decent quality (6.5+) with lower vote requirements for more variety
-        url = `${API_BASE}/tmdb/popular/tv?sort_by=vote_average.desc&page=${page}&min_rating=6.5&min_votes=500&enrich=true`;
+      const filters = mode === 'top-rated'
+        ? { minRating: 7.5, minVotes: 2000, sortBy: 'vote_average.desc' }
+        : allShowsFilters;
+
+      let url = `${API_BASE}/tmdb/popular/tv?page=${page}`;
+      url += `&sort_by=${filters.sortBy}`;
+      if (filters.minRating > 0) url += `&min_rating=${filters.minRating}`;
+      if (filters.minVotes > 0) url += `&min_votes=${filters.minVotes}`;
+      if (allShowsFilters.yearFrom) url += `&year_from=${allShowsFilters.yearFrom}`;
+      if (allShowsFilters.yearTo) url += `&year_to=${allShowsFilters.yearTo}`;
+      if (allShowsFilters.selectedGenres.length > 0) {
+        url += `&genre=${allShowsFilters.selectedGenres.join(',')}`;
+      }
+      if (allShowsFilters.excludeGenres && allShowsFilters.excludeGenres.length > 0) {
+        url += `&exclude_genres=${allShowsFilters.excludeGenres.join(',')}`;
       }
 
       const res = await fetch(url, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        // Client-side re-sort for perfect order
-        const sorted = (data.results || []).sort((a: TVShow, b: TVShow) => {
-          const ratingA = a.imdb_rating ? parseFloat(a.imdb_rating) : a.vote_average;
-          const ratingB = b.imdb_rating ? parseFloat(b.imdb_rating) : b.vote_average;
-          return ratingB - ratingA;
-        });
-
-        if (page === 1) {
-          setAllShows(sorted);
+        if (append) {
+          setAllShows(prev => [...prev, ...(data.results || [])]);
         } else {
-          // Merge and re-sort when loading more
-          const merged = [...allShows, ...sorted];
-          setAllShows(merged.sort((a, b) => {
-            const ratingA = a.imdb_rating ? parseFloat(a.imdb_rating) : a.vote_average;
-            const ratingB = b.imdb_rating ? parseFloat(b.imdb_rating) : b.vote_average;
-            return ratingB - ratingA;
-          }));
+          setAllShows(data.results || []);
         }
-
         setAllShowsTotalPages(data.total_pages || 1);
+        setAllShowsTotalResults(data.total_results || 0);
         setAllShowsPage(page);
       }
     } catch (err) {
       console.error('Failed to fetch all shows:', err);
     } finally {
       setAllShowsLoading(false);
+    }
+  };
+
+  // Load multiple pages at once for better browsing
+  const loadManyPages = async (startPage: number, numPages: number, mode: 'all-shows' | 'top-rated', append = false) => {
+    setLoadingMultiplePages(true);
+    try {
+      const filters = mode === 'top-rated'
+        ? { minRating: 7.5, minVotes: 2000, sortBy: 'vote_average.desc' }
+        : allShowsFilters;
+
+      let baseUrl = `${API_BASE}/tmdb/popular/tv?sort_by=${filters.sortBy}`;
+      if (filters.minRating > 0) baseUrl += `&min_rating=${filters.minRating}`;
+      if (filters.minVotes > 0) baseUrl += `&min_votes=${filters.minVotes}`;
+      if (allShowsFilters.yearFrom) baseUrl += `&year_from=${allShowsFilters.yearFrom}`;
+      if (allShowsFilters.yearTo) baseUrl += `&year_to=${allShowsFilters.yearTo}`;
+      if (allShowsFilters.selectedGenres.length > 0) {
+        baseUrl += `&genre=${allShowsFilters.selectedGenres.join(',')}`;
+      }
+      if (allShowsFilters.excludeGenres && allShowsFilters.excludeGenres.length > 0) {
+        baseUrl += `&exclude_genres=${allShowsFilters.excludeGenres.join(',')}`;
+      }
+
+      console.log('Loading with URL:', baseUrl);
+
+      // Fetch pages in parallel
+      const promises = [];
+      for (let i = 0; i < numPages; i++) {
+        const page = startPage + i;
+        promises.push(fetch(`${baseUrl}&page=${page}`, { credentials: 'include' }));
+      }
+
+      const responses = await Promise.all(promises);
+      const dataPromises = responses.map(r => r.ok ? r.json() : null);
+      const dataResults = await Promise.all(dataPromises);
+
+      const newResults: TVShow[] = [];
+      let actualTotalPages = 1;
+      let totalResults = 0;
+
+      dataResults.forEach((data, index) => {
+        if (data && data.results) {
+          newResults.push(...data.results);
+          // Get metadata from first valid response
+          if (index === 0 || totalResults === 0) {
+            actualTotalPages = data.total_pages || actualTotalPages;
+            totalResults = data.total_results || totalResults;
+          }
+        }
+      });
+
+      // Deduplicate by show ID
+      const uniqueShows = Array.from(
+        new Map(newResults.map(show => [show.id, show])).values()
+      );
+
+      if (append) {
+        setAllShows(prev => {
+          const combined = [...prev, ...uniqueShows];
+          // Deduplicate combined array as well
+          return Array.from(new Map(combined.map(show => [show.id, show])).values());
+        });
+      } else {
+        setAllShows(uniqueShows);
+      }
+      setAllShowsTotalPages(actualTotalPages);
+      setAllShowsTotalResults(totalResults);
+      setAllShowsPage(startPage + numPages - 1);
+    } catch (err) {
+      console.error('Failed to load many pages:', err);
+    } finally {
+      setLoadingMultiplePages(false);
     }
   };
 
@@ -403,14 +518,19 @@ export default function TVShows() {
     performSearch(searchQuery);
   };
 
-  const searchGoojara = (show: TVShow) => {
+  const search1337x = (show: TVShow) => {
     const query = encodeURIComponent(`${show.name || show.title} ${show.year || ''}`);
-    window.open(`https://ww1.goojara.to/search/?q=${query}`, '_blank');
+    window.open(`https://1337x.to/search/${query}/1/`, '_blank');
   };
 
   const searchPirateBay = (show: TVShow) => {
     const query = encodeURIComponent(`${show.name || show.title} ${show.year || ''}`);
-    window.open(`https://piratebay.party/search/${query}/1/99/0`, '_blank');
+    window.open(`https://thepiratebay.org/search.php?q=${query}`, '_blank');
+  };
+
+  const searchExtTo = (show: TVShow) => {
+    const query = encodeURIComponent(`${show.name || show.title} ${show.year || ''}`);
+    window.open(`https://ext.to/search?q=${query}`, '_blank');
   };
 
   const handleDownload = async (show: TVShow) => {
@@ -629,9 +749,9 @@ export default function TVShows() {
       {/* Browse Mode */}
       {viewMode === 'browse' && (
         <div className="py-8">
-          <TVShowRow title="🔥 Trending This Week" shows={trendingShows} loading={false} />
+          <TVShowRow title="🔥 Trending This Week" shows={trendingShows} loading={false} onSeeAll={openAllShowsView} />
           <TVShowRow title="⭐ Top Rated TV Shows" shows={topRatedShows} loading={false} onSeeAll={openTopRatedView} />
-          <TVShowRow title="📺 Airing Today" shows={airingTodayShows} loading={false} />
+          <TVShowRow title="📺 Airing Today" shows={airingTodayShows} loading={false} onSeeAll={openAllShowsView} />
 
           {genreSections.map(section => (
             <TVShowRow
@@ -804,10 +924,327 @@ export default function TVShows() {
       {/* All Shows View */}
       {viewMode === 'all-shows' && (
         <div className="space-y-6">
+          {/* Filters Toggle */}
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">All TV Shows (Sorted by Rating)</h2>
+            <button
+              onClick={() => setShowAllShowsFilters(!showAllShowsFilters)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              {showAllShowsFilters ? 'Hide Filters' : 'Show Filters'}
+            </button>
             <div className="text-sm text-gray-400">
               {allShows.length} TV shows loaded • Page {allShowsPage}/{allShowsTotalPages}
+            </div>
+          </div>
+
+          {/* Filter Panel */}
+          {showAllShowsFilters && (
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {/* Sort By */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Sort By</label>
+                  <select
+                    value={allShowsFilters.sortBy}
+                    onChange={(e) => setAllShowsFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
+                    className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+                  >
+                    <option value="vote_average.desc">⭐ Top Rated</option>
+                    <option value="popularity.desc">🔥 Most Popular</option>
+                    <option value="first_air_date.desc">📅 Newest First</option>
+                  </select>
+                </div>
+
+                {/* Quality Presets */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Quick Filters</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        setAllShowsFilters(prev => ({
+                          ...prev,
+                          minRating: 7.0,
+                          minVotes: 500,
+                          excludeGenres: [16, 10762] // Animation, Kids
+                        }));
+                      }}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      ⭐ Quality Shows (7.0+ rating, 500+ votes)
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAllShowsFilters(prev => ({
+                          ...prev,
+                          minRating: 8.0,
+                          minVotes: 1000,
+                          excludeGenres: [16, 10762]
+                        }));
+                      }}
+                      className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      🏆 Elite (8.0+, 1000+ votes, no anime/kids)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Checkbox Filters */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Exclude Genres</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allShowsFilters.excludeGenres.includes(16)}
+                        onChange={(e) => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            excludeGenres: e.target.checked
+                              ? [...prev.excludeGenres, 16]
+                              : prev.excludeGenres.filter(id => id !== 16)
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                      />
+                      <span className="text-sm text-gray-300">🎨 Animation</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allShowsFilters.excludeGenres.includes(10762)}
+                        onChange={(e) => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            excludeGenres: e.target.checked
+                              ? [...prev.excludeGenres, 10762]
+                              : prev.excludeGenres.filter(id => id !== 10762)
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                      />
+                      <span className="text-sm text-gray-300">👶 Kids</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allShowsFilters.excludeGenres.includes(10764)}
+                        onChange={(e) => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            excludeGenres: e.target.checked
+                              ? [...prev.excludeGenres, 10764]
+                              : prev.excludeGenres.filter(id => id !== 10764)
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                      />
+                      <span className="text-sm text-gray-300">📰 Reality</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allShowsFilters.excludeGenres.includes(10767)}
+                        onChange={(e) => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            excludeGenres: e.target.checked
+                              ? [...prev.excludeGenres, 10767]
+                              : prev.excludeGenres.filter(id => id !== 10767)
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                      />
+                      <span className="text-sm text-gray-300">🎤 Talk</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allShowsFilters.excludeGenres.includes(99)}
+                        onChange={(e) => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            excludeGenres: e.target.checked
+                              ? [...prev.excludeGenres, 99]
+                              : prev.excludeGenres.filter(id => id !== 99)
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                      />
+                      <span className="text-sm text-gray-300">📺 Documentary</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allShowsFilters.excludeGenres.includes(10766)}
+                        onChange={(e) => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            excludeGenres: e.target.checked
+                              ? [...prev.excludeGenres, 10766]
+                              : prev.excludeGenres.filter(id => id !== 10766)
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                      />
+                      <span className="text-sm text-gray-300">🧼 Soap</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allShowsFilters.excludeGenres.includes(10763)}
+                        onChange={(e) => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            excludeGenres: e.target.checked
+                              ? [...prev.excludeGenres, 10763]
+                              : prev.excludeGenres.filter(id => id !== 10763)
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                      />
+                      <span className="text-sm text-gray-300">📡 News</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allShowsFilters.excludeGenres.includes(10768)}
+                        onChange={(e) => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            excludeGenres: e.target.checked
+                              ? [...prev.excludeGenres, 10768]
+                              : prev.excludeGenres.filter(id => id !== 10768)
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                      />
+                      <span className="text-sm text-gray-300">⚔️ War & Politics</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Min Rating */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Min Rating: {allShowsFilters.minRating > 0 ? allShowsFilters.minRating.toFixed(1) : 'Any'}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={allShowsFilters.minRating}
+                    onChange={(e) => setAllShowsFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
+                    className="w-full accent-blue-600"
+                  />
+                </div>
+
+                {/* Min Votes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Min Votes: {allShowsFilters.minVotes > 0 ? allShowsFilters.minVotes : 'Any'}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="5000"
+                    step="100"
+                    value={allShowsFilters.minVotes}
+                    onChange={(e) => setAllShowsFilters(prev => ({ ...prev, minVotes: parseInt(e.target.value) }))}
+                    className="w-full accent-blue-600"
+                  />
+                </div>
+
+                {/* Year Range */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Year Range</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1950"
+                      max={new Date().getFullYear()}
+                      value={allShowsFilters.yearFrom || ''}
+                      onChange={(e) => setAllShowsFilters(prev => ({ ...prev, yearFrom: e.target.value ? parseInt(e.target.value) : null }))}
+                      placeholder="From"
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                    <input
+                      type="number"
+                      min="1950"
+                      max={new Date().getFullYear()}
+                      value={allShowsFilters.yearTo || ''}
+                      onChange={(e) => setAllShowsFilters(prev => ({ ...prev, yearTo: e.target.value ? parseInt(e.target.value) : null }))}
+                      placeholder="To"
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Genre Multi-Select */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Genres (select multiple)</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {genres.map(genre => (
+                      <button
+                        key={genre.id}
+                        onClick={() => {
+                          setAllShowsFilters(prev => ({
+                            ...prev,
+                            selectedGenres: prev.selectedGenres.includes(genre.id)
+                              ? prev.selectedGenres.filter(id => id !== genre.id)
+                              : [...prev.selectedGenres, genre.id]
+                          }));
+                        }}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          allShowsFilters.selectedGenres.includes(genre.id)
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        {genre.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Reset Button */}
+                <div className="col-span-full">
+                  <button
+                    onClick={() => {
+                      setAllShowsFilters({
+                        minRating: 0,
+                        minVotes: 0,
+                        yearFrom: null,
+                        yearTo: null,
+                        sortBy: 'popularity.desc',
+                        selectedGenres: [],
+                        excludeGenres: []
+                      });
+                    }}
+                    className="w-full px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Results header */}
+          <div className="bg-gray-800/50 p-4 rounded-lg">
+            <div className="text-sm text-gray-300">
+              {loadingMultiplePages ? (
+                <span className="flex items-center gap-2">
+                  <Loader className="w-4 h-4 animate-spin" />
+                  Loading shows...
+                </span>
+              ) : (
+                <>
+                  Showing <span className="font-bold text-white">{allShows.length.toLocaleString()}</span> of{' '}
+                  <span className="font-bold text-white">{allShowsTotalResults.toLocaleString()}</span> shows
+                </>
+              )}
             </div>
           </div>
 
@@ -823,14 +1260,15 @@ export default function TVShows() {
                 ))}
               </div>
 
+              {/* Load More Button */}
               {allShowsPage < allShowsTotalPages && (
-                <div className="text-center mt-8">
+                <div className="flex justify-center mt-8">
                   <button
-                    onClick={loadMoreAllShows}
-                    disabled={allShowsLoading}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                    onClick={() => loadManyPages(allShowsPage + 1, 10, 'all-shows', true)}
+                    disabled={allShowsLoading || loadingMultiplePages}
+                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg font-medium transition-colors"
                   >
-                    {allShowsLoading ? 'Loading...' : `Load More (${allShowsPage}/${allShowsTotalPages})`}
+                    {loadingMultiplePages ? 'Loading...' : 'Load More Shows'}
                   </button>
                 </div>
               )}
@@ -842,10 +1280,21 @@ export default function TVShows() {
       {/* Top Rated View */}
       {viewMode === 'top-rated' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">⭐ Top Rated TV Shows (7.5+)</h2>
-            <div className="text-sm text-gray-400">
-              {allShows.length} TV shows loaded • Page {allShowsPage}/{allShowsTotalPages}
+          {/* Results header */}
+          <div className="bg-gray-800/50 p-4 rounded-lg">
+            <h2 className="text-xl font-bold mb-2">⭐ Top Rated TV Shows (Rating ≥ 7.5)</h2>
+            <div className="text-sm text-gray-300">
+              {loadingMultiplePages ? (
+                <span className="flex items-center gap-2">
+                  <Loader className="w-4 h-4 animate-spin" />
+                  Loading shows...
+                </span>
+              ) : (
+                <>
+                  Showing <span className="font-bold text-white">{allShows.length.toLocaleString()}</span> of{' '}
+                  <span className="font-bold text-white">{allShowsTotalResults.toLocaleString()}</span> shows
+                </>
+              )}
             </div>
           </div>
 
@@ -861,14 +1310,15 @@ export default function TVShows() {
                 ))}
               </div>
 
+              {/* Load More Button */}
               {allShowsPage < allShowsTotalPages && (
-                <div className="text-center mt-8">
+                <div className="flex justify-center mt-8">
                   <button
-                    onClick={loadMoreAllShows}
-                    disabled={allShowsLoading}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                    onClick={() => loadManyPages(allShowsPage + 1, 10, 'top-rated', true)}
+                    disabled={allShowsLoading || loadingMultiplePages}
+                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg font-medium transition-colors"
                   >
-                    {allShowsLoading ? 'Loading...' : `Load More (${allShowsPage}/${allShowsTotalPages})`}
+                    {loadingMultiplePages ? 'Loading...' : 'Load More Shows'}
                   </button>
                 </div>
               )}
@@ -934,20 +1384,27 @@ export default function TVShows() {
                 </div>
 
                 <div>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="grid grid-cols-3 gap-2 mb-3">
                     <button
-                      onClick={() => searchGoojara(selectedShow)}
-                      className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors"
+                      onClick={() => search1337x(selectedShow)}
+                      className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
                     >
                       <Search className="w-4 h-4" />
-                      Goojara
+                      1337x
                     </button>
                     <button
                       onClick={() => searchPirateBay(selectedShow)}
-                      className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors"
+                      className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
                     >
                       <Search className="w-4 h-4" />
                       PirateBay
+                    </button>
+                    <button
+                      onClick={() => searchExtTo(selectedShow)}
+                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
+                    >
+                      <Search className="w-4 h-4" />
+                      Ext.to
                     </button>
                   </div>
                   <input
