@@ -1,6 +1,7 @@
 import { AppDataSource } from '../data-source.js';
 import { ytdlpService } from '../services/ytdlp.service.js';
 import { getIPlayerService } from '../services/get-iplayer.service.js';
+import { qbittorrentService } from '../services/qbittorrent.service.js';
 import { fileOrganizerService } from '../services/file-organizer.service.js';
 import { jellyfinService } from '../services/jellyfin.service.js';
 import fs from 'fs/promises';
@@ -140,6 +141,22 @@ export class DownloadWorker {
                       parseInt(durationMatch[3]);
           }
         }
+      } else if (download.downloader === 'qbittorrent') {
+        // For qBittorrent downloads, they are added to qBittorrent immediately in the POST endpoint
+        // The worker shouldn't normally process them, but if one ends up here (e.g., failed to add),
+        // we'll mark it as failed since torrents are handled differently
+        console.log(`[Download Worker] qBittorrent download found in pending queue - torrents are handled separately`);
+
+        // Check if this download has already been added to qBittorrent by checking metadata
+        const metadata = typeof download.metadata === 'string' ? JSON.parse(download.metadata) : download.metadata;
+
+        if (!metadata.isTorrent) {
+          throw new Error('qBittorrent downloader specified but URL is not a torrent');
+        }
+
+        // Since torrents are added immediately in the POST endpoint, finding one here means
+        // it likely failed to add to qBittorrent. Skip processing.
+        throw new Error('Torrent should have been added to qBittorrent immediately. Please check qBittorrent service.');
       } else {
         throw new Error(`Unknown downloader: ${download.downloader}`);
       }

@@ -175,9 +175,10 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
     // If it's a torrent, immediately add it to qBittorrent
     if (isTorrent) {
       try {
+        const downloadDir = process.env.DOWNLOAD_DIR || '/mnt/d/MediaVault';
         const savePath = customFolder
-          ? `/home/beerm/media-vault/downloads/${customFolder}`
-          : `/home/beerm/media-vault/downloads/${category}`;
+          ? `${downloadDir}/${customFolder}`
+          : `${downloadDir}/${category}`;
 
         const result = await qbittorrentService.addTorrent(url, {
           savePath,
@@ -200,12 +201,12 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
           await AppDataSource
             .createQueryBuilder()
             .update('downloads')
-            .set({ status: 'failed', error: result.message })
+            .set({ status: 'failed', error_message: result.message })
             .where('id = :id', { id: download.id })
             .execute();
 
           download.status = 'failed';
-          download.error = result.message;
+          download.error_message = result.message;
         }
       } catch (err: any) {
         console.error('Failed to add torrent to qBittorrent:', err);
@@ -213,12 +214,12 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
         await AppDataSource
           .createQueryBuilder()
           .update('downloads')
-          .set({ status: 'failed', error: err.message })
+          .set({ status: 'failed', error_message: err.message })
           .where('id = :id', { id: download.id })
           .execute();
 
         download.status = 'failed';
-        download.error = err.message;
+        download.error_message = err.message;
       }
     }
 

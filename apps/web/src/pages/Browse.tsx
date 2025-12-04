@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Programme {
   pid: string;
@@ -24,27 +24,61 @@ export function Browse() {
   const [sortBy, setSortBy] = useState<'recent' | 'expiry' | 'name'>('recent');
   const [filterChannel, setFilterChannel] = useState<string>('');
   const [filterText, setFilterText] = useState<string>('');
+  const [hasMore, setHasMore] = useState(false);
+  const [totalResults, setTotalResults] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastProgrammeRef = useCallback((node: HTMLDivElement | null) => {
+    if (loadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        handleLoadMore();
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [loadingMore, hasMore]);
 
-  const handleSearch = async (e?: React.FormEvent, categoryFilter?: string) => {
+  const handleSearch = async (e?: React.FormEvent, categoryFilter?: string, overrideQuery?: string, overrideType?: 'tv' | 'radio' | 'all', append = false) => {
     e?.preventDefault();
-    if (!searchQuery.trim()) return;
+    const query = overrideQuery || searchQuery;
+    const type = overrideType || searchType;
 
-    setSearching(true);
+    if (!query.trim()) return;
+
+    if (!append) {
+      setSearching(true);
+      setOffset(0);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       const params = new URLSearchParams({
-        q: searchQuery,
-        ...(searchType !== 'all' && { type: searchType }),
+        q: query,
+        ...(type !== 'all' && { type }),
         ...(channel && { channel }),
-        ...(categoryFilter && { category: categoryFilter })
+        ...(categoryFilter && { category: categoryFilter }),
+        limit: '200',
+        offset: append ? String(offset + 200) : '0'
       });
 
-      const res = await fetch(`http://localhost:3001/api/v1/downloads/search/iplayer?${params}`, {
+      const res = await fetch(`http://localhost:3001/api/v1/search/iplayer?${params}`, {
         credentials: 'include'
       });
 
       if (res.ok) {
         const data = await res.json();
-        setProgrammes(data.results || []);
+        if (append) {
+          setProgrammes(prev => [...prev, ...(data.results || [])]);
+          setOffset(offset + 200);
+        } else {
+          setProgrammes(data.results || []);
+          setOffset(0);
+        }
+        setHasMore(data.hasMore || false);
+        setTotalResults(data.total || 0);
       } else {
         alert('Search failed');
       }
@@ -53,7 +87,12 @@ export function Browse() {
       alert('Search failed');
     } finally {
       setSearching(false);
+      setLoadingMore(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    handleSearch(undefined, undefined, searchQuery, searchType, true);
   };
 
   const handleQuickSearch = (query: string) => {
@@ -225,7 +264,7 @@ export function Browse() {
             onClick={() => {
               setSearchQuery('.*');
               setSearchType('tv');
-              setTimeout(() => document.querySelector('form')?.requestSubmit(), 100);
+              handleSearch(undefined, undefined, '.*', 'tv');
             }}
             className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 font-medium"
           >
@@ -235,7 +274,7 @@ export function Browse() {
             onClick={() => {
               setSearchQuery('.*');
               setSearchType('radio');
-              setTimeout(() => document.querySelector('form')?.requestSubmit(), 100);
+              handleSearch(undefined, undefined, '.*', 'radio');
             }}
             className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 font-medium"
           >
@@ -256,8 +295,9 @@ export function Browse() {
       {!searching && programmes.length > 0 && (
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">
-            Showing {filteredAndSortedProgrammes.length} of {programmes.length} result{programmes.length !== 1 ? 's' : ''}
+            Showing {filteredAndSortedProgrammes.length} of {totalResults} result{totalResults !== 1 ? 's' : ''}
             {filterChannel && ` • ${filterChannel}`}
+            {programmes.length < totalResults && ` (loaded ${programmes.length})`}
           </h2>
           <div className="flex items-center gap-3">
             <select
@@ -285,9 +325,10 @@ export function Browse() {
       {/* Grid View */}
       {!searching && programmes.length > 0 && viewMode === 'grid' && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredAndSortedProgrammes.map((programme) => (
+          {filteredAndSortedProgrammes.map((programme, index) => (
             <div
               key={programme.pid}
+              ref={index === filteredAndSortedProgrammes.length - 1 ? lastProgrammeRef : null}
               className="group cursor-pointer bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
               {/* Thumbnail */}
@@ -415,6 +456,14 @@ export function Browse() {
           </svg>
           <p className="text-gray-500 mb-4">No programmes found for "{searchQuery}"</p>
           <p className="text-sm text-gray-400">Try searching for a different show or use Browse All TV/Radio</p>
+        </div>
+      )}
+
+      {/* Loading More Indicator */}
+      {!searching && loadingMore && (
+        <div className="mt-8 text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-2"></div>
+          <p className="text-gray-500">Loading more programmes...</p>
         </div>
       )}
     </div>

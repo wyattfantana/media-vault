@@ -566,16 +566,77 @@ const downloads = await AppDataSource
 
 ---
 
+## Recent Updates (Session 2025-12-04)
+
+### Background Service Architecture Completed ✅
+
+**Problem:** Services weren't starting automatically, required manual startup each time
+
+**Solution:** Implemented tmux-based background service architecture
+
+#### Changes Made
+
+1. **Fixed Startup Script** (`~/start-mediavault.sh`)
+   - Added `--filter` flags to skip desktop app (which requires Rust/Cargo)
+   - Auto-accepts qBittorrent legal notice with `--confirm-legal-notice` flag
+   - Services now start cleanly without user intervention
+
+   ```bash
+   # qBittorrent with auto-accept
+   tmux new-session -d -s qbittorrent "echo y | qbittorrent-nox --webui-port=8080 --confirm-legal-notice"
+
+   # MediaVault services (skip desktop app)
+   tmux new-session -d -s mediavault "npx turbo dev --filter=starter-api --filter=starter-web --filter=worker"
+   ```
+
+2. **Service Persistence**
+   - All services run in tmux sessions
+   - Persist when terminal is closed
+   - Continue running until explicitly stopped
+   - Survive WSL restarts (auto-resume)
+
+3. **Documentation Updates**
+   - Updated README.md with tmux startup instructions
+   - Completely rewrote QUICKSTART.md with current setup
+   - Added troubleshooting section for common issues
+
+#### Architecture
+
+**Services Running:**
+- **qBittorrent**: Port 8080 (tmux session: qbittorrent)
+- **API**: Port 3001 (tmux session: mediavault)
+- **Web**: Port 5173 (tmux session: mediavault)
+- **Worker**: Background process (tmux session: mediavault)
+- **PostgreSQL**: Port 5432 (systemd service)
+
+**Key Features:**
+- One-command startup: `~/start-mediavault.sh`
+- Services run in background (tmux)
+- Easy log viewing: `tmux attach -t mediavault`
+- Clean shutdown: `tmux kill-session -t mediavault`
+- Works perfectly for overnight/long-running operations
+
+#### Known Limitations
+
+**Windows Sleep:** If the PC goes to sleep, WSL suspends and all services pause. To run overnight:
+- Set Windows power settings to "Never" sleep when plugged in
+- Or use a server/dedicated machine
+
+**WSL Shutdown:** Running `wsl --shutdown` stops all services. Use `~/start-mediavault.sh` to restart.
+
+---
+
 ## Contact & Support
 
 **Created:** November 2024
-**Last Updated:** 2025-11-19
-**Status:** Active Development
+**Last Updated:** 2025-12-04
+**Status:** Active Development - Background Services Operational
 
 For issues or questions, check the logs and database first. Most issues are related to:
 1. Download status being stuck (reset to pending)
 2. Port conflicts (kill and restart)
 3. Age-restricted videos (expected failure without cookies)
+4. Services not starting (check `tmux ls` and restart with `~/start-mediavault.sh`)
 
 ---
 

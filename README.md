@@ -188,13 +188,50 @@ Update paths in the backend services if needed:
 
 ### 5. Run Development Servers
 
-```bash
-# Start all services
-npm run dev
+#### Option A: Using Startup Script (Recommended)
 
-# Or start individually:
-npm run dev:api      # API server on http://localhost:3001
-npm run dev:web      # Web app on http://localhost:5173
+Use the startup script to run all services in persistent tmux sessions:
+
+```bash
+~/start-mediavault.sh
+```
+
+This starts:
+- **qBittorrent** (Web UI on port 8080)
+- **MediaVault API** (port 3001)
+- **MediaVault Web** (port 5173)
+- **Worker** (background download processor)
+
+**Advantages:**
+- Services persist even if you close the terminal
+- Run in background using tmux
+- Survives terminal disconnections
+- Easy log viewing with `tmux attach`
+
+**Managing tmux sessions:**
+```bash
+# View logs
+tmux attach -t mediavault    # API, Web, Worker logs
+tmux attach -t qbittorrent   # qBittorrent logs
+
+# Detach from tmux: Press Ctrl+B, then D
+
+# Stop services
+tmux kill-session -t mediavault
+tmux kill-session -t qbittorrent
+```
+
+#### Option B: Manual Start
+
+```bash
+# Terminal 1: Start qBittorrent
+qbittorrent-nox --webui-port=8080
+
+# Terminal 2: Start MediaVault services (API, Web, Worker)
+cd ~/projects/media-vault
+npx turbo dev --filter=starter-api --filter=starter-web --filter=worker
+
+# Note: Use turbo filters to avoid starting the desktop app (requires Rust)
 ```
 
 ## 🎯 Usage

@@ -150,24 +150,30 @@ router.get('/youtube', async (req, res) => {
 
 /**
  * Search BBC iPlayer only
- * GET /api/v1/search/iplayer?q=query&type=tv
+ * GET /api/v1/search/iplayer?q=query&type=tv&limit=200&offset=0
  */
 router.get('/iplayer', async (req, res) => {
   try {
     const query = req.query.q as string;
     const type = req.query.type as 'tv' | 'radio' | 'all' || 'all';
     const channel = req.query.channel as string;
+    const limit = parseInt(req.query.limit as string) || 200;
+    const offset = parseInt(req.query.offset as string) || 0;
 
     if (!query) {
       return res.status(400).json({ error: 'Query parameter "q" is required' });
     }
 
-    const results = await getIPlayerService.search(query, { type, channel });
+    const allResults = await getIPlayerService.search(query, { type, channel });
+    const paginatedResults = allResults.slice(offset, offset + limit);
 
     res.json({
       query,
-      total: results.length,
-      results
+      total: allResults.length,
+      limit,
+      offset,
+      hasMore: offset + limit < allResults.length,
+      results: paginatedResults
     });
   } catch (error) {
     console.error('iPlayer search error:', error);

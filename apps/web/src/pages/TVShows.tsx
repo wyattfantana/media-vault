@@ -40,6 +40,9 @@ export default function TVShows() {
   const [loading, setLoading] = useState(false);
   const [selectedShow, setSelectedShow] = useState<TVShow | null>(null);
   const [downloadUrl, setDownloadUrl] = useState('');
+  const [showFolderSelection, setShowFolderSelection] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('tv');
+  const [selectedCustomFolder, setSelectedCustomFolder] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('all-shows');
   const isInitialMount = React.useRef(true);
 
@@ -539,6 +542,13 @@ export default function TVShows() {
       return;
     }
 
+    // Set default folder to show name and open folder selection dialog
+    setSelectedCategory('tv');
+    setSelectedCustomFolder(`${show.name || show.title} (${show.year})`);
+    setShowFolderSelection(true);
+  };
+
+  const submitDownload = async (show: TVShow) => {
     try {
       const res = await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
@@ -546,8 +556,8 @@ export default function TVShows() {
         credentials: 'include',
         body: JSON.stringify({
           url: downloadUrl,
-          category: 'TV',
-          customFolder: `${show.name || show.title} (${show.year})`,
+          category: selectedCategory,
+          customFolder: selectedCategory === 'custom' ? selectedCustomFolder : selectedCategory === 'tv' ? selectedCustomFolder : undefined,
           metadata: {
             tmdb_id: show.id,
             imdb_id: show.imdb_id,
@@ -567,6 +577,9 @@ export default function TVShows() {
         alert(`✓ Download queued: ${show.name || show.title}`);
         setSelectedShow(null);
         setDownloadUrl('');
+        setShowFolderSelection(false);
+        setSelectedCategory('tv');
+        setSelectedCustomFolder('');
       } else {
         const error = await res.json();
         alert(`Download failed: ${error.error || 'Unknown error'}`);
@@ -1378,7 +1391,7 @@ export default function TVShows() {
                   <h3 className="text-sm font-semibold text-blue-400 mb-2">How to Download</h3>
                   <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
                     <li>Click a search button below to find this TV show</li>
-                    <li>Copy the direct video URL</li>
+                    <li>Copy the magnet link URL</li>
                     <li>Paste URL below and click "Queue Download"</li>
                   </ol>
                 </div>
@@ -1422,6 +1435,63 @@ export default function TVShows() {
                     <Download className="w-5 h-5" />
                     Queue Download
                   </button>
+
+                  {showFolderSelection && (
+                    <div className="mt-4 p-4 bg-gray-700 rounded-lg border border-gray-600">
+                      <h4 className="text-white font-medium mb-3">Select Download Folder</h4>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Category</label>
+                          <select
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className="w-full bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                          >
+                            <option value="movies">Movies</option>
+                            <option value="tv">TV Shows</option>
+                            <option value="music">Music</option>
+                            <option value="documentaries">Documentaries</option>
+                            <option value="custom">Custom Folder...</option>
+                          </select>
+                        </div>
+
+                        {(selectedCategory === 'custom' || selectedCategory === 'tv') && (
+                          <div>
+                            <label className="block text-sm text-gray-300 mb-2">
+                              {selectedCategory === 'custom' ? 'Custom Folder Name' : 'Subfolder Name'}
+                            </label>
+                            <input
+                              type="text"
+                              value={selectedCustomFolder}
+                              onChange={(e) => setSelectedCustomFolder(e.target.value)}
+                              placeholder="e.g., Breaking Bad (2008)"
+                              className="w-full bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => submitDownload(selectedShow)}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                          >
+                            Confirm & Download
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowFolderSelection(false);
+                              setSelectedCategory('tv');
+                              setSelectedCustomFolder('');
+                            }}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

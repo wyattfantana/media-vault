@@ -40,6 +40,9 @@ export default function Movies() {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [downloadUrl, setDownloadUrl] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
+  const [showFolderSelection, setShowFolderSelection] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('movies');
+  const [selectedCustomFolder, setSelectedCustomFolder] = useState('');
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -423,6 +426,13 @@ export default function Movies() {
       return;
     }
 
+    // Set default folder to movie title and open folder selection dialog
+    setSelectedCategory('movies');
+    setSelectedCustomFolder(`${movie.title} (${movie.year})`);
+    setShowFolderSelection(true);
+  };
+
+  const submitDownload = async (movie: Movie) => {
     try {
       const res = await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
@@ -430,8 +440,8 @@ export default function Movies() {
         credentials: 'include',
         body: JSON.stringify({
           url: downloadUrl,
-          category: 'Movies',
-          customFolder: `${movie.title} (${movie.year})`,
+          category: selectedCategory,
+          customFolder: selectedCategory === 'custom' ? selectedCustomFolder : selectedCategory === 'movies' ? selectedCustomFolder : undefined,
           metadata: {
             tmdb_id: movie.id,
             imdb_id: movie.imdb_id,
@@ -451,6 +461,7 @@ export default function Movies() {
         alert(`✓ Download queued: ${movie.title}`);
         setSelectedMovie(null);
         setDownloadUrl('');
+        setShowFolderSelection(false);
       } else {
         const error = await res.json();
         alert(`Download failed: ${error.error || 'Unknown error'}`);
@@ -932,7 +943,7 @@ export default function Movies() {
                   <h3 className="text-sm font-semibold text-blue-400 mb-2">How to Download</h3>
                   <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
                     <li>Click a search button below to find this movie</li>
-                    <li>Copy the direct video URL</li>
+                    <li>Copy the magnet link URL</li>
                     <li>Paste URL below and click "Queue Download"</li>
                   </ol>
                 </div>
@@ -976,6 +987,58 @@ export default function Movies() {
                     <Download className="w-5 h-5" />
                     Queue Download
                   </button>
+
+                  {showFolderSelection && (
+                    <div className="mt-4 p-4 bg-gray-700 rounded-lg border border-gray-600">
+                      <h4 className="text-white font-medium mb-3">Select Download Folder</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Category</label>
+                          <select
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className="w-full bg-gray-800 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                          >
+                            <option value="movies">Movies</option>
+                            <option value="tv">TV Shows</option>
+                            <option value="music">Music</option>
+                            <option value="documentaries">Documentaries</option>
+                            <option value="custom">Custom Folder...</option>
+                          </select>
+                        </div>
+
+                        {(selectedCategory === 'custom' || selectedCategory === 'movies') && (
+                          <div>
+                            <label className="block text-sm text-gray-300 mb-2">
+                              {selectedCategory === 'custom' ? 'Custom Folder Name' : 'Movie Folder Name'}
+                            </label>
+                            <input
+                              type="text"
+                              value={selectedCustomFolder}
+                              onChange={(e) => setSelectedCustomFolder(e.target.value)}
+                              placeholder={selectedCategory === 'custom' ? 'Enter folder name' : selectedMovie.title}
+                              className="w-full bg-gray-800 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => submitDownload(selectedMovie)}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium transition-colors"
+                          >
+                            Confirm Download
+                          </button>
+                          <button
+                            onClick={() => setShowFolderSelection(false)}
+                            className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded font-medium transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

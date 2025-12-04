@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { readFileSync } from 'fs';
 
 interface QBittorrentConfig {
   host: string;
@@ -37,6 +38,37 @@ export class QBittorrentService {
       baseURL: `http://${this.config.host}:${this.config.port}/api/v2`,
       timeout: 10000,
     });
+
+    // Try to load cookie from file on initialization
+    this.loadCookieFromFile();
+  }
+
+  /**
+   * Load cookie from cookie file (if exists)
+   */
+  private loadCookieFromFile(): void {
+    try {
+      const cookieFile = '/tmp/qbt-cookies.txt';
+      const content = readFileSync(cookieFile, 'utf-8');
+
+      // Parse Netscape cookie file format
+      const lines = content.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('#') || !line.trim()) continue;
+
+        const parts = line.split('\t');
+        if (parts.length >= 7) {
+          const name = parts[5];
+          const value = parts[6];
+          this.cookie = `${name}=${value}`;
+          console.log('Loaded qBittorrent cookie from file');
+          return;
+        }
+      }
+    } catch (error) {
+      // Cookie file doesn't exist or can't be read, will use login() instead
+      console.log('Cookie file not found, will use login()');
+    }
   }
 
   /**
@@ -44,18 +76,32 @@ export class QBittorrentService {
    */
   async login(): Promise<void> {
     try {
-      const response = await this.client.post('/auth/login', null, {
-        params: {
-          username: this.config.username,
-          password: this.config.password,
+      const formData = new URLSearchParams();
+      formData.append('username', this.config.username);
+      formData.append('password', this.config.password);
+
+      const response = await this.client.post('/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
+        maxRedirects: 0,
+        validateStatus: (status) => status < 400,
       });
 
-      // Extract SID cookie
-      const cookies = response.headers['set-cookie'];
-      if (cookies && cookies.length > 0) {
-        this.cookie = cookies[0].split(';')[0];
+      // Extract SID cookie from set-cookie header
+      const setCookieHeader = response.headers['set-cookie'];
+      if (setCookieHeader && setCookieHeader.length > 0) {
+        // Parse the cookie (format: "SID=value; path=/")
+        const cookieString = setCookieHeader[0];
+        const sidMatch = cookieString.match(/SID=([^;]+)/);
+        if (sidMatch) {
+          this.cookie = `SID=${sidMatch[1]}`;
+          console.log('qBittorrent login successful, cookie set');
+          return;
+        }
       }
+
+      throw new Error('No cookie returned from login');
     } catch (error) {
       console.error('qBittorrent login failed:', error);
       throw new Error('Failed to authenticate with qBittorrent');
