@@ -506,7 +506,7 @@ export default function TVShows() {
   useEffect(() => {
     if (!debouncedSearchQuery.trim()) {
       setSearchResults([]);
-      if (viewMode === 'search') setViewMode('browse');
+      if (viewMode === 'search') setViewMode('all-shows');
       return;
     }
 
@@ -806,26 +806,6 @@ export default function TVShows() {
               </h1>
             </div>
             <div className="flex items-center gap-3">
-              {viewMode === 'browse' && (
-                <button
-                  onClick={openAllShowsView}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-                >
-                  📺 All TV Shows
-                </button>
-              )}
-              {(viewMode === 'search' || viewMode === 'genre' || viewMode === 'all-shows' || viewMode === 'top-rated') && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setViewMode('browse');
-                    setSelectedGenre(null);
-                  }}
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
-                  Back to Browse
-                </button>
-              )}
             </div>
           </div>
 
@@ -843,25 +823,6 @@ export default function TVShows() {
           </form>
         </div>
       </div>
-
-      {/* Browse Mode */}
-      {viewMode === 'browse' && (
-        <div className="py-8">
-          <TVShowRow title="🔥 Trending This Week" shows={trendingShows} loading={false} onSeeAll={openAllShowsView} />
-          <TVShowRow title="⭐ Top Rated TV Shows" shows={topRatedShows} loading={false} onSeeAll={openTopRatedView} />
-          <TVShowRow title="📺 Airing Today" shows={airingTodayShows} loading={false} onSeeAll={openAllShowsView} />
-
-          {genreSections.map(section => (
-            <TVShowRow
-              key={section.id}
-              title={`${section.emoji} ${section.name}`}
-              shows={section.shows}
-              loading={section.loading}
-              onSeeAll={() => openGenreView(section)}
-            />
-          ))}
-        </div>
-      )}
 
       {/* Search Results */}
       {viewMode === 'search' && (
