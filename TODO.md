@@ -90,14 +90,32 @@
 
 ## Pending / Future Work
 
-### **PRIORITY: Jellyfin Integration (Path Mismatch)**
-- [ ] **Configure Jellyfin to access MediaVault downloads**
-  - **Current Issue:** Downloads go to `/home/beerm/media-vault/downloads/Law & Order: Special Victims Unit (1999)` but Jellyfin watches `/home/beerm/media-toolkit/downloads`
-  - **Recommended Solution:** Add `/home/beerm/media-vault/downloads` as TV Shows library in Jellyfin
-  - **Alternative 1:** Move completed downloads to `/home/beerm/media-toolkit/downloads/TV/`
-  - **Alternative 2:** Reconfigure qBittorrent to download directly to Jellyfin's folder
-- [ ] Test that completed torrents appear in Jellyfin automatically
-- [ ] Set up automatic library scan on download completion
+### **PRIORITY: Enhanced Content Discovery & Search**
+- [ ] **Improved Search/Filtering Across Platforms**
+  - Unified search bar that searches across Movies, TV Shows, Documentaries simultaneously
+  - Advanced filters accessible from search results (genre, year, rating, etc.)
+  - Search history and suggestions
+  - "Similar to this" recommendations based on selected content
+- [ ] **Better Content Browsing**
+  - Infinite scroll instead of pagination
+  - "Continue browsing" state persistence
+  - Quick filters sidebar (genre pills, year slider, rating filter)
+  - Sort options more visible (trending, top rated, newest, etc.)
+- [ ] **Content Discovery Features**
+  - "Recommended for you" section based on download history
+  - "Trending now" across all platforms in one place
+  - "Popular this week/month" aggregated view
+  - Genre-based carousels (like Netflix)
+- [ ] **Search Performance Optimization**
+  - Cache TMDB search results
+  - Debounce search input
+  - Pre-fetch popular content
+
+### **COMPLETED: Jellyfin Integration**
+- [x] Configure Jellyfin to access MediaVault downloads
+- [x] Test that completed torrents appear in Jellyfin automatically
+- [x] Set up automatic library scan on download completion
+- [x] Jellyfin auto-formatting with inline preview
 
 ### Torrent System Enhancements
 - [ ] **Sync qBittorrent progress to MediaVault database**

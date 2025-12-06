@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 interface Movie {
   id: number;
@@ -75,6 +76,23 @@ export default function Movies() {
   const [showGenreFilters, setShowGenreFilters] = useState(false);
 
   const API_BASE = 'http://localhost:3001/api/v1';
+
+  // Infinite scroll - automatically loads more when scrolling near bottom
+  useInfiniteScroll({
+    onLoadMore: loadMoreGenreMovies,
+    hasMore: viewMode === 'genre' && genreCurrentPage < genreTotalPages,
+    isLoading: genreLoading,
+    threshold: 800,
+    useWindow: true
+  });
+
+  useInfiniteScroll({
+    onLoadMore: loadMoreAllMovies,
+    hasMore: (viewMode === 'all-movies' || viewMode === 'top-rated') && allMoviesPage < allMoviesTotalPages,
+    isLoading: allMoviesLoading,
+    threshold: 800,
+    useWindow: true
+  });
 
   // Genre configuration with emojis - ordered by popularity
   const GENRE_CONFIG = [
@@ -856,15 +874,17 @@ export default function Movies() {
                 ))}
               </div>
 
-              {genreCurrentPage < genreTotalPages && (
-                <div className="text-center mt-8">
-                  <button
-                    onClick={loadMoreGenreMovies}
-                    disabled={genreLoading}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    {genreLoading ? 'Loading...' : `Load More (${genreCurrentPage}/${genreTotalPages})`}
-                  </button>
+              {/* Loading indicator for infinite scroll */}
+              {genreLoading && genreCurrentPage > 1 && (
+                <div className="text-center mt-8 py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-gray-400 mt-3 text-sm">Loading more movies...</p>
+                </div>
+              )}
+
+              {!genreLoading && genreCurrentPage >= genreTotalPages && genreMovies.length > 0 && (
+                <div className="text-center mt-8 py-4">
+                  <p className="text-gray-500 text-sm">No more movies to load</p>
                 </div>
               )}
             </>
@@ -894,15 +914,17 @@ export default function Movies() {
                 ))}
               </div>
 
-              {allMoviesPage < allMoviesTotalPages && (
-                <div className="text-center mt-8">
-                  <button
-                    onClick={loadMoreAllMovies}
-                    disabled={allMoviesLoading}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    {allMoviesLoading ? 'Loading...' : `Load More (${allMoviesPage}/${allMoviesTotalPages})`}
-                  </button>
+              {/* Loading indicator for infinite scroll */}
+              {allMoviesLoading && allMoviesPage > 1 && (
+                <div className="text-center mt-8 py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-gray-400 mt-3 text-sm">Loading more movies...</p>
+                </div>
+              )}
+
+              {!allMoviesLoading && allMoviesPage >= allMoviesTotalPages && allMovies.length > 0 && (
+                <div className="text-center mt-8 py-4">
+                  <p className="text-gray-500 text-sm">No more movies to load</p>
                 </div>
               )}
             </>
@@ -932,15 +954,17 @@ export default function Movies() {
                 ))}
               </div>
 
-              {allMoviesPage < allMoviesTotalPages && (
-                <div className="text-center mt-8">
-                  <button
-                    onClick={loadMoreAllMovies}
-                    disabled={allMoviesLoading}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    {allMoviesLoading ? 'Loading...' : `Load More (${allMoviesPage}/${allMoviesTotalPages})`}
-                  </button>
+              {/* Loading indicator for infinite scroll */}
+              {allMoviesLoading && allMoviesPage > 1 && (
+                <div className="text-center mt-8 py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-gray-400 mt-3 text-sm">Loading more movies...</p>
+                </div>
+              )}
+
+              {!allMoviesLoading && allMoviesPage >= allMoviesTotalPages && allMovies.length > 0 && (
+                <div className="text-center mt-8 py-4">
+                  <p className="text-gray-500 text-sm">No more movies to load</p>
                 </div>
               )}
             </>

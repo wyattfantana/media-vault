@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 interface TVShow {
   id: number;
@@ -91,6 +92,23 @@ export default function TVShows() {
   const [showGenreFilters, setShowGenreFilters] = useState(false);
 
   const API_BASE = 'http://localhost:3001/api/v1';
+
+  // Infinite scroll - automatically loads more when scrolling near bottom
+  useInfiniteScroll({
+    onLoadMore: loadMoreGenreShows,
+    hasMore: viewMode === 'genre' && genreCurrentPage < genreTotalPages,
+    isLoading: genreLoading,
+    threshold: 800,
+    useWindow: true
+  });
+
+  useInfiniteScroll({
+    onLoadMore: loadMoreAllShows,
+    hasMore: (viewMode === 'all-shows' || viewMode === 'top-rated') && allShowsPage < allShowsTotalPages,
+    isLoading: allShowsLoading,
+    threshold: 800,
+    useWindow: true
+  });
 
   // Genre configuration with emojis - ordered by popularity
   const GENRE_CONFIG = [
@@ -971,15 +989,17 @@ export default function TVShows() {
                 ))}
               </div>
 
-              {genreCurrentPage < genreTotalPages && (
-                <div className="text-center mt-8">
-                  <button
-                    onClick={loadMoreGenreShows}
-                    disabled={genreLoading}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    {genreLoading ? 'Loading...' : `Load More (${genreCurrentPage}/${genreTotalPages})`}
-                  </button>
+              {/* Loading indicator for infinite scroll */}
+              {genreLoading && genreCurrentPage > 1 && (
+                <div className="text-center mt-8 py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-gray-400 mt-3 text-sm">Loading more shows...</p>
+                </div>
+              )}
+
+              {!genreLoading && genreCurrentPage >= genreTotalPages && genreShows.length > 0 && (
+                <div className="text-center mt-8 py-4">
+                  <p className="text-gray-500 text-sm">No more shows to load</p>
                 </div>
               )}
             </>
@@ -1326,16 +1346,17 @@ export default function TVShows() {
                 ))}
               </div>
 
-              {/* Load More Button */}
-              {allShowsPage < allShowsTotalPages && (
-                <div className="flex justify-center mt-8">
-                  <button
-                    onClick={() => loadManyPages(allShowsPage + 1, 10, 'all-shows', true)}
-                    disabled={allShowsLoading || loadingMultiplePages}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg font-medium transition-colors"
-                  >
-                    {loadingMultiplePages ? 'Loading...' : 'Load More Shows'}
-                  </button>
+              {/* Loading indicator for infinite scroll */}
+              {(allShowsLoading || loadingMultiplePages) && allShowsPage > 1 && (
+                <div className="text-center mt-8 py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-gray-400 mt-3 text-sm">Loading more shows...</p>
+                </div>
+              )}
+
+              {!allShowsLoading && !loadingMultiplePages && allShowsPage >= allShowsTotalPages && allShows.length > 0 && (
+                <div className="text-center mt-8 py-4">
+                  <p className="text-gray-500 text-sm">No more shows to load</p>
                 </div>
               )}
             </>
@@ -1376,16 +1397,17 @@ export default function TVShows() {
                 ))}
               </div>
 
-              {/* Load More Button */}
-              {allShowsPage < allShowsTotalPages && (
-                <div className="flex justify-center mt-8">
-                  <button
-                    onClick={() => loadManyPages(allShowsPage + 1, 10, 'top-rated', true)}
-                    disabled={allShowsLoading || loadingMultiplePages}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg font-medium transition-colors"
-                  >
-                    {loadingMultiplePages ? 'Loading...' : 'Load More Shows'}
-                  </button>
+              {/* Loading indicator for infinite scroll */}
+              {(allShowsLoading || loadingMultiplePages) && allShowsPage > 1 && (
+                <div className="text-center mt-8 py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-gray-400 mt-3 text-sm">Loading more shows...</p>
+                </div>
+              )}
+
+              {!allShowsLoading && !loadingMultiplePages && allShowsPage >= allShowsTotalPages && allShows.length > 0 && (
+                <div className="text-center mt-8 py-4">
+                  <p className="text-gray-500 text-sm">No more shows to load</p>
                 </div>
               )}
             </>
