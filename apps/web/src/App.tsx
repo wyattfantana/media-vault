@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Discover } from './pages/Discover';
 import { Downloads } from './pages/Downloads';
 import { Settings } from './pages/Settings';
+import Trending from './pages/Trending';
 import { SignUp } from './pages/auth/SignUp';
 import { SignIn } from './pages/auth/SignIn';
 import { AdminLogin } from './pages/admin/AdminLogin';
@@ -45,6 +46,7 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="discover" element={<Discover />} />
+            <Route path="trending" element={<Trending />} />
             <Route path="downloads" element={<Downloads />} />
             <Route path="settings" element={<Settings />} />
           </Route>
