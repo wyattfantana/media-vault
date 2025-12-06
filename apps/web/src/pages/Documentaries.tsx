@@ -40,9 +40,11 @@ export default function Documentaries() {
   const [selectedDocumentary, setSelectedDocumentary] = useState<Documentary | null>(null);
   const [downloadUrl, setDownloadUrl] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
-  const [showFolderSelection, setShowFolderSelection] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('documentaries');
-  const [selectedCustomFolder, setSelectedCustomFolder] = useState('');
+  const [showFormatPreview, setShowFormatPreview] = useState(false);
+  const [previewFilename, setPreviewFilename] = useState('');
+  const [formattedPath, setFormattedPath] = useState<any>(null);
+  const [loadingFormat, setLoadingFormat] = useState(false);
+  const [formatError, setFormatError] = useState<string | null>(null);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -437,13 +439,65 @@ export default function Documentaries() {
       return;
     }
 
-    // Set default folder to documentary title and open folder selection dialog
-    setSelectedCategory('documentaries');
-    setSelectedCustomFolder(`${documentary.title} (${documentary.year})`);
-    setShowFolderSelection(true);
+    // Extract filename from URL or use documentary title
+    const filename = extractFilenameFromUrl(downloadUrl) || `${documentary.title} (${documentary.year}).mkv`;
+    setPreviewFilename(filename);
+    setLoadingFormat(true);
+    setFormatError(null);
+    setShowFormatPreview(true);
+
+    // Fetch format preview
+    try {
+      const response = await fetch(`${API_BASE}/downloads/format-preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          filename,
+          contentType: 'documentary',
+          searchTMDB: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get format preview');
+      }
+
+      const data = await response.json();
+      setFormattedPath(data.formatted);
+    } catch (err: any) {
+      setFormatError(err.message);
+    } finally {
+      setLoadingFormat(false);
+    }
+  };
+
+  const extractFilenameFromUrl = (url: string): string | null => {
+    try {
+      // Try to extract filename from URL
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+      if (filename && filename.includes('.')) {
+        return filename;
+      }
+    } catch (e) {
+      // Not a valid URL, might be a magnet link or other
+    }
+    return null;
   };
 
   const submitDownload = async (documentary: Documentary) => {
+    if (!formattedPath) {
+      alert('Please wait for format preview to load');
+      return;
+    }
+
+    // Determine category from formatted path base directory
+    const category = formattedPath.baseDir?.toLowerCase() || 'documentaries';
+
     try {
       const res = await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
@@ -451,8 +505,9 @@ export default function Documentaries() {
         credentials: 'include',
         body: JSON.stringify({
           url: downloadUrl,
-          category: selectedCategory,
-          customFolder: selectedCategory === 'custom' ? selectedCustomFolder : selectedCategory === 'documentaries' ? selectedCustomFolder : undefined,
+          category: category,
+          formattedPath: formattedPath.formattedPath,
+          jellyfinFormat: formattedPath,
           metadata: {
             tmdb_id: documentary.id,
             imdb_id: documentary.imdb_id,
@@ -472,7 +527,8 @@ export default function Documentaries() {
         alert(`✓ Download queued: ${documentary.title}`);
         setSelectedDocumentary(null);
         setDownloadUrl('');
-        setShowFolderSelection(false);
+        setShowFormatPreview(false);
+        setFormattedPath(null);
       } else {
         const error = await res.json();
         alert(`Download failed: ${error.error || 'Unknown error'}`);
@@ -992,62 +1048,105 @@ export default function Documentaries() {
                   />
                   <button
                     onClick={() => handleDownload(selectedDocumentary)}
-                    disabled={!downloadUrl.trim()}
+                    disabled={!downloadUrl.trim() || loadingFormat}
                     className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                   >
                     <Download className="w-5 h-5" />
-                    Queue Download
+                    {loadingFormat ? 'Analyzing...' : 'Queue Download'}
                   </button>
 
-                  {showFolderSelection && (
-                    <div className="mt-4 p-4 bg-gray-700 rounded-lg border border-gray-600">
-                      <h4 className="text-white font-medium mb-3">Select Download Folder</h4>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-2">Category</label>
-                          <select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="w-full bg-gray-800 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                          >
-                            <option value="movies">Movies</option>
-                            <option value="tv">TV Shows</option>
-                            <option value="music">Music</option>
-                            <option value="documentaries">Documentaries</option>
-                            <option value="custom">Custom Folder...</option>
-                          </select>
-                        </div>
-
-                        {(selectedCategory === 'custom' || selectedCategory === 'documentaries') && (
-                          <div>
-                            <label className="block text-sm text-gray-300 mb-2">
-                              {selectedCategory === 'custom' ? 'Custom Folder Name' : 'Documentary Folder Name'}
-                            </label>
-                            <input
-                              type="text"
-                              value={selectedCustomFolder}
-                              onChange={(e) => setSelectedCustomFolder(e.target.value)}
-                              placeholder={selectedCategory === 'custom' ? 'Enter folder name' : selectedDocumentary.title}
-                              className="w-full bg-gray-800 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                            />
+                  {/* Inline Format Preview */}
+                  {showFormatPreview && (
+                    <div className="mt-4 space-y-4">
+                      {loadingFormat ? (
+                        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
+                          <div className="flex items-center space-x-3">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+                            <span className="text-gray-300">Analyzing filename and fetching metadata...</span>
                           </div>
-                        )}
-
-                        <div className="flex gap-2">
+                        </div>
+                      ) : formatError ? (
+                        <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4">
+                          <h4 className="text-red-400 font-semibold mb-2">Error</h4>
+                          <p className="text-gray-300 text-sm">{formatError}</p>
                           <button
-                            onClick={() => submitDownload(selectedDocumentary)}
-                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium transition-colors"
+                            onClick={() => handleDownload(selectedDocumentary)}
+                            className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
                           >
-                            Confirm Download
-                          </button>
-                          <button
-                            onClick={() => setShowFolderSelection(false)}
-                            className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded font-medium transition-colors"
-                          >
-                            Cancel
+                            Retry
                           </button>
                         </div>
-                      </div>
+                      ) : formattedPath && (
+                        <div className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 border-2 border-blue-500/30 rounded-lg p-5 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-white">📁 Download Format Preview</h3>
+                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              formattedPath.contentType === 'tv' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
+                              formattedPath.contentType === 'movie' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
+                              'bg-gray-500/30 text-gray-300 border border-gray-400/50'
+                            }`}>
+                              {formattedPath.contentType === 'tv' ? 'TV Show' : formattedPath.contentType === 'movie' ? 'Movie' : 'Documentary'}
+                            </span>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Original Filename:</label>
+                            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                              <code className="text-sm text-gray-300 break-all">{formattedPath.originalName}</code>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Formatted for Jellyfin:</label>
+                            <div className="bg-gray-800/50 border border-green-500/30 rounded-lg p-3">
+                              <pre className="text-sm font-mono text-green-300 whitespace-pre-wrap">
+                                {formattedPath.preview}
+                              </pre>
+                            </div>
+                          </div>
+
+                          {formattedPath.folderStructure && (
+                            <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                              <h4 className="text-sm font-semibold text-gray-400 mb-3">Metadata:</h4>
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                {formattedPath.folderStructure.movieName && (
+                                  <div>
+                                    <span className="text-gray-500">Documentary:</span>
+                                    <span className="ml-2 font-medium text-gray-300">{formattedPath.folderStructure.movieName}</span>
+                                  </div>
+                                )}
+                                {formattedPath.folderStructure.year && (
+                                  <div>
+                                    <span className="text-gray-500">Year:</span>
+                                    <span className="ml-2 font-medium text-gray-300">{formattedPath.folderStructure.year}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {showFormatPreview && formattedPath && !loadingFormat && !formatError && (
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        onClick={() => submitDownload(selectedDocumentary)}
+                        className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                      >
+                        <Download className="w-5 h-5" />
+                        Confirm Download
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowFormatPreview(false);
+                          setFormattedPath(null);
+                        }}
+                        className="px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   )}
                 </div>

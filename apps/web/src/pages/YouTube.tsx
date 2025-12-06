@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { VideoCardSkeleton } from '../components/VideoCardSkeleton';
+import { DownloadFormatPreview } from '../components/DownloadFormatPreview';
 
 interface Video {
   id: string;
@@ -60,6 +61,7 @@ export function YouTube() {
   const [loadingVideoCount, setLoadingVideoCount] = useState(false);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [showFormatPreview, setShowFormatPreview] = useState(false);
 
   // Restore state from sessionStorage on mount
   useEffect(() => {
@@ -645,7 +647,14 @@ export function YouTube() {
     setShowDownloadModal(true);
   };
 
-  const confirmDownload = async () => {
+  const confirmDownload = () => {
+    if (!selectedVideo) return;
+    // Show format preview instead of directly downloading
+    setShowDownloadModal(false);
+    setShowFormatPreview(true);
+  };
+
+  const handleFormatPreviewConfirm = async (formattedPath: any) => {
     if (!selectedVideo) return;
 
     setDownloading(true);
@@ -664,7 +673,7 @@ export function YouTube() {
 
       if (res.ok) {
         alert(`Download queued: ${selectedVideo.title}\n\nThe download will start automatically.`);
-        setShowDownloadModal(false);
+        setShowFormatPreview(false);
         setSelectedVideo(null);
         setCategory('movies');
         setCustomFolder('');
@@ -677,6 +686,11 @@ export function YouTube() {
     } finally {
       setDownloading(false);
     }
+  };
+
+  const handleFormatPreviewCancel = () => {
+    setShowFormatPreview(false);
+    setShowDownloadModal(true);
   };
 
   const formatDuration = (seconds?: number) => {
@@ -1154,7 +1168,7 @@ export function YouTube() {
                 disabled={downloading || (category === 'custom' && !customFolder)}
                 className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50"
               >
-                {downloading ? 'Adding...' : 'Download'}
+                {downloading ? 'Adding...' : 'Queue Download'}
               </button>
               <button
                 onClick={() => {
@@ -1171,6 +1185,16 @@ export function YouTube() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Format Preview Modal */}
+      {showFormatPreview && selectedVideo && (
+        <DownloadFormatPreview
+          filename={selectedVideo.title}
+          contentType="auto"
+          onConfirm={handleFormatPreviewConfirm}
+          onCancel={handleFormatPreviewCancel}
+        />
       )}
     </div>
   );

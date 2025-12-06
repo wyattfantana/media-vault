@@ -25,6 +25,8 @@ import { analyticsRouter } from './routes/analytics.js';
 import tmdbRouter from './routes/tmdb.js';
 import { logger, httpLogger } from './logger.js';
 import { downloadWorker } from './workers/download.worker.js';
+import { Pool } from 'pg';
+import { runSQLMigrations } from './utils/run-sql-migrations.js';
 
 // =========================================
 // ENVIRONMENT VARIABLE VALIDATION (Issue #5)
@@ -320,6 +322,21 @@ async function bootstrap() {
     logger.info('Connecting to database...');
     await AppDataSource.initialize();
     logger.info('Database connected (TypeORM initialized)');
+
+    // Run SQL migrations
+    const pool = new Pool({
+      host: process.env.POSTGRES_HOST,
+      port: parseInt(process.env.POSTGRES_PORT || '5432'),
+      database: process.env.POSTGRES_DB,
+      user: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_PASSWORD,
+    });
+
+    try {
+      await runSQLMigrations(pool);
+    } finally {
+      await pool.end();
+    }
 
     // Start download worker
     downloadWorker.start();

@@ -1,5 +1,36 @@
 # MediaVault TODO
 
+## Completed (Session: 2025-12-06)
+
+### Jellyfin Auto-Formatting - Inline Preview UI
+- [x] Implemented inline format preview in download modals (TV Shows, Movies, Documentaries)
+- [x] Removed redundant category selection after format preview
+- [x] Added loading states with spinner during filename analysis
+- [x] Integrated error handling with retry functionality
+- [x] Real-time TMDB metadata fetching for accurate show/movie names
+- [x] Jellyfin-compatible path preview with folder structure visualization
+- [x] Updated YouTube page with inline format preview
+- [x] Added Dashboard quick access buttons for Jellyfin and qBittorrent
+- [x] Streamlined UX - single modal flow without popup switching
+
+### Technical Changes
+- Modified `/apps/web/src/pages/TVShows.tsx` - Inline format preview integration
+- Modified `/apps/web/src/pages/Movies.tsx` - Inline format preview integration
+- Modified `/apps/web/src/pages/Documentaries.tsx` - Inline format preview integration
+- Modified `/apps/web/src/pages/YouTube.tsx` - Format preview for YouTube downloads
+- Modified `/apps/web/src/pages/Dashboard.tsx` - Added qBittorrent and Jellyfin quick links
+- Removed separate DownloadFormatPreview modal - now fully inline
+- Cleaned up unused state variables (selectedCategory, selectedCustomFolder, showFolderSelection)
+
+### UI/UX Improvements
+- Format preview appears in same modal after clicking "Queue Download"
+- Shows loading spinner with "Analyzing filename and fetching metadata..." message
+- Displays content type badge (TV Show / Movie / Documentary)
+- Shows original filename and formatted Jellyfin path side-by-side
+- Metadata grid with show/movie name, year, season, episode info
+- Single "Confirm Download" button with Cancel option
+- Error states with retry button for failed preview loads
+
 ## Completed (Session: 2025-12-03)
 
 ### Torrent Integration - qBittorrent

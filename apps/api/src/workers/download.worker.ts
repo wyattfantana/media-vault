@@ -179,10 +179,27 @@ export class DownloadWorker {
         .where('id = :id', { id: download.id })
         .execute();
 
-      // Organize file for Jellyfin (if video info available)
+      // Organize file for Jellyfin
       let finalPath = outputPath;
       try {
-        if (download.downloader === 'yt-dlp' && videoInfo) {
+        // Check if user provided a formatted path from the preview
+        if (download.formatted_path) {
+          console.log(`[Download Worker] Using Jellyfin-formatted path: ${download.formatted_path}`);
+
+          // Get base download directory
+          const downloadDir = process.env.DOWNLOAD_DIR || '/mnt/d/MediaVault';
+          const targetPath = path.join(downloadDir, download.formatted_path);
+
+          // Create directory structure
+          await fs.mkdir(path.dirname(targetPath), { recursive: true });
+
+          // Move file to formatted path
+          await fs.rename(outputPath, targetPath);
+          finalPath = targetPath;
+
+          console.log(`[Download Worker] Moved to Jellyfin format: ${targetPath}`);
+        } else if (download.downloader === 'yt-dlp' && videoInfo) {
+          // Fall back to automatic organization
           // Prepare user category options from database
           const userCategory = download.category ? {
             category: download.category,
@@ -199,6 +216,22 @@ export class DownloadWorker {
           if (organized.moved) {
             finalPath = organized.newPath;
             console.log(`[Download Worker] Organized to: ${organized.category}/${path.basename(finalPath)}`);
+          }
+        } else if (download.downloader === 'get_iplayer') {
+          // For get_iplayer downloads, use formatted path if available or category folder
+          if (!download.formatted_path) {
+            const downloadDir = process.env.DOWNLOAD_DIR || '/mnt/d/MediaVault';
+            const category = download.category || 'tv';
+            const categoryFolder = category.charAt(0).toUpperCase() + category.slice(1);
+            const targetDir = path.join(downloadDir, categoryFolder);
+
+            await fs.mkdir(targetDir, { recursive: true });
+            const targetPath = path.join(targetDir, path.basename(outputPath));
+
+            await fs.rename(outputPath, targetPath);
+            finalPath = targetPath;
+
+            console.log(`[Download Worker] Moved to category folder: ${targetPath}`);
           }
         }
       } catch (err) {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { DownloadFormatPreview } from '../components/DownloadFormatPreview';
 
 interface Programme {
   pid: string;
@@ -28,6 +29,10 @@ export function Browse() {
   const [totalResults, setTotalResults] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showFormatPreview, setShowFormatPreview] = useState(false);
+  const [previewFilename, setPreviewFilename] = useState('');
+  const [formattedPath, setFormattedPath] = useState<any>(null);
+  const [currentProgramme, setCurrentProgramme] = useState<Programme | null>(null);
   const observer = useRef<IntersectionObserver | null>(null);
   const lastProgrammeRef = useCallback((node: HTMLDivElement | null) => {
     if (loadingMore) return;
@@ -115,8 +120,31 @@ export function Browse() {
   };
 
   const handleDownload = async (programme: Programme) => {
+    // Generate filename from programme name and episode
+    const filename = `${programme.name} - ${programme.episode}.mkv`;
+    setPreviewFilename(filename);
+    setCurrentProgramme(programme);
+    setShowFormatPreview(true);
+  };
+
+  const handleFormatConfirm = (formatted: any) => {
+    setFormattedPath(formatted);
+    setShowFormatPreview(false);
+    // Immediately submit the download
+    submitDownload();
+  };
+
+  const handleFormatCancel = () => {
+    setShowFormatPreview(false);
+    setCurrentProgramme(null);
+    setFormattedPath(null);
+  };
+
+  const submitDownload = async () => {
+    if (!currentProgramme) return;
+
     try {
-      const url = `https://www.bbc.co.uk/iplayer/episode/${programme.pid}`;
+      const url = `https://www.bbc.co.uk/iplayer/episode/${currentProgramme.pid}`;
 
       const res = await fetch('http://localhost:3001/api/v1/downloads', {
         method: 'POST',
@@ -125,12 +153,24 @@ export function Browse() {
         body: JSON.stringify({
           url,
           downloader: 'get_iplayer',
-          category: selectedCategory
+          category: selectedCategory,
+          formattedPath: formattedPath ? formattedPath.formattedPath : undefined,
+          jellyfinFormat: formattedPath || undefined,
+          metadata: {
+            title: currentProgramme.name,
+            episode: currentProgramme.episode,
+            description: currentProgramme.description,
+            channel: currentProgramme.channel,
+            thumbnail: currentProgramme.thumbnail,
+            type: currentProgramme.type
+          }
         })
       });
 
       if (res.ok) {
-        alert(`✓ Download queued: ${programme.name}\n\nThe download will start automatically.`);
+        alert(`✓ Download queued: ${currentProgramme.name}\n\nThe download will start automatically.`);
+        setCurrentProgramme(null);
+        setFormattedPath(null);
       } else {
         const error = await res.json();
         alert(`Failed: ${error.error}`);
@@ -465,6 +505,16 @@ export function Browse() {
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-2"></div>
           <p className="text-gray-500">Loading more programmes...</p>
         </div>
+      )}
+
+      {/* Format Preview Modal */}
+      {showFormatPreview && (
+        <DownloadFormatPreview
+          filename={previewFilename}
+          contentType="tv"
+          onConfirm={handleFormatConfirm}
+          onCancel={handleFormatCancel}
+        />
       )}
     </div>
   );

@@ -30,6 +30,11 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 - 🎨 **Netflix-Style Interface** - Beautiful grid browse with thumbnails, ratings, and descriptions
 - 🔍 **Advanced Search** - Filter by genre, rating, year, popularity across all content types
 - 📺 **Jellyfin Ready** - Organized folder structure perfect for Jellyfin media server
+- ✨ **Jellyfin Auto-Formatting** - Intelligent filename parsing with inline preview before download
+  - Automatically detects TV shows (S01E01), movies (Year), and documentaries
+  - Real-time TMDB metadata enrichment for accurate show/movie names and years
+  - Shows formatted Jellyfin-compatible path structure before downloading
+  - No separate modals - preview appears inline in the same download dialog
 - ✅ **Multi-Select Downloads** - Select multiple videos and download in bulk
 - ⭐ **Favorites/Bookmarks** - Save YouTube channels, playlists, and favorite movies/shows
 - 🎛️ **Download Presets** - Create platform-specific presets (e.g., 320kbps audio for SoundCloud)
@@ -290,6 +295,12 @@ Perfect for scanning into Jellyfin or other media servers!
   - Web API integration for torrent management
   - Real-time progress tracking
   - Category-based organization with custom save paths
+- **Jellyfin Auto-Formatting** - Smart filename detection and formatting
+  - Inline format preview in download modal (no separate popups)
+  - Automatic TV show detection (S01E01 patterns)
+  - Movie/documentary formatting with year extraction
+  - TMDB metadata enrichment for accurate titles
+  - Jellyfin-compatible folder structure generation
 - BBC iPlayer integration with 9000+ programmes
 - YouTube channel/playlist browsing with pagination and accurate video counts
 - Multi-select and bulk download
@@ -304,12 +315,12 @@ Perfect for scanning into Jellyfin or other media servers!
 - Download History with grid/table view modes
 
 ### 🚀 In Progress
-- **Jellyfin Integration** - Automatic media library synchronization
+- **Jellyfin Library Sync** - Automatic media library synchronization
   - Path configuration for MediaVault downloads folder
   - Auto-scan on download completion
 - **Torrent Progress Sync** - Real-time qBittorrent progress to MediaVault database
 - Enhanced Unified Search - Search across all platforms simultaneously
-- Smart Organization - Auto-folders, duplicate detection
+- Smart Organization - Duplicate detection, smart categorization
 - Statistics Dashboard - Analytics and usage stats
 - Media Library Browser - View and organize downloaded media
 

@@ -3,6 +3,7 @@ import { auth } from '../auth.js';
 import { ytdlpService } from '../services/ytdlp.service.js';
 import { getIPlayerService } from '../services/get-iplayer.service.js';
 import { qbittorrentService, QBittorrentService } from '../services/qbittorrent.service.js';
+import { jellyfinFormatter } from '../services/jellyfin-formatter.service.js';
 import { AppDataSource } from '../data-source.js';
 
 export const downloadsRouter = express.Router();
@@ -405,5 +406,56 @@ downloadsRouter.get('/status', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Failed to get downloader status:', err);
     res.status(500).json({ error: 'Failed to get downloader status' });
+  }
+});
+
+// POST /api/v1/downloads/format-preview - Get Jellyfin formatting preview
+downloadsRouter.post('/format-preview', requireAuth, async (req, res) => {
+  try {
+    const { filename, contentType, searchTMDB = true } = req.body;
+
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename is required' });
+    }
+
+    let formatted;
+
+    if (contentType === 'tv') {
+      formatted = await jellyfinFormatter.formatTVShow(filename, undefined, searchTMDB);
+    } else if (contentType === 'movie') {
+      formatted = await jellyfinFormatter.formatMovie(filename, undefined, searchTMDB);
+    } else {
+      // Auto-detect
+      formatted = await jellyfinFormatter.autoFormat(filename, searchTMDB);
+    }
+
+    res.json({
+      success: true,
+      formatted
+    });
+  } catch (err: any) {
+    console.error('Failed to format filename:', err);
+    res.status(500).json({ error: 'Failed to format filename', message: err.message });
+  }
+});
+
+// POST /api/v1/downloads/batch-format-preview - Get formatting preview for multiple files
+downloadsRouter.post('/batch-format-preview', requireAuth, async (req, res) => {
+  try {
+    const { filenames, searchTMDB = true } = req.body;
+
+    if (!filenames || !Array.isArray(filenames)) {
+      return res.status(400).json({ error: 'Filenames array is required' });
+    }
+
+    const formatted = await jellyfinFormatter.batchFormat(filenames, searchTMDB);
+
+    res.json({
+      success: true,
+      formatted
+    });
+  } catch (err: any) {
+    console.error('Failed to batch format filenames:', err);
+    res.status(500).json({ error: 'Failed to batch format filenames', message: err.message });
   }
 });
