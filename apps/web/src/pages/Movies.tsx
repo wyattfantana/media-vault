@@ -80,23 +80,6 @@ export default function Movies() {
 
   const API_BASE = 'http://localhost:3001/api/v1';
 
-  // Infinite scroll - automatically loads more when scrolling near bottom
-  useInfiniteScroll({
-    onLoadMore: loadMoreGenreMovies,
-    hasMore: viewMode === 'genre' && genreCurrentPage < genreTotalPages,
-    isLoading: genreLoading,
-    threshold: 800,
-    useWindow: true
-  });
-
-  useInfiniteScroll({
-    onLoadMore: loadMoreAllMovies,
-    hasMore: (viewMode === 'all-movies' || viewMode === 'top-rated') && allMoviesPage < allMoviesTotalPages,
-    isLoading: allMoviesLoading,
-    threshold: 800,
-    useWindow: true
-  });
-
   // Genre configuration with emojis - ordered by popularity
   const GENRE_CONFIG = [
     { id: 28, name: 'Action', emoji: '💥' },
@@ -385,6 +368,23 @@ export default function Movies() {
       fetchAllMovies(allMoviesPage + 1, mode);
     }
   };
+
+  // Infinite scroll - automatically loads more when scrolling near bottom
+  useInfiniteScroll({
+    onLoadMore: loadMoreGenreMovies,
+    hasMore: viewMode === 'genre' && genreCurrentPage < genreTotalPages,
+    isLoading: genreLoading,
+    threshold: 800,
+    useWindow: true
+  });
+
+  useInfiniteScroll({
+    onLoadMore: loadMoreAllMovies,
+    hasMore: (viewMode === 'all-movies' || viewMode === 'top-rated') && allMoviesPage < allMoviesTotalPages,
+    isLoading: allMoviesLoading,
+    threshold: 800,
+    useWindow: true
+  });
 
   // Debounced search - automatically triggers when user stops typing
   useEffect(() => {
