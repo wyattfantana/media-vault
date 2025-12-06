@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useDebounce } from '../hooks/useDebounce';
+import { searchCache } from '../utils/searchCache';
 
 interface TVShow {
   id: number;
@@ -36,6 +38,7 @@ type ViewMode = 'browse' | 'search' | 'genre' | 'all-shows' | 'top-rated';
 
 export default function TVShows() {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [searchResults, setSearchResults] = useState<TVShow[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [loading, setLoading] = useState(false);
@@ -499,23 +502,30 @@ export default function TVShows() {
     }
   };
 
-  // Debounced search
+  // Debounced search - automatically triggers when user stops typing
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!debouncedSearchQuery.trim()) {
       setSearchResults([]);
       if (viewMode === 'search') setViewMode('browse');
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      performSearch(searchQuery);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+    performSearch(debouncedSearchQuery);
+  }, [debouncedSearchQuery]);
 
   const performSearch = async (query: string) => {
     if (!query.trim()) return;
+
+    // Generate cache key
+    const cacheKey = `tv:search:${query.toLowerCase()}`;
+
+    // Check cache first
+    const cachedResults = searchCache.get<TVShow[]>(cacheKey);
+    if (cachedResults) {
+      setSearchResults(cachedResults);
+      setViewMode('search');
+      return;
+    }
 
     setLoading(true);
     setViewMode('search');
@@ -526,7 +536,11 @@ export default function TVShows() {
       );
       if (res.ok) {
         const data = await res.json();
-        setSearchResults(data.results || []);
+        const results = data.results || [];
+        setSearchResults(results);
+
+        // Cache results for 5 minutes
+        searchCache.set(cacheKey, results, 5 * 60 * 1000);
       }
     } catch (err) {
       console.error('Search failed:', err);

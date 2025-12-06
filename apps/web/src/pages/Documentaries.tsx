@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useDebounce } from '../hooks/useDebounce';
+import { searchCache } from '../utils/searchCache';
 
 interface Documentary {
   id: number;
@@ -35,6 +37,7 @@ type ViewMode = 'browse' | 'search' | 'genre' | 'all-documentaries' | 'top-rated
 
 export default function Documentaries() {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [searchResults, setSearchResults] = useState<Documentary[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [loading, setLoading] = useState(false);
@@ -390,23 +393,30 @@ export default function Documentaries() {
     }
   };
 
-  // Debounced search
+  // Debounced search - automatically triggers when user stops typing
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!debouncedSearchQuery.trim()) {
       setSearchResults([]);
       if (viewMode === 'search') setViewMode('browse');
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      performSearch(searchQuery);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+    performSearch(debouncedSearchQuery);
+  }, [debouncedSearchQuery]);
 
   const performSearch = async (query: string) => {
     if (!query.trim()) return;
+
+    // Generate cache key
+    const cacheKey = `documentaries:search:${query.toLowerCase()}`;
+
+    // Check cache first
+    const cachedResults = searchCache.get<Documentary[]>(cacheKey);
+    if (cachedResults) {
+      setSearchResults(cachedResults);
+      setViewMode('search');
+      return;
+    }
 
     setLoading(true);
     setViewMode('search');
@@ -422,6 +432,9 @@ export default function Documentaries() {
           doc.genre_ids && doc.genre_ids.includes(99)
         );
         setSearchResults(documentaries);
+
+        // Cache results for 5 minutes
+        searchCache.set(cacheKey, documentaries, 5 * 60 * 1000);
       }
     } catch (err) {
       console.error('Search failed:', err);
