@@ -248,7 +248,57 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-07 (Session 2) ✅ COMPLETED
+### Current Session: 2025-12-07 (Session 3) ✅ COMPLETED
+**Focus:** Bug Fixes + Quality/Format Selection Feature
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Fixed decimal duration bug** - SoundCloud downloads failing with "invalid input syntax for type integer"
+  - Added Math.floor() to round decimal duration values from yt-dlp
+  - Migration 008 not needed (code fix only)
+  - Commit: ec6c76e
+- [x] **Fixed folder selection bug** - Music folder showing as Movies in preview
+  - Updated DownloadFormatPreview to accept category/customFolder props
+  - Backend format-preview endpoint respects user's category selection
+  - Handles music, documentaries, custom folder, collection categories
+  - Commit: 1992b5c
+- [x] **Implemented Quality/Format Selection** - Major feature addition
+  - Database Migration 008: Added quality, video_format, audio_format columns
+  - Enhanced yt-dlp service with 2160p, 1440p, 1080p, 720p, 480p, 360p, audio options
+  - Added video format support: MP4, WebM, MKV
+  - Added audio format support: MP3, M4A, AAC, Opus, FLAC
+  - Auto-route to audio extraction when quality='audio'
+  - Frontend UI with quality and format dropdowns
+  - Backend endpoint accepts and stores quality/format preferences
+  - Worker passes settings to yt-dlp service
+  - Commit: 2b4f8e4
+- [x] **UX Improvement: Smart Music Category**
+  - Music category auto-selects Audio Only quality
+  - Hides video quality options when Music selected
+  - Only shows audio format dropdown for Music
+  - Category labeled "Music (Audio Only)" for clarity
+  - Prevents users from downloading videos to Music folder
+  - Commit: 4408baf
+
+**Problem Solved:**
+YouTube music videos download as MP4, but Jellyfin Music library expects audio formats. Users can now select "Music (Audio Only)" category and choose MP3/M4A/FLAC format for perfect Jellyfin Music integration.
+
+**Key Implementation:**
+- Migration 008 adds quality/format columns to downloads table
+- yt-dlp service expanded with comprehensive quality/format options
+- Download pipeline passes user preferences from UI → endpoint → worker → yt-dlp
+- Smart UI prevents confusion (Music = audio only, no video options shown)
+
+**Test Case:**
+Ocean Wisdom - Ting Dun Feat. Method Man:
+- Before: MP4 video in Music folder, Jellyfin ignores it ❌
+- After: MP3 audio in Music folder, Jellyfin finds it ✅
+
+**Next Session Start Point:**
+→ All core download features complete! Consider: Phase 3 browsing UX, Phase 4 advanced automation, or Phase 5 production polish
+
+---
+
+### Session: 2025-12-07 (Session 2) ✅ COMPLETED
 **Focus:** Download Source Testing → Phase 2, 4, 5 Implementation
 **Status:** ✅ COMPLETED
 **Completed:**
