@@ -45,7 +45,7 @@ export function Downloads() {
   const [category, setCategory] = useState<string>('movies');
   const [customFolder, setCustomFolder] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   useEffect(() => {
     fetchDownloads();
