@@ -129,7 +129,7 @@ export class DownloadWorker {
           quality: 'best'
         });
         outputPath = result.outputPath;
-        duration = result.info.duration;
+        duration = Math.floor(result.info.duration || 0);
         videoInfo = result.info; // Save video info for organization
 
         // Get best format info
