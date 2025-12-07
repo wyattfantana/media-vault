@@ -148,7 +148,7 @@ export class DownloadWorker {
         }
 
         const result = await getIPlayerService.downloadByPid(pidMatch[0], {
-          quality: 'best',
+          quality: 'fhd', // Full HD quality for get_iplayer
           subtitles: true
         });
         outputPath = result.outputPath;

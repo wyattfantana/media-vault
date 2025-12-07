@@ -160,7 +160,7 @@ export class GetIPlayerService extends EventEmitter {
   async downloadByPid(
     pid: string,
     options: {
-      quality?: 'best' | 'good' | 'worst';
+      quality?: 'fhd' | 'hd' | 'sd' | 'web' | 'mobile' | '1080p' | '720p' | '540p' | '396p' | '288p' | 'high' | 'std' | 'med' | 'low' | '320k' | '128k' | '96k' | '48k' | 'default';
       type?: 'tv' | 'radio';
       subtitles?: boolean;
     } = {}
@@ -223,15 +223,61 @@ export class GetIPlayerService extends EventEmitter {
 
       downloadProcess.on('close', async (code) => {
         if (code !== 0) {
+          // Include both stdout and stderr in error for better debugging
+          const fullError = errorOutput || output || 'Unknown error';
+          console.error('[get_iplayer] Download failed with code:', code);
+          console.error('[get_iplayer] stdout:', output);
+          console.error('[get_iplayer] stderr:', errorOutput);
+
           const error: IPlayerDownloadProgress = {
             status: 'failed',
             progress: 0,
             message: 'Download failed',
-            error: errorOutput
+            error: fullError
           };
           this.emit('progress', error);
-          reject(new Error(`Download failed: ${errorOutput}`));
+          reject(new Error(`Download failed (exit code ${code}): ${fullError}`));
           return;
+        }
+
+        // If outputPath wasn't found in output, scan the directory for the newest file
+        if (!outputPath) {
+          try {
+            // Small delay to ensure filesystem has synced (especially on WSL)
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            const files = await fs.readdir(iplayerDir);
+
+            // Filter for media files only (not .txt metadata files)
+            const mediaExtensions = ['.mp4', '.mkv', '.avi', '.m4a', '.mp3', '.ts'];
+            const mediaFiles = files.filter(f =>
+              mediaExtensions.some(ext => f.toLowerCase().endsWith(ext))
+            );
+
+            if (mediaFiles.length === 0) {
+              reject(new Error('Download completed but no media files found in output directory'));
+              return;
+            }
+
+            // Find the most recently modified media file
+            let newestFile = mediaFiles[0];
+            let newestTime = (await fs.stat(path.join(iplayerDir, mediaFiles[0]))).mtime;
+
+            for (const file of mediaFiles.slice(1)) {
+              const filePath = path.join(iplayerDir, file);
+              const stats = await fs.stat(filePath);
+              if (stats.mtime > newestTime) {
+                newestFile = file;
+                newestTime = stats.mtime;
+              }
+            }
+
+            outputPath = path.join(iplayerDir, newestFile);
+            console.log('[get_iplayer] Found downloaded file:', outputPath);
+          } catch (err) {
+            reject(new Error(`Failed to find downloaded file: ${err}`));
+            return;
+          }
         }
 
         const completed: IPlayerDownloadProgress = {
