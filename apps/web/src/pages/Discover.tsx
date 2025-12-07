@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Browse } from './Browse';
 import { YouTube } from './YouTube';
-import { AllPlatforms } from './AllPlatforms';
 import { SoundCloud } from './SoundCloud';
 import { TikTok } from './TikTok';
 import { Twitch } from './Twitch';
@@ -9,12 +8,11 @@ import { Reddit } from './Reddit';
 import Movies from './Movies';
 import TVShows from './TVShows';
 import Documentaries from './Documentaries';
-import { Favorites } from './Favorites';
 
-type Tab = 'all' | 'youtube' | 'bbc' | 'soundcloud' | 'tiktok' | 'twitch' | 'reddit' | 'movies' | 'tvshows' | 'documentaries' | 'favorites';
+type Tab = 'youtube' | 'bbc' | 'soundcloud' | 'tiktok' | 'twitch' | 'reddit' | 'movies' | 'tvshows' | 'documentaries';
 
 export function Discover() {
-  // Restore last active tab from sessionStorage or URL parameter, default to 'all'
+  // Restore last active tab from sessionStorage or URL parameter, default to 'movies'
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     // Check URL parameter first
     const urlParams = new URLSearchParams(window.location.search);
@@ -24,15 +22,13 @@ export function Discover() {
     }
     // Fall back to sessionStorage
     const saved = sessionStorage.getItem('discover-active-tab');
-    return (saved as Tab) || 'all';
+    return (saved as Tab) || 'movies';
   });
 
   const tabs = [
-    { id: 'all' as const, label: 'All Platforms', icon: '🌐', description: 'Trending' },
     { id: 'movies' as const, label: 'Movies', icon: '🎬', description: 'Browse' },
     { id: 'tvshows' as const, label: 'TV Shows', icon: '📺', description: 'Series' },
     { id: 'documentaries' as const, label: 'Documentaries', icon: '🎞️', description: 'Films' },
-    { id: 'favorites' as const, label: 'Favorites', icon: '⭐', description: 'Saved' },
     { id: 'youtube' as const, label: 'YouTube', icon: '▶️', description: 'Channels' },
     { id: 'bbc' as const, label: 'BBC iPlayer', icon: '📻', description: 'Programmes' },
     { id: 'soundcloud' as const, label: 'SoundCloud', icon: '🎧', description: 'Tracks' },
@@ -53,26 +49,31 @@ export function Discover() {
       <div className="mb-6">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8" aria-label="Tabs">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`
-                  py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                  ${activeTab === tab.id
-                    ? 'border-brand-600 text-brand-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }
-                `}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{tab.icon}</span>
-                  <div className="text-left">
-                    <div>{tab.label}</div>
-                    <div className="text-xs text-gray-400">{tab.description}</div>
+            {tabs.map((tab, index) => (
+              <React.Fragment key={tab.id}>
+                <button
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`
+                    py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                    ${activeTab === tab.id
+                      ? 'border-brand-600 text-brand-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{tab.icon}</span>
+                    <div className="text-left">
+                      <div>{tab.label}</div>
+                      <div className="text-xs text-gray-400">{tab.description}</div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                {/* Separator after Documentaries (index 2) and SoundCloud (index 5) */}
+                {(index === 2 || index === 5) && (
+                  <div className="w-px bg-gray-300 self-stretch my-2" />
+                )}
+              </React.Fragment>
             ))}
           </nav>
         </div>
@@ -81,9 +82,6 @@ export function Discover() {
       {/* Tab Content */}
       {/* Keep all tabs mounted but hidden to preserve state during background operations */}
       <div className="transition-opacity duration-200 ease-in-out">
-        <div className={activeTab === 'all' ? 'block animate-fadeIn' : 'hidden'}>
-          <AllPlatforms />
-        </div>
         <div className={activeTab === 'movies' ? 'block animate-fadeIn' : 'hidden'}>
           <Movies />
         </div>
@@ -92,9 +90,6 @@ export function Discover() {
         </div>
         <div className={activeTab === 'documentaries' ? 'block animate-fadeIn' : 'hidden'}>
           <Documentaries />
-        </div>
-        <div className={activeTab === 'favorites' ? 'block animate-fadeIn' : 'hidden'}>
-          <Favorites />
         </div>
         <div className={activeTab === 'youtube' ? 'block animate-fadeIn' : 'hidden'}>
           <YouTube />
