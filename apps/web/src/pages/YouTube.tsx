@@ -1192,6 +1192,8 @@ export function YouTube() {
         <DownloadFormatPreview
           filename={selectedVideo.title}
           contentType="auto"
+          category={category}
+          customFolder={customFolder}
           onConfirm={handleFormatPreviewConfirm}
           onCancel={handleFormatPreviewCancel}
         />

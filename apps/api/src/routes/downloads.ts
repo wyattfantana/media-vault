@@ -556,7 +556,7 @@ downloadsRouter.get('/status', requireAuth, async (req, res) => {
 // POST /api/v1/downloads/format-preview - Get Jellyfin formatting preview
 downloadsRouter.post('/format-preview', requireAuth, async (req, res) => {
   try {
-    const { filename, contentType, searchTMDB = true } = req.body;
+    const { filename, contentType, category, customFolder, searchTMDB = true } = req.body;
 
     if (!filename) {
       return res.status(400).json({ error: 'Filename is required' });
@@ -564,15 +564,49 @@ downloadsRouter.post('/format-preview', requireAuth, async (req, res) => {
 
     let formatted;
 
-    if (contentType === 'tv') {
+    // Use user's category if provided, otherwise fall back to contentType
+    const targetCategory = category || contentType;
+
+    if (targetCategory === 'tv') {
       formatted = await jellyfinFormatter.formatTVShow(filename, undefined, searchTMDB);
-    } else if (contentType === 'movie') {
+    } else if (targetCategory === 'movie' || targetCategory === 'movies') {
       formatted = await jellyfinFormatter.formatMovie(filename, undefined, searchTMDB);
-    } else if (contentType === 'documentary') {
+    } else if (targetCategory === 'documentary' || targetCategory === 'documentaries') {
       // Format as movie but with Documentaries folder
       formatted = await jellyfinFormatter.formatMovie(filename, undefined, searchTMDB);
       formatted.baseDir = 'Documentaries';
       formatted.contentType = 'documentary';
+    } else if (targetCategory === 'music') {
+      // For music, just use the original filename in the Music folder
+      formatted = {
+        contentType: 'music',
+        originalName: filename,
+        formattedPath: `Music/${filename}`,
+        folderStructure: {},
+        preview: `📁 Music\n   └─ 📄 ${filename}`,
+        baseDir: 'Music'
+      };
+    } else if (targetCategory === 'custom' && customFolder) {
+      // Custom folder - use original filename
+      const folderName = customFolder.split('/').pop() || customFolder;
+      formatted = {
+        contentType: 'other',
+        originalName: filename,
+        formattedPath: `${customFolder}/${filename}`,
+        folderStructure: {},
+        preview: `📁 ${folderName}\n   └─ 📄 ${filename}`,
+        baseDir: customFolder
+      };
+    } else if (targetCategory === 'collection') {
+      // No folder organization - just dump it in root
+      formatted = {
+        contentType: 'other',
+        originalName: filename,
+        formattedPath: filename,
+        folderStructure: {},
+        preview: `📄 ${filename}`,
+        baseDir: ''
+      };
     } else {
       // Auto-detect
       formatted = await jellyfinFormatter.autoFormat(filename, searchTMDB);

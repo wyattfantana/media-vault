@@ -18,7 +18,9 @@ interface FormattedPath {
 
 interface DownloadFormatPreviewProps {
   filename: string;
-  contentType?: 'tv' | 'movie' | 'auto';
+  contentType?: 'tv' | 'movie' | 'music' | 'documentaries' | 'custom' | 'collection' | 'auto';
+  category?: string; // User-selected category from dropdown
+  customFolder?: string; // Custom folder path if category is 'custom'
   onConfirm: (formatted: FormattedPath) => void;
   onCancel: () => void;
   onEdit?: (newPath: string) => void;
@@ -27,6 +29,8 @@ interface DownloadFormatPreviewProps {
 export function DownloadFormatPreview({
   filename,
   contentType = 'auto',
+  category,
+  customFolder,
   onConfirm,
   onCancel,
   onEdit
@@ -39,7 +43,7 @@ export function DownloadFormatPreview({
 
   useEffect(() => {
     fetchFormatPreview();
-  }, [filename, contentType]);
+  }, [filename, contentType, category, customFolder]);
 
   const fetchFormatPreview = async () => {
     setLoading(true);
@@ -55,6 +59,8 @@ export function DownloadFormatPreview({
         body: JSON.stringify({
           filename,
           contentType: contentType === 'auto' ? undefined : contentType,
+          category: category || undefined,
+          customFolder: customFolder || undefined,
           searchTMDB: true
         })
       });
