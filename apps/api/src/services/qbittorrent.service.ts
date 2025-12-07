@@ -294,6 +294,73 @@ export class QBittorrentService {
   }
 
   /**
+   * Set global download speed limit (bytes/sec, 0 = unlimited)
+   */
+  async setDownloadLimit(limit: number): Promise<void> {
+    try {
+      await this.ensureAuthenticated();
+      const formData = new URLSearchParams();
+      formData.append('limit', limit.toString());
+
+      await this.client.post('/transfer/setDownloadLimit', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Cookie: this.cookie,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to set download limit:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set global upload speed limit (bytes/sec, 0 = unlimited)
+   */
+  async setUploadLimit(limit: number): Promise<void> {
+    try {
+      await this.ensureAuthenticated();
+      const formData = new URLSearchParams();
+      formData.append('limit', limit.toString());
+
+      await this.client.post('/transfer/setUploadLimit', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Cookie: this.cookie,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to set upload limit:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get global transfer information including speed limits
+   */
+  async getTransferInfo(): Promise<{
+    dl_info_speed: number;
+    up_info_speed: number;
+    dl_rate_limit: number;
+    up_rate_limit: number;
+    dl_info_data: number;
+    up_info_data: number;
+  }> {
+    try {
+      await this.ensureAuthenticated();
+      const response = await this.client.get('/transfer/info', {
+        headers: {
+          Cookie: this.cookie,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get transfer info:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get application version
    */
   async getVersion(): Promise<string> {

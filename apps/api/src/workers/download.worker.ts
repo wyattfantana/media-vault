@@ -13,6 +13,8 @@ export class DownloadWorker {
   private pollInterval = 5000; // Check every 5 seconds
   private torrentPollInterval = 10000; // Check torrents every 10 seconds
   private currentDownloadId: string | null = null;
+  private maxConcurrentDownloads = 3; // Maximum concurrent downloads
+  private activeDownloads = new Set<string>(); // Track active download IDs
 
   constructor() {
     // Listen for progress events from downloaders
@@ -53,23 +55,37 @@ export class DownloadWorker {
   }
 
   /**
-   * Main processing loop
+   * Main processing loop - supports concurrent downloads
    */
   private async processQueue() {
     while (this.isRunning) {
       try {
-        // Get next pending download
-        const download = await AppDataSource
-          .createQueryBuilder()
-          .select('*')
-          .from('downloads', 'd')
-          .where('d.status = :status', { status: 'pending' })
-          .orderBy('d.created_at', 'ASC')
-          .limit(1)
-          .getRawOne();
+        // Calculate how many more downloads we can start
+        const availableSlots = this.maxConcurrentDownloads - this.activeDownloads.size;
 
-        if (download) {
-          await this.processDownload(download);
+        if (availableSlots > 0) {
+          // Get pending downloads up to available slots
+          const pendingDownloads = await AppDataSource
+            .createQueryBuilder()
+            .select('*')
+            .from('downloads', 'd')
+            .where('d.status = :status', { status: 'pending' })
+            .orderBy('d.created_at', 'ASC')
+            .limit(availableSlots)
+            .getRawMany();
+
+          // Process each download concurrently (fire and forget)
+          for (const download of pendingDownloads) {
+            if (!this.activeDownloads.has(download.id)) {
+              this.activeDownloads.add(download.id);
+
+              // Process download in background, remove from active when done
+              this.processDownload(download)
+                .finally(() => {
+                  this.activeDownloads.delete(download.id);
+                });
+            }
+          }
         }
 
         // Wait before checking again
@@ -292,16 +308,51 @@ export class DownloadWorker {
     } catch (err) {
       console.error(`[Download Worker] Failed: ${download.title}`, err);
 
-      // Update download as failed
-      await AppDataSource
-        .createQueryBuilder()
-        .update('downloads')
-        .set({
-          status: 'failed',
-          error_message: err instanceof Error ? err.message : 'Unknown error'
-        })
-        .where('id = :id', { id: download.id })
-        .execute();
+      // Retry logic with exponential backoff
+      const metadata = typeof download.metadata === 'string' ? JSON.parse(download.metadata || '{}') : download.metadata || {};
+      const retryCount = metadata.retryCount || 0;
+      const maxRetries = 3;
+
+      if (retryCount < maxRetries) {
+        // Calculate exponential backoff delay (2^retryCount * 10 seconds)
+        const delaySeconds = Math.pow(2, retryCount) * 10;
+        const nextRetryAt = new Date(Date.now() + delaySeconds * 1000);
+
+        console.log(`[Download Worker] Retry ${retryCount + 1}/${maxRetries} scheduled for ${download.title} in ${delaySeconds}s`);
+
+        // Update metadata with retry info and set back to pending
+        metadata.retryCount = retryCount + 1;
+        metadata.lastError = err instanceof Error ? err.message : 'Unknown error';
+        metadata.nextRetryAt = nextRetryAt.toISOString();
+
+        await AppDataSource
+          .createQueryBuilder()
+          .update('downloads')
+          .set({
+            status: 'pending',
+            metadata: JSON.stringify(metadata),
+            error_message: `Retry ${retryCount + 1}/${maxRetries}: ${err instanceof Error ? err.message : 'Unknown error'}`
+          })
+          .where('id = :id', { id: download.id })
+          .execute();
+      } else {
+        // Max retries exceeded, mark as failed
+        console.log(`[Download Worker] Max retries exceeded for ${download.title}`);
+
+        metadata.retryCount = retryCount;
+        metadata.lastError = err instanceof Error ? err.message : 'Unknown error';
+
+        await AppDataSource
+          .createQueryBuilder()
+          .update('downloads')
+          .set({
+            status: 'failed',
+            metadata: JSON.stringify(metadata),
+            error_message: `Failed after ${maxRetries} retries: ${err instanceof Error ? err.message : 'Unknown error'}`
+          })
+          .where('id = :id', { id: download.id })
+          .execute();
+      }
     } finally {
       this.currentDownloadId = null;
     }

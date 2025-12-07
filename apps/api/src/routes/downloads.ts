@@ -50,8 +50,39 @@ downloadsRouter.get('/', requireAuth, async (req, res) => {
       .where('d.user_id = :userId', { userId })
       .getRawOne();
 
+    // Enrich torrent downloads with real-time stats from qBittorrent
+    const enrichedDownloads = await Promise.all(downloads.map(async (download) => {
+      if (download.downloader === 'qbittorrent' && download.metadata?.torrentHash) {
+        try {
+          const torrents = await qbittorrentService.getTorrents();
+          const torrent = torrents.find(t => t.hash === download.metadata.torrentHash);
+
+          if (torrent) {
+            return {
+              ...download,
+              torrentInfo: {
+                dlspeed: torrent.dlspeed,
+                upspeed: torrent.upspeed,
+                eta: torrent.eta,
+                num_seeds: torrent.num_seeds,
+                num_leechs: torrent.num_leechs,
+                state: torrent.state,
+                size: torrent.size,
+                downloaded: torrent.downloaded,
+                uploaded: torrent.uploaded,
+                ratio: torrent.ratio
+              }
+            };
+          }
+        } catch (err) {
+          console.error('Failed to get torrent info:', err);
+        }
+      }
+      return download;
+    }));
+
     res.json({
-      downloads,
+      downloads: enrichedDownloads,
       total: parseInt(countResult.count),
       limit: Number(limit),
       offset: Number(offset)
@@ -263,6 +294,7 @@ downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     const { id } = req.params;
+    const { deleteFiles = false } = req.query;
 
     const download = await AppDataSource
       .createQueryBuilder()
@@ -273,6 +305,19 @@ downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
 
     if (!download) {
       return res.status(404).json({ error: 'Download not found' });
+    }
+
+    // If it's a qBittorrent download, also remove from qBittorrent
+    if (download.downloader === 'qbittorrent' && download.metadata?.torrentHash) {
+      try {
+        await qbittorrentService.deleteTorrent(
+          download.metadata.torrentHash,
+          deleteFiles === 'true'
+        );
+      } catch (err) {
+        console.error('Failed to delete torrent from qBittorrent:', err);
+        // Continue with database deletion even if qBittorrent deletion fails
+      }
     }
 
     // If downloading, mark as cancelled
@@ -297,6 +342,105 @@ downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Failed to delete download:', err);
     res.status(500).json({ error: 'Failed to delete download' });
+  }
+});
+
+// POST /api/v1/downloads/:id/pause - Pause a torrent download
+downloadsRouter.post('/:id/pause', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { id } = req.params;
+
+    const download = await AppDataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('downloads', 'd')
+      .where('d.id = :id AND d.user_id = :userId', { id, userId })
+      .getRawOne();
+
+    if (!download) {
+      return res.status(404).json({ error: 'Download not found' });
+    }
+
+    if (download.downloader !== 'qbittorrent') {
+      return res.status(400).json({ error: 'Only torrent downloads can be paused' });
+    }
+
+    if (!download.metadata?.torrentHash) {
+      return res.status(400).json({ error: 'Torrent hash not found' });
+    }
+
+    await qbittorrentService.pauseTorrent(download.metadata.torrentHash);
+
+    res.json({ message: 'Torrent paused successfully' });
+  } catch (err) {
+    console.error('Failed to pause torrent:', err);
+    res.status(500).json({ error: 'Failed to pause torrent' });
+  }
+});
+
+// POST /api/v1/downloads/:id/resume - Resume a paused torrent download
+downloadsRouter.post('/:id/resume', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { id } = req.params;
+
+    const download = await AppDataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('downloads', 'd')
+      .where('d.id = :id AND d.user_id = :userId', { id, userId })
+      .getRawOne();
+
+    if (!download) {
+      return res.status(404).json({ error: 'Download not found' });
+    }
+
+    if (download.downloader !== 'qbittorrent') {
+      return res.status(400).json({ error: 'Only torrent downloads can be resumed' });
+    }
+
+    if (!download.metadata?.torrentHash) {
+      return res.status(400).json({ error: 'Torrent hash not found' });
+    }
+
+    await qbittorrentService.resumeTorrent(download.metadata.torrentHash);
+
+    res.json({ message: 'Torrent resumed successfully' });
+  } catch (err) {
+    console.error('Failed to resume torrent:', err);
+    res.status(500).json({ error: 'Failed to resume torrent' });
+  }
+});
+
+// POST /api/v1/downloads/bandwidth/limits - Set global bandwidth limits
+downloadsRouter.post('/bandwidth/limits', requireAuth, async (req, res) => {
+  try {
+    const { downloadLimit, uploadLimit } = req.body;
+
+    if (typeof downloadLimit === 'number') {
+      await qbittorrentService.setDownloadLimit(downloadLimit);
+    }
+
+    if (typeof uploadLimit === 'number') {
+      await qbittorrentService.setUploadLimit(uploadLimit);
+    }
+
+    res.json({ message: 'Bandwidth limits updated successfully' });
+  } catch (err) {
+    console.error('Failed to set bandwidth limits:', err);
+    res.status(500).json({ error: 'Failed to set bandwidth limits' });
+  }
+});
+
+// GET /api/v1/downloads/bandwidth/info - Get transfer info and limits
+downloadsRouter.get('/bandwidth/info', requireAuth, async (req, res) => {
+  try {
+    const info = await qbittorrentService.getTransferInfo();
+    res.json(info);
+  } catch (err) {
+    console.error('Failed to get transfer info:', err);
+    res.status(500).json({ error: 'Failed to get transfer info' });
   }
 });
 

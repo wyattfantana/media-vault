@@ -12,6 +12,18 @@ interface Download {
   thumbnail?: string;
   description?: string;
   file_size?: number;
+  torrentInfo?: {
+    dlspeed: number;
+    upspeed: number;
+    eta: number;
+    num_seeds: number;
+    num_leechs: number;
+    state: string;
+    size: number;
+    downloaded: number;
+    uploaded: number;
+    ratio: number;
+  };
 }
 
 interface DownloadStats {
@@ -112,6 +124,76 @@ export function Downloads() {
     } catch (err) {
       alert('Failed to retry download');
     }
+  };
+
+  const handlePauseTorrent = async (download: Download) => {
+    try {
+      await fetch(`http://localhost:3001/api/v1/downloads/${download.id}/pause`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      fetchDownloads();
+    } catch (err) {
+      alert('Failed to pause torrent');
+    }
+  };
+
+  const handleResumeTorrent = async (download: Download) => {
+    try {
+      await fetch(`http://localhost:3001/api/v1/downloads/${download.id}/resume`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      fetchDownloads();
+    } catch (err) {
+      alert('Failed to resume torrent');
+    }
+  };
+
+  const handleDeleteTorrent = async (download: Download, deleteFiles: boolean = false) => {
+    const confirmMsg = deleteFiles
+      ? 'Delete this torrent and remove all downloaded files?'
+      : 'Delete this torrent but keep the downloaded files?';
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await fetch(`http://localhost:3001/api/v1/downloads/${download.id}?deleteFiles=${deleteFiles}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      fetchDownloads();
+    } catch (err) {
+      alert('Failed to delete torrent');
+    }
+  };
+
+  // Utility functions
+  const formatSpeed = (bytesPerSec: number): string => {
+    if (bytesPerSec === 0) return '0 B/s';
+    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    const i = Math.floor(Math.log(bytesPerSec) / Math.log(1024));
+    return `${(bytesPerSec / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+  };
+
+  const formatETA = (seconds: number): string => {
+    if (seconds === 8640000 || seconds < 0) return '∞';
+    if (seconds === 0) return 'Done';
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${secs}s`;
+    return `${secs}s`;
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
   };
 
   const handleNewDownload = async (e: React.FormEvent) => {
@@ -458,6 +540,30 @@ export function Downloads() {
                 </div>
               )}
 
+              {/* Torrent Stats */}
+              {download.downloader === 'qbittorrent' && download.torrentInfo && (
+                <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-500">↓</span>
+                    <span className="text-green-600 font-medium">{formatSpeed(download.torrentInfo.dlspeed)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-500">↑</span>
+                    <span className="text-blue-600 font-medium">{formatSpeed(download.torrentInfo.upspeed)}</span>
+                  </div>
+                  <div className="text-gray-600">
+                    <span className="text-gray-500">ETA:</span> {formatETA(download.torrentInfo.eta)}
+                  </div>
+                  <div className="text-gray-600">
+                    <span className="text-gray-500">Seeds:</span> {download.torrentInfo.num_seeds} / {download.torrentInfo.num_leechs}
+                  </div>
+                  <div className="col-span-2 text-gray-600">
+                    <span className="text-gray-500">Size:</span> {formatBytes(download.torrentInfo.size)}
+                    <span className="ml-2 text-gray-500">Ratio:</span> {download.torrentInfo.ratio.toFixed(2)}
+                  </div>
+                </div>
+              )}
+
               {/* Error Message */}
               {download.error_message && (
                 <div className="mb-3 p-2 bg-red-50 rounded text-xs text-red-700">
@@ -472,20 +578,57 @@ export function Downloads() {
 
               {/* Actions */}
               <div className="flex gap-2">
-                {download.status === 'failed' && (
-                  <button
-                    onClick={() => handleRetry(download)}
-                    className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                  >
-                    Retry
-                  </button>
+                {download.downloader === 'qbittorrent' ? (
+                  <>
+                    {(download.status === 'downloading' || download.torrentInfo?.state === 'downloading') && (
+                      <button
+                        onClick={() => handlePauseTorrent(download)}
+                        className="flex-1 px-3 py-1.5 bg-yellow-100 text-yellow-700 text-sm rounded hover:bg-yellow-200"
+                      >
+                        Pause
+                      </button>
+                    )}
+                    {download.torrentInfo?.state?.includes('paused') && (
+                      <button
+                        onClick={() => handleResumeTorrent(download)}
+                        className="flex-1 px-3 py-1.5 bg-green-100 text-green-700 text-sm rounded hover:bg-green-200"
+                      >
+                        Resume
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteTorrent(download, false)}
+                      className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
+                      title="Delete torrent, keep files"
+                    >
+                      Remove
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTorrent(download, true)}
+                      className="flex-1 px-3 py-1.5 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200"
+                      title="Delete torrent and files"
+                    >
+                      Delete All
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {download.status === 'failed' && (
+                      <button
+                        onClick={() => handleRetry(download)}
+                        className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      >
+                        Retry
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(download.id)}
+                      className="flex-1 px-3 py-1.5 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200"
+                    >
+                      {download.status === 'downloading' ? 'Cancel' : 'Delete'}
+                    </button>
+                  </>
                 )}
-                <button
-                  onClick={() => handleDelete(download.id)}
-                  className="flex-1 px-3 py-1.5 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200"
-                >
-                  {download.status === 'downloading' ? 'Cancel' : 'Delete'}
-                </button>
               </div>
             </div>
           ))}
