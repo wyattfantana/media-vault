@@ -17,10 +17,20 @@ export const useInfiniteScroll = ({
 }: UseInfiniteScrollOptions) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
+  const hasMoreRef = useRef(hasMore);
+  const isLoadingRef = useRef(isLoading);
+  const onLoadMoreRef = useRef(onLoadMore);
+
+  // Update refs when props change
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+    isLoadingRef.current = isLoading;
+    onLoadMoreRef.current = onLoadMore;
+  }, [hasMore, isLoading, onLoadMore]);
 
   const handleScroll = useCallback(() => {
-    if (loadingRef.current || !hasMore || isLoading) {
-      console.log('[InfiniteScroll] Blocked:', { loadingRef: loadingRef.current, hasMore, isLoading });
+    if (loadingRef.current || !hasMoreRef.current || isLoadingRef.current) {
+      console.log('[InfiniteScroll] Blocked:', { loadingRef: loadingRef.current, hasMore: hasMoreRef.current, isLoading: isLoadingRef.current });
       return;
     }
 
@@ -44,23 +54,44 @@ export const useInfiniteScroll = ({
     if (distanceFromBottom < threshold) {
       console.log('[InfiniteScroll] Triggering load! Distance:', distanceFromBottom, 'Threshold:', threshold);
       loadingRef.current = true;
-      onLoadMore();
+      onLoadMoreRef.current();
       // Reset loading flag after a delay to prevent rapid triggers
       setTimeout(() => {
         loadingRef.current = false;
       }, 1000);
     }
-  }, [onLoadMore, hasMore, isLoading, threshold, useWindow]);
+  }, [threshold, useWindow]);
 
   useEffect(() => {
+    console.log('[InfiniteScroll] Setting up scroll listener. useWindow:', useWindow, 'hasMore:', hasMore, 'isLoading:', isLoading);
+
+    // Test scroll event
+    const testScroll = () => {
+      console.log('[InfiniteScroll] SCROLL EVENT FIRED!');
+    };
+
     if (useWindow) {
+      console.log('[InfiniteScroll] Attaching window scroll listener');
       window.addEventListener('scroll', handleScroll);
-      return () => window.removeEventListener('scroll', handleScroll);
+      window.addEventListener('scroll', testScroll);
+      return () => {
+        console.log('[InfiniteScroll] Removing window scroll listener');
+        window.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('scroll', testScroll);
+      };
     } else {
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {
+        console.log('[InfiniteScroll] No container ref found!');
+        return;
+      }
+      console.log('[InfiniteScroll] Attaching container scroll listener');
       container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
+      container.addEventListener('scroll', testScroll);
+      return () => {
+        container.removeEventListener('scroll', handleScroll);
+        container.removeEventListener('scroll', testScroll);
+      };
     }
   }, [handleScroll, useWindow]);
 
