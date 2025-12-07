@@ -97,11 +97,39 @@ export default function Movies() {
   const API_BASE = 'http://localhost:3001/api/v1';
 
   const isInitialMount = React.useRef(true);
+  const restoringScroll = React.useRef(false);
+  const scrollPositionSaved = React.useRef(false);
 
   // Load movies on mount
   useEffect(() => {
     fetchGenres();
     setShowAllMoviesFilters(true);
+
+    // Try to restore browse state from sessionStorage
+    const savedBrowseState = sessionStorage.getItem('moviesBrowseState');
+    if (savedBrowseState) {
+      try {
+        const { movies, page, totalPages, totalResults, viewMode: savedViewMode, scrollY } = JSON.parse(savedBrowseState);
+        restoringScroll.current = true;
+        setAllMovies(movies || []);
+        setAllMoviesPage(page || 1);
+        setAllMoviesTotalPages(totalPages || 1);
+        setAllMoviesTotalResults(totalResults || 0);
+        setViewMode(savedViewMode || 'all-movies');
+
+        // Restore scroll position after a short delay to ensure content is rendered
+        setTimeout(() => {
+          if (typeof scrollY === 'number') {
+            window.scrollTo(0, scrollY);
+          }
+          restoringScroll.current = false;
+        }, 100);
+      } catch (e) {
+        console.error('Failed to restore browse state:', e);
+        restoringScroll.current = false;
+      }
+    }
+
     // Try to load saved filters from localStorage
     const savedFilters = localStorage.getItem('moviesFilters');
     if (savedFilters) {
@@ -113,7 +141,11 @@ export default function Movies() {
         console.error('Failed to load saved filters:', e);
       }
     }
-    loadMovies();
+
+    // Only load movies if we didn't restore state
+    if (!savedBrowseState) {
+      loadMovies();
+    }
   }, []);
 
   // Watch for filter changes and reload
@@ -131,6 +163,55 @@ export default function Movies() {
       return () => clearTimeout(timeoutId);
     }
   }, [allMoviesFilters.minRating, allMoviesFilters.minVotes, allMoviesFilters.sortBy, allMoviesFilters.yearFrom, allMoviesFilters.yearTo, allMoviesFilters.selectedGenres, allMoviesFilters.excludeGenres]);
+
+  // Save browse state to sessionStorage when it changes
+  useEffect(() => {
+    if (restoringScroll.current || allMovies.length === 0) return;
+
+    const browseState = {
+      movies: allMovies,
+      page: allMoviesPage,
+      totalPages: allMoviesTotalPages,
+      totalResults: allMoviesTotalResults,
+      viewMode,
+      scrollY: window.scrollY
+    };
+
+    sessionStorage.setItem('moviesBrowseState', JSON.stringify(browseState));
+  }, [allMovies, allMoviesPage, allMoviesTotalPages, allMoviesTotalResults, viewMode]);
+
+  // Save scroll position on scroll events
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      if (restoringScroll.current) return;
+
+      const savedState = sessionStorage.getItem('moviesBrowseState');
+      if (savedState) {
+        try {
+          const state = JSON.parse(savedState);
+          state.scrollY = window.scrollY;
+          sessionStorage.setItem('moviesBrowseState', JSON.stringify(state));
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    };
+
+    const handleScroll = () => {
+      if (restoringScroll.current) return;
+      // Debounce scroll saves
+      if (!scrollPositionSaved.current) {
+        scrollPositionSaved.current = true;
+        setTimeout(() => {
+          saveScrollPosition();
+          scrollPositionSaved.current = false;
+        }, 200);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Function to load movies based on current filters
   const loadMovies = () => {

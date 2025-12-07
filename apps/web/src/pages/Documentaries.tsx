@@ -97,11 +97,39 @@ export default function Documentaries() {
   const API_BASE = 'http://localhost:3001/api/v1';
 
   const isInitialMount = React.useRef(true);
+  const restoringScroll = React.useRef(false);
+  const scrollPositionSaved = React.useRef(false);
 
   // Load documentaries on mount
   useEffect(() => {
     fetchGenres();
     setShowAllDocumentariesFilters(true);
+
+    // Try to restore browse state from sessionStorage
+    const savedBrowseState = sessionStorage.getItem('documentariesBrowseState');
+    if (savedBrowseState) {
+      try {
+        const { documentaries, page, totalPages, totalResults, viewMode: savedViewMode, scrollY } = JSON.parse(savedBrowseState);
+        restoringScroll.current = true;
+        setAllDocumentaries(documentaries || []);
+        setAllDocumentariesPage(page || 1);
+        setAllDocumentariesTotalPages(totalPages || 1);
+        setAllDocumentariesTotalResults(totalResults || 0);
+        setViewMode(savedViewMode || 'all-documentaries');
+
+        // Restore scroll position after a short delay to ensure content is rendered
+        setTimeout(() => {
+          if (typeof scrollY === 'number') {
+            window.scrollTo(0, scrollY);
+          }
+          restoringScroll.current = false;
+        }, 100);
+      } catch (e) {
+        console.error('Failed to restore browse state:', e);
+        restoringScroll.current = false;
+      }
+    }
+
     // Try to load saved filters from localStorage
     const savedFilters = localStorage.getItem('documentariesFilters');
     if (savedFilters) {
@@ -113,7 +141,11 @@ export default function Documentaries() {
         console.error('Failed to load saved filters:', e);
       }
     }
-    loadDocumentaries();
+
+    // Only load documentaries if we didn't restore state
+    if (!savedBrowseState) {
+      loadDocumentaries();
+    }
   }, []);
 
   // Watch for filter changes and reload
@@ -131,6 +163,55 @@ export default function Documentaries() {
       return () => clearTimeout(timeoutId);
     }
   }, [allDocumentariesFilters.minRating, allDocumentariesFilters.minVotes, allDocumentariesFilters.sortBy, allDocumentariesFilters.yearFrom, allDocumentariesFilters.yearTo, allDocumentariesFilters.selectedGenres, allDocumentariesFilters.excludeGenres]);
+
+  // Save browse state to sessionStorage when it changes
+  useEffect(() => {
+    if (restoringScroll.current || allDocumentaries.length === 0) return;
+
+    const browseState = {
+      documentaries: allDocumentaries,
+      page: allDocumentariesPage,
+      totalPages: allDocumentariesTotalPages,
+      totalResults: allDocumentariesTotalResults,
+      viewMode,
+      scrollY: window.scrollY
+    };
+
+    sessionStorage.setItem('documentariesBrowseState', JSON.stringify(browseState));
+  }, [allDocumentaries, allDocumentariesPage, allDocumentariesTotalPages, allDocumentariesTotalResults, viewMode]);
+
+  // Save scroll position on scroll events
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      if (restoringScroll.current) return;
+
+      const savedState = sessionStorage.getItem('documentariesBrowseState');
+      if (savedState) {
+        try {
+          const state = JSON.parse(savedState);
+          state.scrollY = window.scrollY;
+          sessionStorage.setItem('documentariesBrowseState', JSON.stringify(state));
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    };
+
+    const handleScroll = () => {
+      if (restoringScroll.current) return;
+      // Debounce scroll saves
+      if (!scrollPositionSaved.current) {
+        scrollPositionSaved.current = true;
+        setTimeout(() => {
+          saveScrollPosition();
+          scrollPositionSaved.current = false;
+        }, 200);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Function to load documentaries based on current filters
   const loadDocumentaries = () => {

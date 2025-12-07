@@ -10,7 +10,7 @@
 
 ### What's Working ✅
 - **Authentication** - Better Auth with email/password, sessions, protected routes
-- **TMDB Integration** - Movies, TV shows, documentaries browse with filters
+- **TMDB Integration** - Movies, TV shows, documentaries browse with filters and infinite scroll
 - **YouTube Integration** - Channel/playlist browse, multi-select, bookmarks, accurate counts
 - **BBC iPlayer** - 9000+ programmes, channel filters, expiry tracking
 - **SoundCloud** - Artist/track search, bookmarks (300-result limit)
@@ -20,6 +20,8 @@
 - **Presets System** - User-configurable download templates
 - **Media Library** - Browse, stream, search downloaded files
 - **Background Services** - tmux-based persistent services (qBittorrent, API, Web, Worker)
+- **Infinite Scroll** - Smooth browsing on Movies, TV Shows, Documentaries pages
+- **Jellyfin Plugins** - Intro Skipper, JellyScrub, TheTVDB, TMDb Box Sets (installed, restart required)
 
 ### Partially Working ⚠️
 - **Torrent Integration** - qBittorrent API works, but has critical database bug (see below)
@@ -139,7 +141,7 @@
 
 ---
 
-### Phase 3: Enhanced Content Discovery
+### Phase 3: Enhanced Content Discovery ⚠️ PARTIALLY COMPLETED
 **Goal:** Make finding content easier and more intuitive
 
 #### Tasks
@@ -149,9 +151,9 @@
   - [ ] Advanced filters accessible from search (genre, year, rating)
   - [ ] Search history and suggestions
   - [ ] "Similar to this" recommendations
-- [ ] **Better Browsing UX**
-  - [ ] Infinite scroll instead of pagination
-  - [ ] "Continue browsing" state persistence via sessionStorage
+- [x] **Better Browsing UX**
+  - [x] Infinite scroll instead of pagination - ✅ COMPLETED (Session 4)
+  - [x] "Continue browsing" state persistence via sessionStorage - ✅ COMPLETED (Session 6)
   - [ ] Quick filter sidebar (genre pills, year slider, rating filter)
   - [ ] Sort options more visible
 - [ ] **Content Discovery Features**
@@ -248,7 +250,91 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-07 (Session 3) ✅ COMPLETED
+### Current Session: 2025-12-07 (Session 6) ✅ COMPLETED
+**Focus:** Scroll Position Persistence ("Continue Browsing" State)
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Implemented scroll position persistence** for all browse pages
+  - Added sessionStorage-based state persistence
+  - Saves scroll position (window.scrollY) with debouncing (200ms)
+  - Saves browse state (movies/shows/docs, page, totalPages, totalResults, viewMode)
+  - Restores state and scroll position on component mount
+  - Prevents unnecessary API calls when restoring from cache
+  - Implemented for Movies.tsx, TVShows.tsx, and Documentaries.tsx
+
+**Implementation Details:**
+- Added refs: `restoringScroll`, `scrollPositionSaved` to track restoration state
+- Mount useEffect: Checks sessionStorage for saved state, restores if found
+- Browse state useEffect: Saves state when movies/shows/docs change
+- Scroll handler useEffect: Debounced scroll position saves
+- Uses setTimeout(100ms) to restore scroll after content renders
+
+**Files Modified:**
+- `apps/web/src/pages/Movies.tsx` - Added scroll persistence logic
+- `apps/web/src/pages/TVShows.tsx` - Added scroll persistence logic
+- `apps/web/src/pages/Documentaries.tsx` - Added scroll persistence logic
+
+**Next Session Start Point:**
+→ Phase 3 remaining tasks: Quick filter sidebar, Make sort options more visible
+
+---
+
+### Session: 2025-12-07 (Session 5) ✅ COMPLETED
+**Focus:** Jellyfin Plugin Installation
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Installed 4 Jellyfin plugins** via container filesystem access
+  - Intro Skipper v1.10.11.9 - Auto-skip TV show intros
+  - JellyScrub v2.1.0.0 - Video scrubbing with preview thumbnails
+  - TheTVDB v20.0.0.0 - Enhanced TV show metadata with better descriptions/artwork
+  - TMDb Box Sets v12.0.0.0 - Automatic movie collections/franchises
+  - Located Jellyfin running in Docker container (PID 576)
+  - Used nsenter to access container's /config/plugins directory
+  - Downloaded plugins from GitHub releases
+  - Copied DLL files and metadata to plugin directories
+  - Restart deferred (someone actively watching content)
+
+**Files Created:**
+- Container: `/config/plugins/IntroSkipper/IntroSkipper.dll`
+- Container: `/config/plugins/Jellyscrub/Jellyscrub.dll`
+- Container: `/config/plugins/TheTVDB/Jellyfin.Plugin.Tvdb.dll`, `Tvdb.Sdk.dll`, `meta.json`
+- Container: `/config/plugins/TMDbBoxSets/Jellyfin.Plugin.TMDbBoxSets.dll`, `meta.json`
+
+**Next Steps:**
+- Restart Jellyfin server when no one is watching
+- Configure plugins via Jellyfin Dashboard → Plugins
+- Test intro skipping on TV shows
+- Test JellyScrub preview thumbnails
+
+---
+
+### Session: 2025-12-07 (Session 4) ✅ COMPLETED
+**Focus:** Infinite Scroll Implementation
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Fixed infinite scroll** on Movies, TV Shows, and Documentaries pages
+  - Root cause: Backend parameter parsing bug (min_votes=0 treated as falsy)
+  - Fixed backend: Changed to explicit undefined checks in tmdb.ts
+  - Root cause: Duplicate useInfiniteScroll calls causing listener conflicts
+  - Fixed frontend: Consolidated to single hook per page with conditional logic
+  - Root cause: Container scroll instead of window scroll
+  - Fixed layout: Changed from overflow-y-auto to window scroll
+  - Made sidebar fixed, removed overflow constraint from main
+  - Performance: Reduced scroll batch from 20 pages (400 items) to 3 pages (60 items)
+  - Performance: Reduced initial load from 50 pages (1000 items) to 10 pages (200 items)
+  - UX: Fixed loading indicators to show during infinite scroll
+  - Cleanup: Removed all debugging console logs
+  - Commits: 6409652
+
+**Files Modified:**
+- Backend: `apps/api/src/routes/tmdb.ts` (parameter parsing fix)
+- Frontend: `apps/web/src/hooks/useInfiniteScroll.ts` (consolidated hook)
+- Frontend: `apps/web/src/pages/Movies.tsx`, `TVShows.tsx`, `Documentaries.tsx` (single hook, batch sizes)
+- Layout: `apps/web/src/components/layout/Layout.tsx` (window scroll, fixed sidebar)
+
+---
+
+### Session: 2025-12-07 (Session 3) ✅ COMPLETED
 **Focus:** Bug Fixes + Quality/Format Selection Feature
 **Status:** ✅ COMPLETED
 **Completed:**
@@ -513,9 +599,11 @@ Ocean Wisdom - Ting Dun Feat. Method Man:
 
 ## 🚀 IMMEDIATE ACTION ITEMS (Next 3 Tasks)
 
-1. **Create migration 007** - Fix qBittorrent database constraint
-2. **Test torrent download** - Verify end-to-end workflow works
-3. **Implement progress sync** - qBittorrent → MediaVault database
+Based on Phase 3 remaining tasks:
+
+1. **Quick filter sidebar** - Genre pills, year slider, rating filter for easier content discovery
+2. **Make sort options more visible** - Move sort dropdown to prominent position
+3. **Content Discovery Features** - Recommended/trending/popular aggregated views
 
 ---
 

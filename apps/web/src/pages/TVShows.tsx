@@ -98,6 +98,9 @@ export default function TVShows() {
 
   const API_BASE = 'http://localhost:3001/api/v1';
 
+  const restoringScroll = React.useRef(false);
+  const scrollPositionSaved = React.useRef(false);
+
   // Genre configuration with emojis - ordered by popularity
   const GENRE_CONFIG = [
     { id: 28, name: 'Action', emoji: '💥' },
@@ -111,6 +114,32 @@ export default function TVShows() {
   useEffect(() => {
     fetchGenres();
     setShowAllShowsFilters(true); // Show filters by default
+
+    // Try to restore browse state from sessionStorage
+    const savedBrowseState = sessionStorage.getItem('tvShowsBrowseState');
+    if (savedBrowseState) {
+      try {
+        const { shows, page, totalPages, totalResults, viewMode: savedViewMode, scrollY } = JSON.parse(savedBrowseState);
+        restoringScroll.current = true;
+        setAllShows(shows || []);
+        setAllShowsPage(page || 1);
+        setAllShowsTotalPages(totalPages || 1);
+        setAllShowsTotalResults(totalResults || 0);
+        setViewMode(savedViewMode || 'all-shows');
+
+        // Restore scroll position after a short delay to ensure content is rendered
+        setTimeout(() => {
+          if (typeof scrollY === 'number') {
+            window.scrollTo(0, scrollY);
+          }
+          restoringScroll.current = false;
+        }, 100);
+      } catch (e) {
+        console.error('Failed to restore browse state:', e);
+        restoringScroll.current = false;
+      }
+    }
+
     // Try to load saved filters from localStorage
     const savedFilters = localStorage.getItem('tvShowsFilters');
     if (savedFilters) {
@@ -122,8 +151,60 @@ export default function TVShows() {
         console.error('Failed to load saved filters:', e);
       }
     }
-    // Load shows with default/saved filters
-    loadShows();
+
+    // Only load shows if we didn't restore state
+    if (!savedBrowseState) {
+      loadShows();
+    }
+  }, []);
+
+  // Save browse state to sessionStorage when it changes
+  useEffect(() => {
+    if (restoringScroll.current || allShows.length === 0) return;
+
+    const browseState = {
+      shows: allShows,
+      page: allShowsPage,
+      totalPages: allShowsTotalPages,
+      totalResults: allShowsTotalResults,
+      viewMode,
+      scrollY: window.scrollY
+    };
+
+    sessionStorage.setItem('tvShowsBrowseState', JSON.stringify(browseState));
+  }, [allShows, allShowsPage, allShowsTotalPages, allShowsTotalResults, viewMode]);
+
+  // Save scroll position on scroll events
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      if (restoringScroll.current) return;
+
+      const savedState = sessionStorage.getItem('tvShowsBrowseState');
+      if (savedState) {
+        try {
+          const state = JSON.parse(savedState);
+          state.scrollY = window.scrollY;
+          sessionStorage.setItem('tvShowsBrowseState', JSON.stringify(state));
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    };
+
+    const handleScroll = () => {
+      if (restoringScroll.current) return;
+      // Debounce scroll saves
+      if (!scrollPositionSaved.current) {
+        scrollPositionSaved.current = true;
+        setTimeout(() => {
+          saveScrollPosition();
+          scrollPositionSaved.current = false;
+        }, 200);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Function to load shows based on current filters
