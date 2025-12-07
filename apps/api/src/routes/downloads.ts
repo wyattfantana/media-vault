@@ -127,7 +127,10 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
       options = {},
       category = 'movies',
       customFolder,
-      organizeByUploader = false
+      organizeByUploader = false,
+      quality = 'best',
+      videoFormat = 'mp4',
+      audioFormat = 'mp3'
     } = req.body;
 
     if (!url) {
@@ -197,7 +200,10 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
         metadata: JSON.stringify(metadata),
         category,
         custom_folder: customFolder,
-        organize_by_uploader: organizeByUploader
+        organize_by_uploader: organizeByUploader,
+        quality,
+        video_format: videoFormat,
+        audio_format: audioFormat
       })
       .returning('*')
       .execute();

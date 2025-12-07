@@ -106,27 +106,51 @@ export class YtDlpService extends EventEmitter {
     options: {
       format?: string;
       outputTemplate?: string;
-      quality?: 'best' | 'worst' | '720p' | '1080p';
+      quality?: 'best' | '2160p' | '1440p' | '1080p' | '720p' | '480p' | '360p' | 'worst' | 'audio';
+      audioFormat?: 'mp3' | 'm4a' | 'aac' | 'opus' | 'flac';
+      videoFormat?: 'mp4' | 'webm' | 'mkv';
     } = {}
   ): Promise<{ outputPath: string; info: VideoInfo }> {
+    // If audio-only is requested, use downloadAudio instead
+    if (options.quality === 'audio') {
+      return this.downloadAudio(url, {
+        format: options.audioFormat || 'mp3',
+        quality: 'best'
+      });
+    }
+
     // Ensure download directory exists
     await fs.mkdir(this.downloadDir, { recursive: true });
 
     const outputTemplate = options.outputTemplate ||
       path.join(this.downloadDir, '%(title)s-%(id)s.%(ext)s');
 
-    // Build format string based on quality
+    // Build format string based on quality and format preference
     let formatString = options.format;
+    const preferredFormat = options.videoFormat || 'mp4';
+
     if (!formatString && options.quality) {
       switch (options.quality) {
         case 'best':
-          formatString = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best';
+          formatString = `bestvideo[ext=${preferredFormat}]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=${preferredFormat}]/best`;
+          break;
+        case '2160p':
+          formatString = `bestvideo[height<=2160][ext=${preferredFormat}]+bestaudio[ext=m4a]/bestvideo[height<=2160]+bestaudio/best[height<=2160][ext=${preferredFormat}]/best`;
+          break;
+        case '1440p':
+          formatString = `bestvideo[height<=1440][ext=${preferredFormat}]+bestaudio[ext=m4a]/bestvideo[height<=1440]+bestaudio/best[height<=1440][ext=${preferredFormat}]/best`;
           break;
         case '1080p':
-          formatString = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best';
+          formatString = `bestvideo[height<=1080][ext=${preferredFormat}]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080][ext=${preferredFormat}]/best`;
           break;
         case '720p':
-          formatString = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best';
+          formatString = `bestvideo[height<=720][ext=${preferredFormat}]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720][ext=${preferredFormat}]/best`;
+          break;
+        case '480p':
+          formatString = `bestvideo[height<=480][ext=${preferredFormat}]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480][ext=${preferredFormat}]/best`;
+          break;
+        case '360p':
+          formatString = `bestvideo[height<=360][ext=${preferredFormat}]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360][ext=${preferredFormat}]/best`;
           break;
         case 'worst':
           formatString = 'worst';
@@ -730,11 +754,15 @@ export class YtDlpService extends EventEmitter {
   async downloadAudio(
     url: string,
     options: {
-      format?: 'mp3' | 'aac' | 'm4a' | 'opus';
+      format?: 'mp3' | 'aac' | 'm4a' | 'opus' | 'flac';
       quality?: 'best' | 'worst';
+      outputTemplate?: string;
     } = {}
   ): Promise<{ outputPath: string; info: VideoInfo }> {
-    const outputTemplate = path.join(
+    // Ensure download directory exists
+    await fs.mkdir(this.downloadDir, { recursive: true });
+
+    const outputTemplate = options.outputTemplate || path.join(
       this.downloadDir,
       '%(title)s-%(id)s.%(ext)s'
     );

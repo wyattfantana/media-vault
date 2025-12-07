@@ -126,7 +126,9 @@ export class DownloadWorker {
       // Download using appropriate service
       if (download.downloader === 'yt-dlp') {
         const result = await ytdlpService.downloadVideo(download.url, {
-          quality: 'best'
+          quality: (download.quality || 'best') as any,
+          videoFormat: (download.video_format || 'mp4') as any,
+          audioFormat: (download.audio_format || 'mp3') as any
         });
         outputPath = result.outputPath;
         duration = Math.floor(result.info.duration || 0);

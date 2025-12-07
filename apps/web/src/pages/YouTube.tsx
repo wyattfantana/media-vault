@@ -50,6 +50,9 @@ export function YouTube() {
   const [category, setCategory] = useState('movies');
   const [customFolder, setCustomFolder] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [quality, setQuality] = useState('best');
+  const [videoFormat, setVideoFormat] = useState('mp4');
+  const [audioFormat, setAudioFormat] = useState('mp3');
   const [loadingAll, setLoadingAll] = useState(false);
   const [loadAllProgress, setLoadAllProgress] = useState(0);
   const [showLoadAllConfirm, setShowLoadAllConfirm] = useState(false);
@@ -667,16 +670,23 @@ export function YouTube() {
           url: selectedVideo.url,
           downloader: 'yt-dlp',
           category,
-          customFolder: category === 'custom' ? customFolder : undefined
+          customFolder: category === 'custom' ? customFolder : undefined,
+          quality,
+          videoFormat,
+          audioFormat
         })
       });
 
       if (res.ok) {
-        alert(`Download queued: ${selectedVideo.title}\n\nThe download will start automatically.`);
+        const qualityText = quality === 'audio' ? `${audioFormat.toUpperCase()} audio` : `${quality} ${videoFormat.toUpperCase()}`;
+        alert(`Download queued: ${selectedVideo.title}\n\nQuality: ${qualityText}\n\nThe download will start automatically.`);
         setShowFormatPreview(false);
         setSelectedVideo(null);
         setCategory('movies');
         setCustomFolder('');
+        setQuality('best');
+        setVideoFormat('mp4');
+        setAudioFormat('mp3');
       } else {
         const error = await res.json();
         alert(`Failed to queue download: ${error.error}`);
@@ -1159,6 +1169,60 @@ export function YouTube() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   required
                 />
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Quality
+              </label>
+              <select
+                value={quality}
+                onChange={(e) => setQuality(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              >
+                <option value="best">Best Quality</option>
+                <option value="2160p">2160p (4K)</option>
+                <option value="1440p">1440p (2K)</option>
+                <option value="1080p">1080p (Full HD)</option>
+                <option value="720p">720p (HD)</option>
+                <option value="480p">480p (SD)</option>
+                <option value="360p">360p</option>
+                <option value="audio">Audio Only</option>
+              </select>
+            </div>
+
+            {quality === 'audio' ? (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Audio Format
+                </label>
+                <select
+                  value={audioFormat}
+                  onChange={(e) => setAudioFormat(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                >
+                  <option value="mp3">MP3 (Most Compatible)</option>
+                  <option value="m4a">M4A (iTunes/Apple)</option>
+                  <option value="aac">AAC</option>
+                  <option value="opus">Opus (Best Quality/Size)</option>
+                  <option value="flac">FLAC (Lossless)</option>
+                </select>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Video Format
+                </label>
+                <select
+                  value={videoFormat}
+                  onChange={(e) => setVideoFormat(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                >
+                  <option value="mp4">MP4 (Most Compatible)</option>
+                  <option value="webm">WebM (Modern)</option>
+                  <option value="mkv">MKV (High Quality)</option>
+                </select>
               </div>
             )}
 
