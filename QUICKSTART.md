@@ -78,6 +78,7 @@ psql mediavault < src/migrations/002_create_media_tables.sql
 psql mediavault < src/migrations/003_create_bookmarks_table.sql
 psql mediavault < src/migrations/004_create_presets_table.sql
 psql mediavault < src/migrations/005_add_platform_to_presets.sql
+psql mediavault < src/migrations/006_add_jellyfin_formatting_columns.sql
 ```
 
 ## 5. Start MediaVault
@@ -165,7 +166,6 @@ ps aux | grep -E "(node|qbittorrent)" | grep -v grep
 
 ## Next Steps
 
-- See [README.md](./README.md) for full documentation
-- See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for technical details
+- See [README.md](./README.md) for full documentation and technical details
 - Configure download paths in qBittorrent Web UI
 - Add your TMDB API key for movie/TV browsing

@@ -416,15 +416,15 @@ export function Downloads() {
             <div key={download.id} className="card">
               {/* Thumbnail */}
               {download.thumbnail ? (
-                <div className="aspect-video bg-gray-200 rounded-lg mb-3 overflow-hidden">
+                <div className="aspect-[2/3] bg-gray-200 rounded-lg mb-3 overflow-hidden">
                   <img
                     src={download.thumbnail}
                     alt={download.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
               ) : (
-                <div className="aspect-video bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                <div className="aspect-[2/3] bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
                   <svg className="w-16 h-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                   </svg>
@@ -521,7 +521,7 @@ export function Downloads() {
                         <img
                           src={download.thumbnail}
                           alt={download.title}
-                          className="w-16 h-9 object-cover rounded"
+                          className="w-12 h-18 object-contain rounded bg-gray-100"
                         />
                       )}
                       <div className="min-w-0 flex-1">

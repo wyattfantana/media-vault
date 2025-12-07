@@ -226,7 +226,7 @@ export class TMDBService {
   /**
    * Get popular movies
    */
-  async getPopularMovies(page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number }> {
+  async getPopularMovies(page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       const response = await axios.get(`${TMDB_BASE_URL}/movie/popular`, {
         params: {
@@ -237,7 +237,8 @@ export class TMDBService {
 
       return {
         results: response.data.results,
-        total_pages: response.data.total_pages
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
       };
     } catch (error) {
       console.error('[TMDB] Popular movies error:', error);
@@ -248,7 +249,7 @@ export class TMDBService {
   /**
    * Get top rated movies
    */
-  async getTopRatedMovies(page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number }> {
+  async getTopRatedMovies(page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       const response = await axios.get(`${TMDB_BASE_URL}/movie/top_rated`, {
         params: {
@@ -259,7 +260,8 @@ export class TMDBService {
 
       return {
         results: response.data.results,
-        total_pages: response.data.total_pages
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
       };
     } catch (error) {
       console.error('[TMDB] Top rated movies error:', error);
@@ -270,7 +272,7 @@ export class TMDBService {
   /**
    * Get now playing movies (currently in theaters)
    */
-  async getNowPlayingMovies(page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number }> {
+  async getNowPlayingMovies(page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       const response = await axios.get(`${TMDB_BASE_URL}/movie/now_playing`, {
         params: {
@@ -281,7 +283,8 @@ export class TMDBService {
 
       return {
         results: response.data.results,
-        total_pages: response.data.total_pages
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
       };
     } catch (error) {
       console.error('[TMDB] Now playing movies error:', error);
@@ -292,7 +295,7 @@ export class TMDBService {
   /**
    * Get upcoming movies
    */
-  async getUpcomingMovies(page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number }> {
+  async getUpcomingMovies(page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       const response = await axios.get(`${TMDB_BASE_URL}/movie/upcoming`, {
         params: {
@@ -303,7 +306,8 @@ export class TMDBService {
 
       return {
         results: response.data.results,
-        total_pages: response.data.total_pages
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
       };
     } catch (error) {
       console.error('[TMDB] Upcoming movies error:', error);
@@ -410,11 +414,11 @@ export class TMDBService {
     page?: number;
     min_rating?: number;
     min_votes?: number;
-  } = {}): Promise<{ results: TMDBMovie[]; total_pages: number }> {
+  } = {}): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
-      // For top-rated sorting, use stricter vote requirements
-      const minVotes = filters.min_votes || (filters.sort_by === 'vote_average.desc' ? 1000 : 500);
-      const minRating = filters.min_rating || 0;
+      // Only apply minimum vote requirements if not explicitly set to 0
+      const minVotes = filters.min_votes !== undefined ? filters.min_votes : (filters.sort_by === 'vote_average.desc' ? 1000 : 500);
+      const minRating = filters.min_rating !== undefined ? filters.min_rating : 0;
 
       const response = await axios.get(`${TMDB_BASE_URL}/discover/movie`, {
         params: {
@@ -423,15 +427,16 @@ export class TMDBService {
           primary_release_year: filters.year,
           sort_by: filters.sort_by || 'vote_average.desc',
           page: filters.page || 1,
-          'vote_average.gte': minRating,
-          'vote_count.gte': minVotes,
+          'vote_average.gte': minRating > 0 ? minRating : undefined,
+          'vote_count.gte': minVotes > 0 ? minVotes : undefined,
           include_adult: false
         }
       });
 
       return {
         results: response.data.results,
-        total_pages: response.data.total_pages
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
       };
     } catch (error) {
       console.error('[TMDB] Discover movies error:', error);
@@ -516,6 +521,97 @@ export class TMDBService {
     } catch (error) {
       console.error('[TMDB] TV genres error:', error);
       throw new Error('Failed to get TV genres');
+    }
+  }
+
+  /**
+   * Find thumbnail for a title (searches both movies and TV shows)
+   * Returns the best match thumbnail URL or null if not found
+   */
+  async findThumbnailForTitle(title: string): Promise<string | null> {
+    if (!this.isConfigured()) {
+      return null;
+    }
+
+    try {
+      // First, extract year before cleaning (year is often in parentheses)
+      const yearMatch = title.match(/\(?(19\d{2}|20\d{2})\)?/);
+      const year = yearMatch ? parseInt(yearMatch[1]) : null;
+
+      // Special handling for common shows
+      let cleanTitle = title;
+
+      // Law & Order SVU variations
+      if (/Law\s+(and|&)\s+Order.*SVU/i.test(title)) {
+        cleanTitle = 'Law & Order: Special Victims Unit';
+      } else {
+        // Clean up title - remove common torrent indicators
+        cleanTitle = title
+        .replace(/\.(mkv|mp4|avi|mov|wmv|flv|webm)$/i, '') // Remove extensions
+        .replace(/\b(720p|1080p|2160p|4k|HDTV|WEB-DL|BluRay|BRRip|WEBRip|x264|x265|HEVC|AAC|AC3|DTS|H\.?265|H\.?264)\b/gi, '') // Remove quality indicators
+        .replace(/\b(YIFY|YTS|RARBG|ETRG|Ozlem|EAC3)\b/gi, '') // Remove release groups
+        .replace(/\d+(\.\d+)?\s?(GB|MB|KB)/gi, '') // Remove file sizes
+        .replace(/\bS\d{2}(-S\d{2})?\b/gi, '') // Remove season ranges like S01-S26
+        .replace(/\b(ongoing)\b/gi, '') // Remove "ongoing"
+        .replace(/\[.*?\]/g, '') // Remove [tags]
+        .replace(/\((?!.*\d{4}).*?\)/g, '') // Remove (tags) but keep (year) - only remove if no 4-digit number inside
+        .replace(/\(\s*\)/g, '') // Remove empty parentheses
+        .replace(/\s*-\s*$/gi, '') // Remove trailing dashes
+        .replace(/\s*-\s*-\s*/g, ' - ') // Normalize multiple dashes to single
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+      }
+
+      // Determine if it's likely a TV show
+      const isTVShow = /\b(S\d{2}|Season|Episode|ongoing|series|SVU)\b/i.test(title);
+
+      if (isTVShow) {
+        // Search TV shows first for TV content
+        const tvResults = await this.searchTVShows(cleanTitle, 1);
+        if (tvResults.results.length > 0) {
+          const bestMatch = year
+            ? tvResults.results.find(tv => tv.first_air_date && tv.first_air_date.startsWith(year.toString()))
+            : tvResults.results[0];
+
+          const show = bestMatch || tvResults.results[0];
+          if (show.poster_path) {
+            return this.getImageUrl(show.poster_path, 'w200');
+          }
+        }
+      }
+
+      // Search movies (or fallback if TV didn't find anything)
+      const movieResults = await this.searchMovies(cleanTitle, 1);
+      if (movieResults.results.length > 0) {
+        const bestMatch = year
+          ? movieResults.results.find(m => m.release_date && m.release_date.startsWith(year.toString()))
+          : movieResults.results[0];
+
+        const movie = bestMatch || movieResults.results[0];
+        if (movie.poster_path) {
+          return this.getImageUrl(movie.poster_path, 'w200');
+        }
+      }
+
+      // If movie search failed and we haven't tried TV yet, try it now
+      if (!isTVShow) {
+        const tvResults = await this.searchTVShows(cleanTitle, 1);
+        if (tvResults.results.length > 0) {
+          const bestMatch = year
+            ? tvResults.results.find(tv => tv.first_air_date && tv.first_air_date.startsWith(year.toString()))
+            : tvResults.results[0];
+
+          const show = bestMatch || tvResults.results[0];
+          if (show.poster_path) {
+            return this.getImageUrl(show.poster_path, 'w200');
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[TMDB] Error finding thumbnail for title:', title, error);
+      return null;
     }
   }
 }

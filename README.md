@@ -4,13 +4,17 @@
 
 MediaVault is a powerful, self-hosted application for downloading and organizing media from BBC iPlayer, YouTube, and social media platforms. Built with a modern tech stack and designed for ease of use.
 
+**Current Status:** ✅ Core functionality working - downloads, streaming, and background services operational
+
+---
+
 ## 🎬 Features
 
 ### Content Sources
-- **TMDB Movie Database** - Browse 200,000+ movies and TV shows with ratings, posters, and trailers
-  - 🎬 Movies - Discover trending, top-rated, and genre-specific films
+- **TMDB Movie Database** - 
+  - 🎬 Movies - Browse 1,000,000+ movies and TV shows with ratings, posters, and trailers
   - 📺 TV Shows - Browse 200,000+ series by popularity, genre, and release date
-  - 🎞️ Documentaries - Specialized categories (History, War, Crime, Music, Drama)
+  - 🎞️ Documentaries - Browse 200,000+ documentaries (History, War, Crime, Music, Drama)
   - ⭐ Advanced Filtering - Filter by rating, votes, year range, and multiple genres
   - 🧲 **Torrent Integration** - One-click access to curated torrent sites (1337x, PirateBay, Ext.to)
 - **Torrent Downloads** - Full qBittorrent integration for magnet links and .torrent files
@@ -68,14 +72,19 @@ MediaVault is a powerful, self-hosted application for downloading and organizing
 - Download history with status tracking
 - Category-based organization (Movies, TV, Music, Documentaries, Custom)
 
+---
+
 ## 🛠️ Tech Stack
 
-- **Frontend:** React + TypeScript + Vite + TailwindCSS + Lucide Icons
-- **Backend:** Express + TypeScript + PostgreSQL + Better Auth
-- **Database:** PostgreSQL with TypeORM
+- **Frontend:** React + TypeScript + Vite (port 5173) + TailwindCSS + Lucide Icons
+- **Backend:** Express + TypeScript + PostgreSQL (port 3001)
+- **Database:** PostgreSQL (port 5432) with TypeORM
+- **Authentication:** Better Auth (email/password + session management)
 - **APIs:** TMDB API (movies/TV metadata), YouTube Data API, BBC iPlayer API
-- **Tools:** get_iplayer, yt-dlp
+- **Tools:** get_iplayer, yt-dlp, qBittorrent-nox
 - **Architecture:** Turborepo monorepo
+
+---
 
 ## 📋 Prerequisites
 
@@ -117,6 +126,8 @@ qbittorrent-nox --webui-port=8080 &
 # Configure download path in Web UI settings
 ```
 
+---
+
 ## 🏁 Quick Start
 
 ### 1. Clone and Install
@@ -135,11 +146,16 @@ createdb mediavault
 
 # Run migrations
 cd apps/api
+
+# Migration 1: Better Auth tables
 npx tsx src/scripts/migrate-better-auth.ts
+
+# Migration 2-6: MediaVault tables
 psql mediavault < src/migrations/002_create_media_tables.sql
 psql mediavault < src/migrations/003_create_bookmarks_table.sql
 psql mediavault < src/migrations/004_create_presets_table.sql
 psql mediavault < src/migrations/005_add_platform_to_presets.sql
+psql mediavault < src/migrations/006_add_jellyfin_formatting_columns.sql
 ```
 
 Or use the setup script:
@@ -178,6 +194,10 @@ QBITTORRENT_HOST=localhost
 QBITTORRENT_PORT=8080
 QBITTORRENT_USERNAME=admin
 QBITTORRENT_PASSWORD=adminadmin
+
+# Paths
+DOWNLOAD_DIR=/home/beerm/media-vault/downloads
+YTDLP_PATH=/home/beerm/bin/yt-dlp
 ```
 
 **apps/web/.env:**
@@ -239,26 +259,120 @@ npx turbo dev --filter=starter-api --filter=starter-web --filter=worker
 # Note: Use turbo filters to avoid starting the desktop app (requires Rust)
 ```
 
+---
+
 ## 🎯 Usage
 
 1. **Sign Up/Sign In** - Create your account at http://localhost:5173
-2. **Browse iPlayer** - Click "Browse iPlayer" to search BBC programmes
-3. **Download Media** - Click "Download" on any programme or use the Downloads page for custom URLs
-4. **Manage Downloads** - View progress and history in the Downloads page
-5. **Access Media** - Files are organized in the `downloads/` folder by category
+2. **Browse Content**:
+   - **Browse iPlayer** - Search 9000+ BBC programmes
+   - **Discover** - Browse TMDB movies/TV shows, search YouTube channels
+   - **Downloads** - Paste custom URLs from any supported platform
+3. **Manage Downloads** - View progress and history in the Downloads page
+4. **Access Media** - Files are organized in the `downloads/` folder by category
 
-## 📁 Folder Structure
+---
+
+## 📁 Project Structure
 
 ```
-downloads/
-├── Movies/
-├── TV/
-├── Music/
-├── Documentaries/
-└── [Custom Folders]/
+/home/beerm/media-vault/
+├── apps/
+│   ├── api/                    # Express backend (port 3001)
+│   │   ├── src/
+│   │   │   ├── routes/         # API endpoints
+│   │   │   │   ├── downloads.ts
+│   │   │   │   ├── media.ts
+│   │   │   │   └── auth.ts
+│   │   │   ├── services/       # Download services
+│   │   │   │   ├── ytdlp.service.ts
+│   │   │   │   └── get-iplayer.service.ts
+│   │   │   ├── workers/        # Background jobs
+│   │   │   │   └── download.worker.ts
+│   │   │   ├── migrations/     # Database migrations
+│   │   │   ├── data-source.ts  # TypeORM config
+│   │   │   └── index.ts        # Server entry
+│   │   └── package.json
+│   └── web/                    # React frontend (port 5173)
+│       ├── src/
+│       │   ├── pages/
+│       │   │   ├── Dashboard.tsx
+│       │   │   ├── Downloads.tsx
+│       │   │   ├── Browse.tsx
+│       │   │   └── Media.tsx
+│       │   └── App.tsx
+│       └── package.json
+├── downloads/                  # Downloaded media files
+│   ├── Movies/
+│   ├── TV/
+│   ├── Music/
+│   ├── Documentaries/
+│   └── [Custom Folders]/
+└── docker-compose.yml          # PostgreSQL container
 ```
 
-Perfect for scanning into Jellyfin or other media servers!
+---
+
+## 📡 API Endpoints
+
+### Authentication
+- `POST /api/auth/sign-up` - Create account
+- `POST /api/auth/sign-in` - Login
+- `GET /api/auth/get-session` - Get current session
+
+### TMDB
+- `GET /api/v1/tmdb/trending/movie` - Trending movies
+- `GET /api/v1/tmdb/trending/tv` - Trending TV shows
+- `GET /api/v1/tmdb/discover/movies?genre=99` - Discover with filters
+- `GET /api/v1/tmdb/search/movies?q=query` - Search movies
+- `GET /api/v1/tmdb/search/tv?q=query` - Search TV shows
+
+### Downloads
+- `GET /api/v1/downloads` - List downloads
+- `GET /api/v1/downloads/:id` - Get download details
+- `POST /api/v1/downloads` - Create new download
+- `DELETE /api/v1/downloads/:id` - Delete download
+- `GET /api/v1/downloads/search/video` - Get video info
+- `GET /api/v1/downloads/search/iplayer` - Search BBC iPlayer
+- `GET /api/v1/downloads/status` - Check downloader status
+
+### Media
+- `GET /api/v1/media` - List media (paginated, filtered, searchable)
+- `GET /api/v1/media/:id` - Get media details
+- `GET /api/v1/media/:id/stream` - Stream media file
+- `GET /api/v1/media/stats` - Get media statistics
+- `PUT /api/v1/media/:id` - Update media metadata
+- `DELETE /api/v1/media/:id?deleteFile=true` - Delete media
+
+### YouTube
+- `GET /api/v1/youtube/channel/:id` - Get channel info and videos
+
+### Bookmarks
+- `GET /api/v1/bookmarks` - List bookmarks
+- `POST /api/v1/bookmarks` - Create bookmark
+- `DELETE /api/v1/bookmarks/:id` - Delete bookmark
+
+### Presets
+- `GET /api/v1/presets` - List download presets
+- `POST /api/v1/presets` - Create preset
+- `DELETE /api/v1/presets/:id` - Delete preset
+
+### Health
+- `GET /health` - System health check
+
+---
+
+## 🐛 Known Limitations
+
+- UK commercial broadcasters (Channel 4, ITVX, My5) are DRM-protected and cannot be downloaded
+- Some international broadcasters have broken extractors in yt-dlp
+- **Rumble temporarily limited** - Anti-bot protection blocking automated access (awaiting yt-dlp update)
+- Currently focused on reliable sources: BBC iPlayer, YouTube, and social media
+- No concurrent downloads - worker processes one at a time
+- Cannot cancel in-progress downloads (can delete pending)
+- Age-restricted YouTube videos require cookie authentication
+
+---
 
 ## 🔐 Authentication
 
@@ -267,91 +381,162 @@ Perfect for scanning into Jellyfin or other media servers!
 - Protected routes (must be logged in to download)
 - User-specific download history
 
-## 📡 API Endpoints
+---
 
-- **TMDB:**
-  - `GET /api/v1/tmdb/trending/movie` - Trending movies
-  - `GET /api/v1/tmdb/trending/tv` - Trending TV shows
-  - `GET /api/v1/tmdb/discover/movies?genre=99` - Discover with filters
-  - `GET /api/v1/tmdb/search/movies?q=query` - Search movies
-  - `GET /api/v1/tmdb/search/tv?q=query` - Search TV shows
-- **Downloads:** `GET/POST /api/v1/downloads`
-- **BBC iPlayer:** `GET /api/v1/iplayer/search?query=...`
-- **YouTube:** `GET /api/v1/youtube/channel/:id`
-- **Bookmarks:** `GET/POST/DELETE /api/v1/bookmarks`
-- **Presets:** `GET/POST/DELETE /api/v1/presets`
+## 🚀 Background Service Architecture
 
-## 🚧 Roadmap
+### Services Running
+- **qBittorrent**: Port 8080 (tmux session: qbittorrent)
+- **API**: Port 3001 (tmux session: mediavault)
+- **Web**: Port 5173 (tmux session: mediavault)
+- **Worker**: Background process (tmux session: mediavault)
+- **PostgreSQL**: Port 5432 (systemd service)
 
-### ✅ Completed
-- **TMDB Integration** - Browse movies, TV shows, and documentaries with full metadata
-  - Genre-based filtering and browsing
-  - IMDb rating enrichment
-  - Netflix-style UI with posters and backdrops
-  - Advanced filters (rating, votes, year, sort options)
-  - **Torrent site integration** - One-click access to 5 popular torrent sites from movie/TV/doc cards
-- **qBittorrent Integration** - Full torrent download support
-  - Automatic magnet link detection and handling
-  - Web API integration for torrent management
-  - Real-time progress tracking
-  - Category-based organization with custom save paths
-- **Jellyfin Auto-Formatting** - Smart filename detection and formatting
-  - Inline format preview in download modal (no separate popups)
-  - Automatic TV show detection (S01E01 patterns)
-  - Movie/documentary formatting with year extraction
-  - TMDB metadata enrichment for accurate titles
-  - Jellyfin-compatible folder structure generation
-- BBC iPlayer integration with 9000+ programmes
-- YouTube channel/playlist browsing with pagination and accurate video counts
-- Multi-select and bulk download
-- SoundCloud, TikTok, Reddit, Twitch support
-- Category-based organization (Movies, TV, Music, Documentaries)
-- Download queue with background worker
-- **Favorites/Bookmarks System** - Save YouTube channels and playlists with smart URL matching
-- **Platform-Specific Presets** - Save download settings per platform (e.g., audio-only for SoundCloud)
-- **Discover Tab** - Unified browsing interface with persistent tabs across all platforms
-- **All Platforms Feed** - Trending content from YouTube, SoundCloud, BBC iPlayer in one place
-- Queue Management Dashboard with real-time progress tracking
-- Download History with grid/table view modes
+### How Downloads Work
 
-### 🚀 In Progress
-- **Jellyfin Library Sync** - Automatic media library synchronization
-  - Path configuration for MediaVault downloads folder
-  - Auto-scan on download completion
-- **Torrent Progress Sync** - Real-time qBittorrent progress to MediaVault database
-- Enhanced Unified Search - Search across all platforms simultaneously
-- Smart Organization - Duplicate detection, smart categorization
-- Statistics Dashboard - Analytics and usage stats
-- Media Library Browser - View and organize downloaded media
+```
+1. User pastes URL in frontend
+2. POST /api/v1/downloads
+   ↓
+3. Backend fetches video info via yt-dlp
+   ↓
+4. Creates download record (status: pending)
+   ↓
+5. Download worker picks it up (every 5 seconds)
+   ↓
+6. Worker marks as "downloading" and calls yt-dlp
+   ↓
+7. yt-dlp downloads to /downloads/[category]/[formatted-name]
+   ↓
+8. Worker updates progress in database
+   ↓
+9. On completion: status=completed, creates media entry
+   ↓
+10. User can stream from /api/v1/media/:id/stream
+```
 
-### 📋 Planned
-- **Torrent Management UI** - Show download/upload speeds, pause/resume from MediaVault
-- **Auto-seeding controls** - Stop seeding after X hours or ratio
-- **qBittorrent systemd service** - Auto-start on boot
-- Notification system for completed downloads
-- Media player integration for in-app playback
-- Scheduled downloads
-- Auto-update for bookmarked channels
-- Advanced filtering and sorting
-- Mobile-responsive improvements
+### Download Worker
+- Located at: `apps/api/src/workers/download.worker.ts`
+- Polls database every 5 seconds for `status='pending'`
+- Processes one download at a time sequentially
+- Emits progress events that update the database
+- Creates media entry automatically on successful download
 
-## 🐛 Known Limitations
+---
 
-- UK commercial broadcasters (Channel 4, ITVX, My5) are DRM-protected and cannot be downloaded
-- Some international broadcasters have broken extractors in yt-dlp
-- **Rumble temporarily limited** - Anti-bot protection blocking automated access (awaiting yt-dlp update)
-- Currently focused on reliable sources: BBC iPlayer, YouTube, and social media
+## 🔧 Troubleshooting
+
+### Downloads Not Starting
+**Symptom:** Download stuck at 0%, status shows "downloading"
+**Cause:** Worker not picking up the download
+**Fix:**
+```sql
+UPDATE downloads
+SET status = 'pending', started_at = NULL
+WHERE id = 'download-id-here';
+```
+
+### Port Already in Use
+**Symptom:** `EADDRINUSE: address already in use :::3001`
+**Fix:**
+```bash
+lsof -ti:3001 | xargs kill -9 2>/dev/null
+```
+
+### Database Connection Failed
+**Symptom:** Cannot connect to PostgreSQL
+**Fix:**
+```bash
+cd /home/beerm/media-vault
+docker compose down
+docker compose up -d
+```
+
+### yt-dlp Not Found
+**Symptom:** Downloads fail with "command not found"
+**Fix:**
+```bash
+# Check if yt-dlp exists
+ls -la /home/beerm/bin/yt-dlp
+
+# Update if needed
+sudo wget -O /home/beerm/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
+sudo chmod a+rx /home/beerm/bin/yt-dlp
+```
+
+### Services Not Starting
+**Symptom:** tmux sessions not running
+**Fix:**
+```bash
+# Check running sessions
+tmux ls
+
+# Restart all services
+~/start-mediavault.sh
+```
+
+---
+
+## 📊 Quick Commands Reference
+
+### Database
+```bash
+# Connect to database
+PGPASSWORD=mediavault123 psql -h localhost -U mediavault -d mediavault
+
+# Check downloads
+SELECT id, title, status, progress FROM downloads ORDER BY created_at DESC;
+
+# Reset stuck download
+UPDATE downloads SET status = 'pending', started_at = NULL WHERE id = 'xxx';
+
+# View media
+SELECT id, title, media_type, file_size/1024/1024 as size_mb FROM media;
+```
+
+### Server Management
+```bash
+# Kill all dev servers
+pkill -f "npm run dev"
+
+# View logs
+tmux attach -t mediavault
+tmux attach -t qbittorrent
+
+# Stop services
+tmux kill-session -t mediavault
+tmux kill-session -t qbittorrent
+```
+
+### File Management
+```bash
+# List downloads
+ls -lh /home/beerm/media-vault/downloads/*/*
+
+# Check disk usage
+du -sh /home/beerm/media-vault/downloads/
+
+# Find large files
+find /home/beerm/media-vault/downloads -type f -size +500M -exec ls -lh {} \;
+```
 
 ## 📄 License
 
 MIT License - Feel free to use and modify!
 
+---
+
 ## 🙏 Credits
 
 - **get_iplayer** - BBC iPlayer downloader
 - **yt-dlp** - Universal video downloader
+- **qBittorrent** - Torrent client
+- **TMDB** - Movie database
 - Built with Better Auth, TypeORM, React, and Turborepo
 
 ---
 
 **Made with ❤️ for media enthusiasts who want control over their content**
+
+**Last Updated:** 2025-12-07
+**Status:** Active Development - All Core Features Operational

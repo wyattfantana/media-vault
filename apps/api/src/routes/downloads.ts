@@ -424,6 +424,11 @@ downloadsRouter.post('/format-preview', requireAuth, async (req, res) => {
       formatted = await jellyfinFormatter.formatTVShow(filename, undefined, searchTMDB);
     } else if (contentType === 'movie') {
       formatted = await jellyfinFormatter.formatMovie(filename, undefined, searchTMDB);
+    } else if (contentType === 'documentary') {
+      // Format as movie but with Documentaries folder
+      formatted = await jellyfinFormatter.formatMovie(filename, undefined, searchTMDB);
+      formatted.baseDir = 'Documentaries';
+      formatted.contentType = 'documentary';
     } else {
       // Auto-detect
       formatted = await jellyfinFormatter.autoFormat(filename, searchTMDB);

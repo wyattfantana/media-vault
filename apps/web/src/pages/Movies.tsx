@@ -43,12 +43,13 @@ export default function Movies() {
   const [loading, setLoading] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [downloadUrl, setDownloadUrl] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('browse');
+  const [viewMode, setViewMode] = useState<ViewMode>('all-movies');
   const [showFormatPreview, setShowFormatPreview] = useState(false);
   const [previewFilename, setPreviewFilename] = useState('');
   const [formattedPath, setFormattedPath] = useState<any>(null);
   const [loadingFormat, setLoadingFormat] = useState(false);
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [vpnConfirmed, setVpnConfirmed] = useState(false);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -67,7 +68,22 @@ export default function Movies() {
   const [allMovies, setAllMovies] = useState<Movie[]>([]);
   const [allMoviesPage, setAllMoviesPage] = useState(1);
   const [allMoviesTotalPages, setAllMoviesTotalPages] = useState(1);
+  const [allMoviesTotalResults, setAllMoviesTotalResults] = useState(0);
   const [allMoviesLoading, setAllMoviesLoading] = useState(false);
+  const [loadingMultiplePages, setLoadingMultiplePages] = useState(false);
+
+  // All movies filters (default to NO filters - show everything, let users customize)
+  const [allMoviesFilters, setAllMoviesFilters] = useState({
+    minRating: 0,
+    minVotes: 0,
+    yearFrom: null as number | null,
+    yearTo: null as number | null,
+    sortBy: 'popularity.desc' as 'vote_average.desc' | 'popularity.desc' | 'release_date.desc',
+    selectedGenres: [] as number[],
+    excludeGenres: [] as number[]
+  });
+  const [showAllMoviesFilters, setShowAllMoviesFilters] = useState(false);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   // Genre filters
   const [genreFilters, setGenreFilters] = useState({
@@ -79,6 +95,47 @@ export default function Movies() {
   const [showGenreFilters, setShowGenreFilters] = useState(false);
 
   const API_BASE = 'http://localhost:3001/api/v1';
+
+  const isInitialMount = React.useRef(true);
+
+  // Load movies on mount
+  useEffect(() => {
+    fetchGenres();
+    setShowAllMoviesFilters(true);
+    // Try to load saved filters from localStorage
+    const savedFilters = localStorage.getItem('moviesFilters');
+    if (savedFilters) {
+      try {
+        const parsed = JSON.parse(savedFilters);
+        setAllMoviesFilters(parsed);
+        setActivePreset('saved');
+      } catch (e) {
+        console.error('Failed to load saved filters:', e);
+      }
+    }
+    loadMovies();
+  }, []);
+
+  // Watch for filter changes and reload
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (viewMode === 'all-movies' || viewMode === 'top-rated') {
+      const timeoutId = setTimeout(() => {
+        loadManyPages(1, 5, viewMode, false); // Load 5 pages when filters change
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [allMoviesFilters.minRating, allMoviesFilters.minVotes, allMoviesFilters.sortBy, allMoviesFilters.yearFrom, allMoviesFilters.yearTo, allMoviesFilters.selectedGenres, allMoviesFilters.excludeGenres]);
+
+  // Function to load movies based on current filters
+  const loadMovies = () => {
+    loadManyPages(1, 5, 'all-movies'); // Load 5 pages initially (~100 movies)
+  };
 
   // Genre configuration with emojis - ordered by popularity
   const GENRE_CONFIG = [
@@ -318,41 +375,34 @@ export default function Movies() {
     await fetchAllMovies(1, 'all-movies');
   };
 
-  const fetchAllMovies = async (page: number, mode: 'all-movies' | 'top-rated') => {
+  const fetchAllMovies = async (page: number, mode: 'all-movies' | 'top-rated', append = false) => {
     setAllMoviesLoading(true);
     try {
-      let url: string;
-      if (mode === 'top-rated') {
-        // Top rated: high rating threshold (7.5+) with strict vote requirements
-        url = `${API_BASE}/tmdb/discover/movies?sort_by=vote_average.desc&page=${page}&min_rating=7.5&min_votes=2000&enrich=true`;
-      } else {
-        // All movies: decent quality (6.5+) with lower vote requirements for more variety
-        url = `${API_BASE}/tmdb/discover/movies?sort_by=vote_average.desc&page=${page}&min_rating=6.5&min_votes=500&enrich=true`;
+      const filters = mode === 'top-rated'
+        ? { minRating: 7.5, minVotes: 2000, sortBy: 'vote_average.desc' as const }
+        : allMoviesFilters;
+
+      let url = `${API_BASE}/tmdb/discover/movies?sort_by=${filters.sortBy}&page=${page}&min_rating=${filters.minRating}&min_votes=${filters.minVotes}&enrich=true`;
+
+      if (allMoviesFilters.yearFrom) url += `&year_from=${allMoviesFilters.yearFrom}`;
+      if (allMoviesFilters.yearTo) url += `&year_to=${allMoviesFilters.yearTo}`;
+      if (allMoviesFilters.selectedGenres.length > 0) {
+        url += `&genre=${allMoviesFilters.selectedGenres.join(',')}`;
+      }
+      if (allMoviesFilters.excludeGenres && allMoviesFilters.excludeGenres.length > 0) {
+        url += `&exclude_genres=${allMoviesFilters.excludeGenres.join(',')}`;
       }
 
       const res = await fetch(url, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        // Client-side re-sort for perfect order
-        const sorted = (data.results || []).sort((a: Movie, b: Movie) => {
-          const ratingA = a.imdb_rating ? parseFloat(a.imdb_rating) : a.vote_average;
-          const ratingB = b.imdb_rating ? parseFloat(b.imdb_rating) : b.vote_average;
-          return ratingB - ratingA;
-        });
-
-        if (page === 1) {
-          setAllMovies(sorted);
+        if (append) {
+          setAllMovies(prev => [...prev, ...(data.results || [])]);
         } else {
-          // Merge and re-sort when loading more
-          const merged = [...allMovies, ...sorted];
-          setAllMovies(merged.sort((a, b) => {
-            const ratingA = a.imdb_rating ? parseFloat(a.imdb_rating) : a.vote_average;
-            const ratingB = b.imdb_rating ? parseFloat(b.imdb_rating) : b.vote_average;
-            return ratingB - ratingA;
-          }));
+          setAllMovies(data.results || []);
         }
-
         setAllMoviesTotalPages(data.total_pages || 1);
+        setAllMoviesTotalResults(data.total_results || 0);
         setAllMoviesPage(page);
       }
     } catch (err) {
@@ -362,10 +412,78 @@ export default function Movies() {
     }
   };
 
+  // Load multiple pages at once for better browsing
+  const loadManyPages = async (startPage: number, numPages: number, mode: 'all-movies' | 'top-rated', append = false) => {
+    setLoadingMultiplePages(true);
+    try {
+      const filters = mode === 'top-rated'
+        ? { minRating: 7.5, minVotes: 2000, sortBy: 'vote_average.desc' as const }
+        : allMoviesFilters;
+
+      let baseUrl = `${API_BASE}/tmdb/discover/movies?sort_by=${filters.sortBy}&min_rating=${filters.minRating}&min_votes=${filters.minVotes}&enrich=true`;
+      if (allMoviesFilters.yearFrom) baseUrl += `&year_from=${allMoviesFilters.yearFrom}`;
+      if (allMoviesFilters.yearTo) baseUrl += `&year_to=${allMoviesFilters.yearTo}`;
+      if (allMoviesFilters.selectedGenres.length > 0) {
+        baseUrl += `&genre=${allMoviesFilters.selectedGenres.join(',')}`;
+      }
+      if (allMoviesFilters.excludeGenres && allMoviesFilters.excludeGenres.length > 0) {
+        baseUrl += `&exclude_genres=${allMoviesFilters.excludeGenres.join(',')}`;
+      }
+
+      // Fetch pages in parallel
+      const promises = [];
+      for (let i = 0; i < numPages; i++) {
+        const page = startPage + i;
+        promises.push(fetch(`${baseUrl}&page=${page}`, { credentials: 'include' }));
+      }
+
+      const responses = await Promise.all(promises);
+      const dataPromises = responses.map(r => r.ok ? r.json() : null);
+      const dataResults = await Promise.all(dataPromises);
+
+      const newResults: Movie[] = [];
+
+      dataResults.forEach((data) => {
+        if (data && data.results) {
+          newResults.push(...data.results);
+        }
+      });
+
+      // Get metadata from first valid response that has the data
+      const firstValidResponse = dataResults.find(d => d && d.total_pages && d.total_results);
+      const actualTotalPages = firstValidResponse?.total_pages || 1;
+      const totalResults = firstValidResponse?.total_results || 0;
+
+      // Deduplicate by movie ID
+      const uniqueMovies = Array.from(
+        new Map(newResults.map(movie => [movie.id, movie])).values()
+      );
+
+      if (append) {
+        setAllMovies(prev => {
+          const combined = [...prev, ...uniqueMovies];
+          // Deduplicate combined array as well
+          return Array.from(new Map(combined.map(movie => [movie.id, movie])).values());
+        });
+      } else {
+        setAllMovies(uniqueMovies);
+      }
+      setAllMoviesTotalPages(actualTotalPages);
+      setAllMoviesTotalResults(totalResults);
+      setAllMoviesPage(startPage + numPages - 1);
+    } catch (err) {
+      console.error('Failed to load many pages:', err);
+    } finally {
+      setLoadingMultiplePages(false);
+    }
+  };
+
   const loadMoreAllMovies = () => {
-    if (allMoviesPage < allMoviesTotalPages && !allMoviesLoading) {
+    if (allMoviesPage < allMoviesTotalPages && !allMoviesLoading && !loadingMultiplePages) {
       const mode = viewMode as 'all-movies' | 'top-rated';
-      fetchAllMovies(allMoviesPage + 1, mode);
+      // Load 5 pages at a time for faster browsing through large catalogs
+      const nextPage = allMoviesPage + 1;
+      loadManyPages(nextPage, 5, mode, true);
     }
   };
 
@@ -381,8 +499,8 @@ export default function Movies() {
   useInfiniteScroll({
     onLoadMore: loadMoreAllMovies,
     hasMore: (viewMode === 'all-movies' || viewMode === 'top-rated') && allMoviesPage < allMoviesTotalPages,
-    isLoading: allMoviesLoading,
-    threshold: 800,
+    isLoading: allMoviesLoading || loadingMultiplePages,
+    threshold: 1200, // Trigger earlier (1200px from bottom instead of 800px)
     useWindow: true
   });
 
@@ -390,7 +508,7 @@ export default function Movies() {
   useEffect(() => {
     if (!debouncedSearchQuery.trim()) {
       setSearchResults([]);
-      if (viewMode === 'search') setViewMode('browse');
+      if (viewMode === 'search') setViewMode('all-movies');
       return;
     }
 
@@ -550,6 +668,7 @@ export default function Movies() {
         setDownloadUrl('');
         setShowFormatPreview(false);
         setFormattedPath(null);
+        setVpnConfirmed(false);
       } else {
         const error = await res.json();
         alert(`Download failed: ${error.error || 'Unknown error'}`);
@@ -691,26 +810,6 @@ export default function Movies() {
               </h1>
             </div>
             <div className="flex items-center gap-3">
-              {viewMode === 'browse' && (
-                <button
-                  onClick={openAllMoviesView}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-                >
-                  🎬 All Movies
-                </button>
-              )}
-              {(viewMode === 'search' || viewMode === 'genre' || viewMode === 'all-movies' || viewMode === 'top-rated') && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setViewMode('browse');
-                    setSelectedGenre(null);
-                  }}
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
-                  Back to Browse
-                </button>
-              )}
             </div>
           </div>
 
@@ -728,25 +827,6 @@ export default function Movies() {
           </form>
         </div>
       </div>
-
-      {/* Browse Mode */}
-      {viewMode === 'browse' && (
-        <div className="py-8">
-          <MovieRow title="🔥 Trending This Week" movies={trendingMovies} loading={false} />
-          <MovieRow title="⭐ Top Rated Movies" movies={topRatedMovies} loading={false} onSeeAll={openTopRatedView} />
-          <MovieRow title="🎬 Now Playing in Theaters" movies={nowPlayingMovies} loading={false} />
-
-          {genreSections.map(section => (
-            <MovieRow
-              key={section.id}
-              title={`${section.emoji} ${section.name}`}
-              movies={section.movies}
-              loading={section.loading}
-              onSeeAll={() => openGenreView(section)}
-            />
-          ))}
-        </div>
-      )}
 
       {/* Search Results */}
       {viewMode === 'search' && (
@@ -908,11 +988,330 @@ export default function Movies() {
 
       {/* All Movies View */}
       {viewMode === 'all-movies' && (
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto px-8 py-8 space-y-6">
+          {/* Filters Toggle */}
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">All Movies (Sorted by Rating)</h2>
+            <button
+              onClick={() => setShowAllMoviesFilters(!showAllMoviesFilters)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              {showAllMoviesFilters ? 'Hide Filters' : 'Show Filters'}
+            </button>
             <div className="text-sm text-gray-400">
               {allMovies.length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
+            </div>
+          </div>
+
+          {/* Filter Panel */}
+          {showAllMoviesFilters && (
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {/* Sort By */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Sort By</label>
+                  <select
+                    value={allMoviesFilters.sortBy}
+                    onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
+                    className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+                  >
+                    <option value="vote_average.desc">⭐ Top Rated</option>
+                    <option value="popularity.desc">🔥 Most Popular</option>
+                    <option value="release_date.desc">📅 Newest First</option>
+                  </select>
+                </div>
+
+                {/* Quick Filters */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Quick Filters (click to toggle on/off)</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        if (activePreset === 'worth-watching') {
+                          // Deselect - reset to no filters
+                          setAllMoviesFilters({
+                            minRating: 0,
+                            minVotes: 0,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'popularity.desc'
+                          });
+                          setActivePreset(null);
+                        } else {
+                          // Select - apply preset
+                          setAllMoviesFilters({
+                            minRating: 6.0,
+                            minVotes: 100,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'vote_average.desc'
+                          });
+                          setActivePreset('worth-watching');
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activePreset === 'worth-watching'
+                          ? 'bg-blue-600 text-white ring-2 ring-blue-300 shadow-lg scale-105'
+                          : 'bg-blue-700 text-gray-300 hover:bg-blue-600'
+                      }`}
+                    >
+                      👍 Worth Watching (6.0+)
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (activePreset === 'quality') {
+                          // Deselect - reset to no filters
+                          setAllMoviesFilters({
+                            minRating: 0,
+                            minVotes: 0,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'popularity.desc'
+                          });
+                          setActivePreset(null);
+                        } else {
+                          // Select - apply preset
+                          setAllMoviesFilters({
+                            minRating: 7.0,
+                            minVotes: 500,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'vote_average.desc'
+                          });
+                          setActivePreset('quality');
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activePreset === 'quality'
+                          ? 'bg-purple-600 text-white ring-2 ring-purple-300 shadow-lg scale-105'
+                          : 'bg-purple-700 text-gray-300 hover:bg-purple-600'
+                      }`}
+                    >
+                      ⭐ Quality Movies (7.0+)
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (activePreset === 'elite') {
+                          // Deselect - reset to no filters
+                          setAllMoviesFilters({
+                            minRating: 0,
+                            minVotes: 0,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'popularity.desc'
+                          });
+                          setActivePreset(null);
+                        } else {
+                          // Select - apply preset
+                          setAllMoviesFilters({
+                            minRating: 8.0,
+                            minVotes: 1000,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'vote_average.desc'
+                          });
+                          setActivePreset('elite');
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activePreset === 'elite'
+                          ? 'bg-yellow-600 text-white ring-2 ring-yellow-300 shadow-lg scale-105'
+                          : 'bg-yellow-700 text-gray-300 hover:bg-yellow-600'
+                      }`}
+                    >
+                      🏆 Elite Only (8.0+)
+                    </button>
+                    {localStorage.getItem('moviesFilters') && (
+                      <button
+                        onClick={() => {
+                          if (activePreset === 'saved') {
+                            // Deselect - reset to no filters
+                            setAllMoviesFilters({
+                              minRating: 0,
+                              minVotes: 0,
+                              excludeGenres: [],
+                              selectedGenres: [],
+                              yearFrom: null,
+                              yearTo: null,
+                              sortBy: 'popularity.desc'
+                            });
+                            setActivePreset(null);
+                          } else {
+                            // Select - load saved filters
+                            const savedFilters = localStorage.getItem('moviesFilters');
+                            if (savedFilters) {
+                              setAllMoviesFilters(JSON.parse(savedFilters));
+                              setActivePreset('saved');
+                            }
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          activePreset === 'saved'
+                            ? 'bg-green-600 text-white ring-2 ring-green-300 shadow-lg scale-105'
+                            : 'bg-green-700 text-gray-300 hover:bg-green-600'
+                        }`}
+                      >
+                        💾 My Saved Filters
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Min Rating */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Min Rating: {allMoviesFilters.minRating > 0 ? allMoviesFilters.minRating.toFixed(1) : 'Any'}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={allMoviesFilters.minRating}
+                    onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
+                    className="w-full accent-blue-600"
+                  />
+                </div>
+
+                {/* Min Votes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Min Votes: {allMoviesFilters.minVotes > 0 ? allMoviesFilters.minVotes : 'Any'}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="5000"
+                    step="100"
+                    value={allMoviesFilters.minVotes}
+                    onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, minVotes: parseInt(e.target.value) }))}
+                    className="w-full accent-blue-600"
+                  />
+                </div>
+
+                {/* Year Range */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Year Range</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1900"
+                      max={new Date().getFullYear()}
+                      value={allMoviesFilters.yearFrom || ''}
+                      onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, yearFrom: e.target.value ? parseInt(e.target.value) : null }))}
+                      placeholder="From"
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                    <input
+                      type="number"
+                      min="1900"
+                      max={new Date().getFullYear()}
+                      value={allMoviesFilters.yearTo || ''}
+                      onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, yearTo: e.target.value ? parseInt(e.target.value) : null }))}
+                      placeholder="To"
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Genre Multi-Select (Click to toggle include/exclude) */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Genres (click to toggle • <span className="text-green-400">included</span> / <span className="text-red-400">excluded</span>)
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {genres.map(genre => {
+                      const isExcluded = allMoviesFilters.excludeGenres.includes(genre.id);
+                      return (
+                        <button
+                          key={genre.id}
+                          onClick={() => {
+                            setAllMoviesFilters(prev => ({
+                              ...prev,
+                              excludeGenres: isExcluded
+                                ? prev.excludeGenres.filter(id => id !== genre.id)
+                                : [...prev.excludeGenres, genre.id]
+                            }));
+                          }}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
+                            isExcluded
+                              ? 'bg-red-900/30 text-red-400 border border-red-500/30 hover:bg-red-900/50'
+                              : 'bg-green-900/30 text-green-400 border border-green-500/30 hover:bg-green-900/50'
+                          }`}
+                        >
+                          {isExcluded && <span className="absolute top-1 right-1 text-xs">✕</span>}
+                          {genre.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Save & Reset Buttons */}
+                <div className="col-span-full flex gap-3">
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('moviesFilters', JSON.stringify(allMoviesFilters));
+                      setActivePreset('saved');
+                      alert('✓ Filters saved! Use "My Saved Filters" button to load them anytime.');
+                    }}
+                    className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-lg"
+                  >
+                    💾 Save These Filters
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAllMoviesFilters({
+                        minRating: 0,
+                        minVotes: 0,
+                        yearFrom: null,
+                        yearTo: null,
+                        sortBy: 'popularity.desc',
+                        selectedGenres: [],
+                        excludeGenres: []
+                      });
+                      setActivePreset(null);
+                    }}
+                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Reset All
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Results header */}
+          <div className="bg-gray-800/50 p-4 rounded-lg border-l-4 border-blue-500">
+            <div className="space-y-1">
+              <div className="text-sm text-gray-300">
+                <span className="text-gray-400">Loaded:</span>{' '}
+                <span className="font-bold text-white">{allMovies.length.toLocaleString()}</span> of{' '}
+                <span className="font-bold text-blue-400">{allMoviesTotalResults.toLocaleString()}</span>{' '}
+                {allMoviesFilters.minRating > 0 || allMoviesFilters.minVotes > 0 || allMoviesFilters.selectedGenres.length > 0 || allMoviesFilters.excludeGenres.length > 0 || allMoviesFilters.yearFrom || allMoviesFilters.yearTo ? (
+                  <span className="text-yellow-400">matching movies</span>
+                ) : (
+                  <span className="text-gray-400">movies</span>
+                )}
+              </div>
+              <div className="text-xs text-gray-500">
+                Total catalog: <span className="font-semibold text-gray-400">{allMoviesTotalResults.toLocaleString()}+ movies</span>
+                {(allMoviesFilters.minRating > 0 || allMoviesFilters.minVotes > 0 || allMoviesFilters.selectedGenres.length > 0 || allMoviesFilters.excludeGenres.length > 0 || allMoviesFilters.yearFrom || allMoviesFilters.yearTo) && (
+                  <span className="ml-2 text-yellow-400">• Filters active</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -990,7 +1389,10 @@ export default function Movies() {
       {selectedMovie && (
         <div
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedMovie(null)}
+          onClick={() => {
+            setSelectedMovie(null);
+            setVpnConfirmed(false);
+          }}
         >
           <div
             className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
@@ -1157,23 +1559,43 @@ export default function Movies() {
                   )}
 
                   {showFormatPreview && formattedPath && !loadingFormat && !formatError && (
-                    <div className="mt-4 flex gap-3">
-                      <button
-                        onClick={() => submitDownload(selectedMovie)}
-                        className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
-                      >
-                        <Download className="w-5 h-5" />
-                        Confirm Download
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowFormatPreview(false);
-                          setFormattedPath(null);
-                        }}
-                        className="px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
+                    <div className="mt-4 space-y-4">
+                      {/* VPN Safety Check */}
+                      <div className="bg-orange-900/30 border border-orange-500/50 rounded-lg p-4">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={vpnConfirmed}
+                            onChange={(e) => setVpnConfirmed(e.target.checked)}
+                            className="w-5 h-5 rounded border-gray-600 bg-gray-700 text-orange-600 focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer"
+                          />
+                          <span className="text-orange-300 font-medium text-sm">
+                            I confirm that my VPN is connected before downloading
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* Buttons */}
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => submitDownload(selectedMovie)}
+                          disabled={!vpnConfirmed}
+                          className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                        >
+                          <Download className="w-5 h-5" />
+                          Confirm Download
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowFormatPreview(false);
+                            setFormattedPath(null);
+                            setVpnConfirmed(false);
+                          }}
+                          className="px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
