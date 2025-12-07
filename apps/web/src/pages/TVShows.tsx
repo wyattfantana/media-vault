@@ -128,7 +128,7 @@ export default function TVShows() {
 
   // Function to load shows based on current filters
   const loadShows = () => {
-    loadManyPages(1, 50, 'all-shows'); // Load 50 pages initially (~1000 shows)
+    loadManyPages(1, 10, 'all-shows'); // Load 10 pages initially (~200 shows)
   };
 
   const fetchGenres = async () => {
@@ -374,7 +374,7 @@ export default function TVShows() {
     if (viewMode === 'all-shows' || viewMode === 'top-rated') {
       const timeoutId = setTimeout(() => {
         console.log('Applying filters:', allShowsFilters);
-        loadManyPages(1, 50, viewMode, false); // Load 50 pages when filters change
+        loadManyPages(1, 10, viewMode, false); // Load 10 pages when filters change
       }, 500); // Debounce for 500ms
       return () => clearTimeout(timeoutId);
     }
@@ -458,6 +458,11 @@ export default function TVShows() {
 
       dataResults.forEach((data, index) => {
         if (data && data.results) {
+          console.log(`[TVShows] Page ${startPage + index} response:`, {
+            results: data.results.length,
+            total_pages: data.total_pages,
+            total_results: data.total_results
+          });
           newResults.push(...data.results);
           // Get metadata from first valid response
           if (index === 0 || totalResults === 0) {
@@ -481,6 +486,14 @@ export default function TVShows() {
       } else {
         setAllShows(uniqueShows);
       }
+      console.log('[TVShows] loadManyPages complete:', {
+        actualTotalPages,
+        totalResults,
+        startPage,
+        numPages,
+        newPage: startPage + numPages - 1,
+        uniqueShowsCount: uniqueShows.length
+      });
       setAllShowsTotalPages(actualTotalPages);
       setAllShowsTotalResults(totalResults);
       setAllShowsPage(startPage + numPages - 1);
@@ -494,26 +507,31 @@ export default function TVShows() {
   const loadMoreAllShows = () => {
     if (allShowsPage < allShowsTotalPages && !allShowsLoading && !loadingMultiplePages) {
       const mode = viewMode as 'all-shows' | 'top-rated';
-      // Load 20 pages at a time for faster browsing through large catalogs
+      // Load 3 pages at a time during scroll (60 shows) for smooth performance
       const nextPage = allShowsPage + 1;
-      loadManyPages(nextPage, 20, mode, true);
+      loadManyPages(nextPage, 3, mode, true);
     }
   };
 
-  // Infinite scroll - automatically loads more when scrolling near bottom
-  useInfiniteScroll({
-    onLoadMore: loadMoreGenreShows,
-    hasMore: viewMode === 'genre' && genreCurrentPage < genreTotalPages,
-    isLoading: genreLoading,
-    threshold: 800,
-    useWindow: true
-  });
+  // Infinite scroll - consolidated into single hook to avoid conflicts
+  const hasMoreGenre = viewMode === 'genre' && genreCurrentPage < genreTotalPages;
+  const hasMoreAllShows = (viewMode === 'all-shows' || viewMode === 'top-rated') && allShowsPage < allShowsTotalPages;
+  const hasMore = hasMoreGenre || hasMoreAllShows;
+  const isLoadingAny = genreLoading || allShowsLoading || loadingMultiplePages;
+
+  const handleLoadMore = () => {
+    if (viewMode === 'genre' && hasMoreGenre && !genreLoading) {
+      loadMoreGenreShows();
+    } else if ((viewMode === 'all-shows' || viewMode === 'top-rated') && hasMoreAllShows && !allShowsLoading && !loadingMultiplePages) {
+      loadMoreAllShows();
+    }
+  };
 
   useInfiniteScroll({
-    onLoadMore: loadMoreAllShows,
-    hasMore: (viewMode === 'all-shows' || viewMode === 'top-rated') && allShowsPage < allShowsTotalPages,
-    isLoading: allShowsLoading || loadingMultiplePages,
-    threshold: 1200, // Trigger earlier (1200px from bottom instead of 800px)
+    onLoadMore: handleLoadMore,
+    hasMore,
+    isLoading: isLoadingAny,
+    threshold: 1200,
     useWindow: true
   });
 

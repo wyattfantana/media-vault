@@ -2,15 +2,15 @@ import { Outlet, NavLink } from 'react-router-dom';
 
 export function Layout() {
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200">
+      <aside className="w-64 bg-white border-r border-gray-200 fixed h-screen overflow-y-auto flex-shrink-0">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-brand-600">MediaVault</h1>
           <p className="text-sm text-gray-500">Your Personal Media Hub</p>
         </div>
 
-        <nav className="px-4 space-y-1">
+        <nav className="px-4 space-y-1 pb-8">
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
@@ -75,8 +75,8 @@ export function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+      <main className="flex-1 ml-64 w-full max-w-full overflow-x-hidden">
+        <div className="w-full max-w-7xl mx-auto px-8 py-8">
           <Outlet />
         </div>
       </main>

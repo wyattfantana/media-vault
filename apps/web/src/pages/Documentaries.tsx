@@ -125,7 +125,7 @@ export default function Documentaries() {
 
     if (viewMode === 'all-documentaries' || viewMode === 'top-rated') {
       const timeoutId = setTimeout(() => {
-        loadManyPages(1, 50, viewMode, false); // Load 50 pages when filters change
+        loadManyPages(1, 10, viewMode, false); // Load 10 pages when filters change
       }, 300);
 
       return () => clearTimeout(timeoutId);
@@ -134,7 +134,7 @@ export default function Documentaries() {
 
   // Function to load documentaries based on current filters
   const loadDocumentaries = () => {
-    loadManyPages(1, 50, 'all-documentaries'); // Load 50 pages initially (~1000 documentaries)
+    loadManyPages(1, 10, 'all-documentaries'); // Load 10 pages initially (~200 documentaries)
   };
 
   // Genre configuration with emojis - documentary subgenres
@@ -491,26 +491,31 @@ export default function Documentaries() {
   const loadMoreAllDocumentaries = () => {
     if (allDocumentariesPage < allDocumentariesTotalPages && !allDocumentariesLoading && !loadingMultiplePages) {
       const mode = viewMode as 'all-documentaries' | 'top-rated';
-      // Load 20 pages at a time for faster browsing through large catalogs
+      // Load 3 pages at a time during scroll (60 documentaries) for smooth performance
       const nextPage = allDocumentariesPage + 1;
-      loadManyPages(nextPage, 20, mode, true);
+      loadManyPages(nextPage, 3, mode, true);
     }
   };
 
-  // Infinite scroll - automatically loads more when scrolling near bottom
-  useInfiniteScroll({
-    onLoadMore: loadMoreGenreDocumentaries,
-    hasMore: viewMode === 'genre' && genreCurrentPage < genreTotalPages,
-    isLoading: genreLoading,
-    threshold: 800,
-    useWindow: true
-  });
+  // Infinite scroll - consolidated into single hook to avoid conflicts
+  const hasMoreGenre = viewMode === 'genre' && genreCurrentPage < genreTotalPages;
+  const hasMoreAllDocumentaries = (viewMode === 'all-documentaries' || viewMode === 'top-rated') && allDocumentariesPage < allDocumentariesTotalPages;
+  const hasMore = hasMoreGenre || hasMoreAllDocumentaries;
+  const isLoadingAny = genreLoading || allDocumentariesLoading || loadingMultiplePages;
+
+  const handleLoadMore = () => {
+    if (viewMode === 'genre' && hasMoreGenre && !genreLoading) {
+      loadMoreGenreDocumentaries();
+    } else if ((viewMode === 'all-documentaries' || viewMode === 'top-rated') && hasMoreAllDocumentaries && !allDocumentariesLoading && !loadingMultiplePages) {
+      loadMoreAllDocumentaries();
+    }
+  };
 
   useInfiniteScroll({
-    onLoadMore: loadMoreAllDocumentaries,
-    hasMore: (viewMode === 'all-documentaries' || viewMode === 'top-rated') && allDocumentariesPage < allDocumentariesTotalPages,
-    isLoading: allDocumentariesLoading || loadingMultiplePages,
-    threshold: 1200, // Trigger earlier (1200px from bottom instead of 800px)
+    onLoadMore: handleLoadMore,
+    hasMore,
+    isLoading: isLoadingAny,
+    threshold: 1200,
     useWindow: true
   });
 
@@ -1341,7 +1346,7 @@ export default function Documentaries() {
               </div>
 
               {/* Loading indicator for infinite scroll */}
-              {allDocumentariesLoading && allDocumentariesPage > 1 && (
+              {(allDocumentariesLoading || loadingMultiplePages) && allDocumentariesPage > 1 && (
                 <div className="text-center mt-8 py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
                   <p className="text-gray-400 mt-3 text-sm">Loading more documentaries...</p>
@@ -1381,7 +1386,7 @@ export default function Documentaries() {
               </div>
 
               {/* Loading indicator for infinite scroll */}
-              {allDocumentariesLoading && allDocumentariesPage > 1 && (
+              {(allDocumentariesLoading || loadingMultiplePages) && allDocumentariesPage > 1 && (
                 <div className="text-center mt-8 py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
                   <p className="text-gray-400 mt-3 text-sm">Loading more documentaries...</p>

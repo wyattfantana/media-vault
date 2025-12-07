@@ -125,7 +125,7 @@ export default function Movies() {
 
     if (viewMode === 'all-movies' || viewMode === 'top-rated') {
       const timeoutId = setTimeout(() => {
-        loadManyPages(1, 50, viewMode, false); // Load 50 pages when filters change
+        loadManyPages(1, 10, viewMode, false); // Load 10 pages when filters change
       }, 300);
 
       return () => clearTimeout(timeoutId);
@@ -134,7 +134,7 @@ export default function Movies() {
 
   // Function to load movies based on current filters
   const loadMovies = () => {
-    loadManyPages(1, 50, 'all-movies'); // Load 50 pages initially (~1000 movies)
+    loadManyPages(1, 10, 'all-movies'); // Load 10 pages initially (~200 movies)
   };
 
   // Genre configuration with emojis - ordered by popularity
@@ -481,26 +481,31 @@ export default function Movies() {
   const loadMoreAllMovies = () => {
     if (allMoviesPage < allMoviesTotalPages && !allMoviesLoading && !loadingMultiplePages) {
       const mode = viewMode as 'all-movies' | 'top-rated';
-      // Load 20 pages at a time for faster browsing through large catalogs
+      // Load 3 pages at a time during scroll (60 movies) for smooth performance
       const nextPage = allMoviesPage + 1;
-      loadManyPages(nextPage, 20, mode, true);
+      loadManyPages(nextPage, 3, mode, true);
     }
   };
 
-  // Infinite scroll - automatically loads more when scrolling near bottom
-  useInfiniteScroll({
-    onLoadMore: loadMoreGenreMovies,
-    hasMore: viewMode === 'genre' && genreCurrentPage < genreTotalPages,
-    isLoading: genreLoading,
-    threshold: 800,
-    useWindow: true
-  });
+  // Infinite scroll - consolidated into single hook to avoid conflicts
+  const hasMoreGenre = viewMode === 'genre' && genreCurrentPage < genreTotalPages;
+  const hasMoreAllMovies = (viewMode === 'all-movies' || viewMode === 'top-rated') && allMoviesPage < allMoviesTotalPages;
+  const hasMore = hasMoreGenre || hasMoreAllMovies;
+  const isLoadingAny = genreLoading || allMoviesLoading || loadingMultiplePages;
+
+  const handleLoadMore = () => {
+    if (viewMode === 'genre' && hasMoreGenre && !genreLoading) {
+      loadMoreGenreMovies();
+    } else if ((viewMode === 'all-movies' || viewMode === 'top-rated') && hasMoreAllMovies && !allMoviesLoading && !loadingMultiplePages) {
+      loadMoreAllMovies();
+    }
+  };
 
   useInfiniteScroll({
-    onLoadMore: loadMoreAllMovies,
-    hasMore: (viewMode === 'all-movies' || viewMode === 'top-rated') && allMoviesPage < allMoviesTotalPages,
-    isLoading: allMoviesLoading || loadingMultiplePages,
-    threshold: 1200, // Trigger earlier (1200px from bottom instead of 800px)
+    onLoadMore: handleLoadMore,
+    hasMore,
+    isLoading: isLoadingAny,
+    threshold: 1200,
     useWindow: true
   });
 
@@ -1328,7 +1333,7 @@ export default function Movies() {
               </div>
 
               {/* Loading indicator for infinite scroll */}
-              {allMoviesLoading && allMoviesPage > 1 && (
+              {(allMoviesLoading || loadingMultiplePages) && allMoviesPage > 1 && (
                 <div className="text-center mt-8 py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
                   <p className="text-gray-400 mt-3 text-sm">Loading more movies...</p>
@@ -1368,7 +1373,7 @@ export default function Movies() {
               </div>
 
               {/* Loading indicator for infinite scroll */}
-              {allMoviesLoading && allMoviesPage > 1 && (
+              {(allMoviesLoading || loadingMultiplePages) && allMoviesPage > 1 && (
                 <div className="text-center mt-8 py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
                   <p className="text-gray-400 mt-3 text-sm">Loading more movies...</p>
