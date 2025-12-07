@@ -317,8 +317,8 @@ router.get('/popular/tv', async (req, res) => {
       genre: req.query.genre as string | undefined,
       exclude_genres: req.query.exclude_genres as string | undefined,
       page: req.query.page ? parseInt(req.query.page as string) : 1,
-      min_rating: req.query.min_rating ? parseFloat(req.query.min_rating as string) : undefined,
-      min_votes: req.query.min_votes ? parseInt(req.query.min_votes as string) : undefined,
+      min_rating: req.query.min_rating !== undefined ? parseFloat(req.query.min_rating as string) : undefined,
+      min_votes: req.query.min_votes !== undefined ? parseInt(req.query.min_votes as string) : undefined,
       year_from: req.query.year_from ? parseInt(req.query.year_from as string) : undefined,
       year_to: req.query.year_to ? parseInt(req.query.year_to as string) : undefined,
       sort_by: (req.query.sort_by as any) || 'popularity.desc'
@@ -445,8 +445,8 @@ router.get('/discover/movies', async (req, res) => {
       year: req.query.year ? parseInt(req.query.year as string) : undefined,
       sort_by: (req.query.sort_by as any) || 'vote_average.desc',
       page: req.query.page ? parseInt(req.query.page as string) : 1,
-      min_rating: req.query.min_rating ? parseFloat(req.query.min_rating as string) : undefined,
-      min_votes: req.query.min_votes ? parseInt(req.query.min_votes as string) : undefined
+      min_rating: req.query.min_rating !== undefined ? parseFloat(req.query.min_rating as string) : undefined,
+      min_votes: req.query.min_votes !== undefined ? parseInt(req.query.min_votes as string) : undefined
     };
 
     const enrich = req.query.enrich === 'true';

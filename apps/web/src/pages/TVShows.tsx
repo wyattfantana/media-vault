@@ -1357,18 +1357,6 @@ export default function TVShows() {
                 </div>
               )}
 
-              {/* Load More Button */}
-              {!allShowsLoading && !loadingMultiplePages && allShowsPage < allShowsTotalPages && allShows.length > 0 && (
-                <div className="text-center mt-8 py-8">
-                  <button
-                    onClick={loadMoreAllShows}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                  >
-                    Load More Shows (showing {allShows.length.toLocaleString()} of {allShowsTotalResults.toLocaleString()})
-                  </button>
-                </div>
-              )}
-
               {!allShowsLoading && !loadingMultiplePages && allShowsPage >= allShowsTotalPages && allShows.length > 0 && (
                 <div className="text-center mt-8 py-6">
                   <div className="inline-block bg-green-900/30 border border-green-500/50 rounded-lg px-6 py-3">
