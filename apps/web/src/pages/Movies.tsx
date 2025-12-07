@@ -125,7 +125,7 @@ export default function Movies() {
 
     if (viewMode === 'all-movies' || viewMode === 'top-rated') {
       const timeoutId = setTimeout(() => {
-        loadManyPages(1, 5, viewMode, false); // Load 5 pages when filters change
+        loadManyPages(1, 50, viewMode, false); // Load 50 pages when filters change
       }, 300);
 
       return () => clearTimeout(timeoutId);
@@ -134,7 +134,7 @@ export default function Movies() {
 
   // Function to load movies based on current filters
   const loadMovies = () => {
-    loadManyPages(1, 5, 'all-movies'); // Load 5 pages initially (~100 movies)
+    loadManyPages(1, 50, 'all-movies'); // Load 50 pages initially (~1000 movies)
   };
 
   // Genre configuration with emojis - ordered by popularity
@@ -481,9 +481,9 @@ export default function Movies() {
   const loadMoreAllMovies = () => {
     if (allMoviesPage < allMoviesTotalPages && !allMoviesLoading && !loadingMultiplePages) {
       const mode = viewMode as 'all-movies' | 'top-rated';
-      // Load 5 pages at a time for faster browsing through large catalogs
+      // Load 20 pages at a time for faster browsing through large catalogs
       const nextPage = allMoviesPage + 1;
-      loadManyPages(nextPage, 5, mode, true);
+      loadManyPages(nextPage, 20, mode, true);
     }
   };
 

@@ -125,7 +125,7 @@ export default function Documentaries() {
 
     if (viewMode === 'all-documentaries' || viewMode === 'top-rated') {
       const timeoutId = setTimeout(() => {
-        loadManyPages(1, 5, viewMode, false); // Load 5 pages when filters change
+        loadManyPages(1, 50, viewMode, false); // Load 50 pages when filters change
       }, 300);
 
       return () => clearTimeout(timeoutId);
@@ -134,7 +134,7 @@ export default function Documentaries() {
 
   // Function to load documentaries based on current filters
   const loadDocumentaries = () => {
-    loadManyPages(1, 5, 'all-documentaries'); // Load 5 pages initially (~100 documentaries)
+    loadManyPages(1, 50, 'all-documentaries'); // Load 50 pages initially (~1000 documentaries)
   };
 
   // Genre configuration with emojis - documentary subgenres
@@ -491,9 +491,9 @@ export default function Documentaries() {
   const loadMoreAllDocumentaries = () => {
     if (allDocumentariesPage < allDocumentariesTotalPages && !allDocumentariesLoading && !loadingMultiplePages) {
       const mode = viewMode as 'all-documentaries' | 'top-rated';
-      // Load 5 pages at a time for faster browsing through large catalogs
+      // Load 20 pages at a time for faster browsing through large catalogs
       const nextPage = allDocumentariesPage + 1;
-      loadManyPages(nextPage, 5, mode, true);
+      loadManyPages(nextPage, 20, mode, true);
     }
   };
 

@@ -20,6 +20,7 @@ export const useInfiniteScroll = ({
 
   const handleScroll = useCallback(() => {
     if (loadingRef.current || !hasMore || isLoading) {
+      console.log('[InfiniteScroll] Blocked:', { loadingRef: loadingRef.current, hasMore, isLoading });
       return;
     }
 
@@ -31,14 +32,17 @@ export const useInfiniteScroll = ({
       const scrollHeight = document.documentElement.scrollHeight;
       const clientHeight = window.innerHeight;
       distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+      console.log('[InfiniteScroll] Window scroll:', { scrollTop, scrollHeight, clientHeight, distanceFromBottom, threshold });
     } else {
       // Container scroll calculation
       if (!containerRef.current) return;
       const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
       distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+      console.log('[InfiniteScroll] Container scroll:', { scrollTop, scrollHeight, clientHeight, distanceFromBottom, threshold });
     }
 
     if (distanceFromBottom < threshold) {
+      console.log('[InfiniteScroll] Triggering load! Distance:', distanceFromBottom, 'Threshold:', threshold);
       loadingRef.current = true;
       onLoadMore();
       // Reset loading flag after a delay to prevent rapid triggers
