@@ -53,6 +53,17 @@ export function YouTube() {
   const [quality, setQuality] = useState('best');
   const [videoFormat, setVideoFormat] = useState('mp4');
   const [audioFormat, setAudioFormat] = useState('mp3');
+
+  // Auto-set quality to 'audio' when Music category is selected
+  const handleCategoryChange = (newCategory: string) => {
+    setCategory(newCategory);
+    if (newCategory === 'music') {
+      setQuality('audio');
+    } else if (quality === 'audio') {
+      // If switching away from Music and quality was audio, reset to best
+      setQuality('best');
+    }
+  };
   const [loadingAll, setLoadingAll] = useState(false);
   const [loadAllProgress, setLoadAllProgress] = useState(0);
   const [showLoadAllConfirm, setShowLoadAllConfirm] = useState(false);
@@ -1144,12 +1155,12 @@ export function YouTube() {
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               >
                 <option value="movies">Movies</option>
                 <option value="tv">TV Shows</option>
-                <option value="music">Music</option>
+                <option value="music">Music (Audio Only)</option>
                 <option value="documentaries">Documentaries</option>
                 <option value="custom">Custom Folder...</option>
                 <option value="collection">Collection (No folder)</option>
@@ -1172,27 +1183,31 @@ export function YouTube() {
               </div>
             )}
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Quality
-              </label>
-              <select
-                value={quality}
-                onChange={(e) => setQuality(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-              >
-                <option value="best">Best Quality</option>
-                <option value="2160p">2160p (4K)</option>
-                <option value="1440p">1440p (2K)</option>
-                <option value="1080p">1080p (Full HD)</option>
-                <option value="720p">720p (HD)</option>
-                <option value="480p">480p (SD)</option>
-                <option value="360p">360p</option>
-                <option value="audio">Audio Only</option>
-              </select>
-            </div>
+            {/* Only show quality selector if NOT Music category */}
+            {category !== 'music' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quality
+                </label>
+                <select
+                  value={quality}
+                  onChange={(e) => setQuality(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                >
+                  <option value="best">Best Quality</option>
+                  <option value="2160p">2160p (4K)</option>
+                  <option value="1440p">1440p (2K)</option>
+                  <option value="1080p">1080p (Full HD)</option>
+                  <option value="720p">720p (HD)</option>
+                  <option value="480p">480p (SD)</option>
+                  <option value="360p">360p</option>
+                  <option value="audio">Audio Only</option>
+                </select>
+              </div>
+            )}
 
-            {quality === 'audio' ? (
+            {/* Show audio format for Music category OR when Audio Only quality is selected */}
+            {(category === 'music' || quality === 'audio') ? (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Audio Format
