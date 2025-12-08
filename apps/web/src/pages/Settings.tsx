@@ -1,561 +1,722 @@
 import { useState, useEffect } from 'react';
+import {
+  Settings as SettingsIcon,
+  Download,
+  Gauge,
+  Server,
+  Bell,
+  HardDrive,
+  Cog,
+  Shield,
+  Save,
+  AlertCircle
+} from 'lucide-react';
 
-interface Preset {
-  id: string;
-  name: string;
-  description: string;
-  platform: string | null; // NEW: platform-specific or null for global
-  quality: string;
-  format: string;
-  auto_organize: boolean;
-  base_folder: string;
-  subfolder_pattern: string;
-  filename_pattern: string;
-  embed_metadata: boolean;
-  embed_thumbnail: boolean;
-  embed_subtitles: boolean;
-  subtitle_languages: string[];
-  extract_audio: boolean;
-  is_default: boolean;
-  usage_count: number;
-  last_used_at: string;
-  created_at: string;
+interface UserPreferences {
+  // Download Preferences
+  default_quality: string;
+  default_folder: string;
+  default_video_format: string;
+  default_audio_format: string;
+  concurrent_downloads: number;
+
+  // Bandwidth Controls
+  download_speed_limit: number | null;
+  upload_speed_limit: number | null;
+
+  // Jellyfin Integration
+  jellyfin_server_url: string | null;
+  jellyfin_api_key: string | null;
+  jellyfin_library_paths: {
+    movies: string;
+    tv: string;
+    music: string;
+    documentaries: string;
+  };
+  jellyfin_auto_scan: boolean;
+
+  // Notification Preferences
+  notifications_enabled: boolean;
+  notify_download_complete: boolean;
+  notify_download_failed: boolean;
+  notification_sound: boolean;
+
+  // Storage Management
+  storage_limit_gb: number | null;
+  auto_cleanup_enabled: boolean;
+  auto_cleanup_days: number;
+
+  // Behavior Settings
+  auto_organize_files: boolean;
+  auto_fetch_thumbnails: boolean;
+  keep_download_history_days: number;
+
+  // Privacy/Advanced
+  youtube_cookies_path: string | null;
+  clear_search_history_on_exit: boolean;
 }
 
-interface PresetFormData {
-  name: string;
-  description: string;
-  platform: string; // NEW: platform selection
-  quality: string;
-  format: string;
-  auto_organize: boolean;
-  base_folder: string;
-  subfolder_pattern: string;
-  filename_pattern: string;
-  embed_metadata: boolean;
-  embed_thumbnail: boolean;
-  embed_subtitles: boolean;
-  subtitle_languages: string;
-  extract_audio: boolean;
+interface StorageInfo {
+  by_category: Array<{
+    category: string;
+    file_count: number;
+    bytes: number;
+    gb: string;
+  }>;
+  total: {
+    file_count: number;
+    bytes: number;
+    gb: string;
+  };
+  limit: {
+    bytes: number | null;
+    gb: number | null;
+    percentage: string | null;
+  };
 }
+
+type TabKey = 'download' | 'bandwidth' | 'jellyfin' | 'notifications' | 'storage' | 'behavior' | 'privacy';
 
 export function Settings() {
-  const [presets, setPresets] = useState<Preset[]>([]);
+  const [activeTab, setActiveTab] = useState<TabKey>('download');
+  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
-  const [formData, setFormData] = useState<PresetFormData>({
-    name: '',
-    description: '',
-    platform: '', // '' = global/all platforms
-    quality: 'best',
-    format: 'mp4',
-    auto_organize: true,
-    base_folder: '',
-    subfolder_pattern: '{category}',
-    filename_pattern: '{title}',
-    embed_metadata: true,
-    embed_thumbnail: true,
-    embed_subtitles: false,
-    subtitle_languages: '',
-    extract_audio: false
-  });
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   useEffect(() => {
-    fetchPresets();
-  }, []);
+    fetchPreferences();
+    if (activeTab === 'storage') {
+      fetchStorageInfo();
+    }
+  }, [activeTab]);
 
-  const fetchPresets = async () => {
+  const fetchPreferences = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/presets', {
+      const res = await fetch('http://localhost:3001/api/v1/preferences', {
         credentials: 'include'
       });
       if (res.ok) {
         const data = await res.json();
-        setPresets(data.presets || []);
+        setPreferences(data);
       }
     } catch (err) {
-      console.error('Failed to fetch presets:', err);
+      console.error('Failed to fetch preferences:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreate = () => {
-    setEditingPreset(null);
-    setFormData({
-      name: '',
-      description: '',
-      platform: '',
-      quality: 'best',
-      format: 'mp4',
-      auto_organize: true,
-      base_folder: '',
-      subfolder_pattern: '{category}',
-      filename_pattern: '{title}',
-      embed_metadata: true,
-      embed_thumbnail: true,
-      embed_subtitles: false,
-      subtitle_languages: '',
-      extract_audio: false
-    });
-    setShowModal(true);
-  };
-
-  const handleEdit = (preset: Preset) => {
-    setEditingPreset(preset);
-    setFormData({
-      name: preset.name,
-      description: preset.description || '',
-      platform: preset.platform || '',
-      quality: preset.quality,
-      format: preset.format,
-      auto_organize: preset.auto_organize,
-      base_folder: preset.base_folder || '',
-      subfolder_pattern: preset.subfolder_pattern || '{category}',
-      filename_pattern: preset.filename_pattern || '{title}',
-      embed_metadata: preset.embed_metadata,
-      embed_thumbnail: preset.embed_thumbnail,
-      embed_subtitles: preset.embed_subtitles,
-      subtitle_languages: preset.subtitle_languages?.join(', ') || '',
-      extract_audio: preset.extract_audio
-    });
-    setShowModal(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const subtitle_languages = formData.subtitle_languages
-      ? formData.subtitle_languages.split(',').map(s => s.trim()).filter(Boolean)
-      : [];
-
-    const payload = {
-      ...formData,
-      platform: formData.platform || null, // Send null for global presets
-      subtitle_languages
-    };
-
+  const fetchStorageInfo = async () => {
     try {
-      if (editingPreset) {
-        // Update existing preset
-        await fetch(`http://localhost:3001/api/v1/presets/${editingPreset.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        });
-      } else {
-        // Create new preset
-        await fetch('http://localhost:3001/api/v1/presets', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        });
+      const res = await fetch('http://localhost:3001/api/v1/preferences/storage', {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStorageInfo(data);
       }
-
-      setShowModal(false);
-      fetchPresets();
     } catch (err) {
-      alert('Failed to save preset');
+      console.error('Failed to fetch storage info:', err);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this preset?')) return;
+  const savePreferences = async () => {
+    if (!preferences) return;
+
+    setSaving(true);
+    setSaveMessage('');
 
     try {
-      await fetch(`http://localhost:3001/api/v1/presets/${id}`, {
-        method: 'DELETE',
-        credentials: 'include'
+      const res = await fetch('http://localhost:3001/api/v1/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(preferences)
       });
-      fetchPresets();
+
+      if (res.ok) {
+        setSaveMessage('Settings saved successfully!');
+        setTimeout(() => setSaveMessage(''), 3000);
+      } else {
+        setSaveMessage('Failed to save settings');
+      }
     } catch (err) {
-      alert('Failed to delete preset');
+      console.error('Failed to save preferences:', err);
+      setSaveMessage('Failed to save settings');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleSetDefault = async (id: string) => {
+  const handleCleanup = async () => {
+    if (!preferences?.auto_cleanup_days) return;
+    if (!confirm(`Delete all files older than ${preferences.auto_cleanup_days} days?`)) return;
+
     try {
-      await fetch(`http://localhost:3001/api/v1/presets/${id}/set-default`, {
+      const res = await fetch('http://localhost:3001/api/v1/preferences/cleanup', {
         method: 'POST',
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ days: preferences.auto_cleanup_days })
       });
-      fetchPresets();
+
+      if (res.ok) {
+        const data = await res.json();
+        alert(`Deleted ${data.deleted_count} files`);
+        fetchStorageInfo();
+      }
     } catch (err) {
-      alert('Failed to set default preset');
+      console.error('Failed to cleanup:', err);
+      alert('Cleanup failed');
     }
   };
+
+  const updatePreference = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+    if (!preferences) return;
+    setPreferences({ ...preferences, [key]: value });
+  };
+
+  const tabs = [
+    { key: 'download' as TabKey, label: 'Download Preferences', icon: Download },
+    { key: 'bandwidth' as TabKey, label: 'Bandwidth', icon: Gauge },
+    { key: 'jellyfin' as TabKey, label: 'Jellyfin', icon: Server },
+    { key: 'notifications' as TabKey, label: 'Notifications', icon: Bell },
+    { key: 'storage' as TabKey, label: 'Storage', icon: HardDrive },
+    { key: 'behavior' as TabKey, label: 'Behavior', icon: Cog },
+    { key: 'privacy' as TabKey, label: 'Privacy', icon: Shield },
+  ];
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading settings...</div>
+        <div className="text-gray-400">Loading settings...</div>
+      </div>
+    );
+  }
+
+  if (!preferences) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-400">Failed to load settings</div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="max-w-7xl mx-auto px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">Manage your download presets and preferences</p>
+        <h1 className="text-3xl font-bold flex items-center gap-3">
+          <SettingsIcon className="w-8 h-8" />
+          Settings
+        </h1>
+        <p className="text-gray-400 mt-1">Configure your MediaVault preferences</p>
       </div>
 
-      {/* Download Presets Section */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Download Presets</h2>
-            <p className="text-sm text-gray-600">Save common download configurations for quick reuse</p>
-          </div>
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+        {tabs.map((tab) => (
           <button
-            onClick={handleCreate}
-            className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 flex items-center gap-2"
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+              activeTab === tab.key
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Preset
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
           </button>
-        </div>
+        ))}
+      </div>
 
-        {presets.length === 0 ? (
-          <div className="card text-center py-12">
-            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-            </svg>
-            <p className="text-gray-500 text-lg font-medium">No presets yet</p>
-            <p className="text-sm text-gray-400 mt-2">Create your first download preset to get started</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {presets.map((preset) => (
-              <div key={preset.id} className="card hover:shadow-lg transition-shadow">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-gray-900">{preset.name}</h3>
-                      {preset.is_default && (
-                        <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">Default</span>
-                      )}
-                    </div>
-                    {preset.description && (
-                      <p className="text-sm text-gray-600">{preset.description}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Settings Summary */}
-                <div className="space-y-2 mb-4">
-                  {preset.platform && (
-                    <div className="flex items-center gap-2 text-sm mb-2">
-                      <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded font-medium">
-                        {preset.platform === 'youtube' && '▶️ YouTube'}
-                        {preset.platform === 'soundcloud' && '🎧 SoundCloud'}
-                        {preset.platform === 'bbc_iplayer' && '📺 BBC iPlayer'}
-                        {preset.platform === 'tiktok' && '🎵 TikTok'}
-                        {preset.platform === 'reddit' && '🔴 Reddit'}
-                        {preset.platform === 'rumble' && '📹 Rumble'}
-                        {preset.platform === 'twitch' && '🎮 Twitch'}
-                        {preset.platform === 'vimeo' && '🎬 Vimeo'}
-                        {!['youtube', 'soundcloud', 'bbc_iplayer', 'tiktok', 'reddit', 'rumble', 'twitch', 'vimeo'].includes(preset.platform) && preset.platform}
-                      </span>
-                    </div>
-                  )}
-                  {!preset.platform && (
-                    <div className="flex items-center gap-2 text-sm mb-2">
-                      <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded font-medium">
-                        🌐 All Platforms
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">Quality:</span>
-                    <span className="font-medium text-gray-900">{preset.quality}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">Format:</span>
-                    <span className="font-medium text-gray-900">{preset.format}</span>
-                  </div>
-                  {preset.subfolder_pattern && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-500">Folder:</span>
-                      <span className="font-mono text-xs text-gray-700">{preset.subfolder_pattern}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Usage Stats */}
-                {preset.usage_count > 0 && (
-                  <div className="text-xs text-gray-500 mb-4">
-                    Used {preset.usage_count} time{preset.usage_count !== 1 ? 's' : ''}
-                    {preset.last_used_at && (
-                      <> • Last used {new Date(preset.last_used_at).toLocaleDateString()}</>
-                    )}
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  {!preset.is_default && (
-                    <button
-                      onClick={() => handleSetDefault(preset.id)}
-                      className="flex-1 px-3 py-1.5 bg-green-100 text-green-700 text-sm rounded hover:bg-green-200"
-                    >
-                      Set Default
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleEdit(preset)}
-                    className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(preset.id)}
-                    className="px-3 py-1.5 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+      {/* Save button and message */}
+      <div className="mb-6 flex items-center gap-4">
+        <button
+          onClick={savePreferences}
+          disabled={saving}
+          className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          <Save className="w-5 h-5" />
+          {saving ? 'Saving...' : 'Save All Settings'}
+        </button>
+        {saveMessage && (
+          <div className={`flex items-center gap-2 ${saveMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+            <AlertCircle className="w-5 h-5" />
+            {saveMessage}
           </div>
         )}
       </div>
 
-      {/* Create/Edit Preset Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">
-                {editingPreset ? 'Edit Preset' : 'Create New Preset'}
-              </h2>
+      {/* Tab Content */}
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        {/* Download Preferences Tab */}
+        {activeTab === 'download' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Download Preferences</h2>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Basic Info */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Basic Information</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Preset Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                        placeholder="e.g., Best Quality Video"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Description
-                      </label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                        placeholder="Optional description..."
-                        rows={2}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Platform *
-                      </label>
-                      <select
-                        value={formData.platform}
-                        onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                      >
-                        <option value="">🌐 All Platforms (Global)</option>
-                        <option value="youtube">▶️ YouTube</option>
-                        <option value="soundcloud">🎧 SoundCloud</option>
-                        <option value="bbc_iplayer">📺 BBC iPlayer</option>
-                        <option value="tiktok">🎵 TikTok</option>
-                        <option value="reddit">🔴 Reddit</option>
-                        <option value="rumble">📹 Rumble</option>
-                        <option value="twitch">🎮 Twitch</option>
-                        <option value="vimeo">🎬 Vimeo</option>
-                        <option value="other">Other</option>
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Choose a specific platform or leave as "All Platforms" for a global preset
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Default Quality</label>
+                <select
+                  value={preferences.default_quality}
+                  onChange={(e) => updatePreference('default_quality', e.target.value)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="2160p">2160p (4K)</option>
+                  <option value="1440p">1440p (2K)</option>
+                  <option value="1080p">1080p (Full HD)</option>
+                  <option value="720p">720p (HD)</option>
+                  <option value="480p">480p (SD)</option>
+                  <option value="360p">360p</option>
+                  <option value="audio">Audio Only</option>
+                </select>
+              </div>
 
-                {/* Download Settings */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Download Settings</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Quality</label>
-                      <select
-                        value={formData.quality}
-                        onChange={(e) => setFormData({ ...formData, quality: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500"
-                      >
-                        <option value="best">Best Quality</option>
-                        <option value="2160p">2160p (4K)</option>
-                        <option value="1440p">1440p (2K)</option>
-                        <option value="1080p">1080p (Full HD)</option>
-                        <option value="720p">720p (HD)</option>
-                        <option value="480p">480p (SD)</option>
-                        <option value="audio_only">Audio Only</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Format</label>
-                      <select
-                        value={formData.format}
-                        onChange={(e) => setFormData({ ...formData, format: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500"
-                      >
-                        <option value="mp4">MP4</option>
-                        <option value="mkv">MKV</option>
-                        <option value="webm">WebM</option>
-                        <option value="mp3">MP3</option>
-                        <option value="flac">FLAC</option>
-                        <option value="wav">WAV</option>
-                        <option value="opus">Opus</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Default Folder</label>
+                <select
+                  value={preferences.default_folder}
+                  onChange={(e) => updatePreference('default_folder', e.target.value)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="Downloads">Downloads</option>
+                  <option value="Movies">Movies</option>
+                  <option value="TV Shows">TV Shows</option>
+                  <option value="Music">Music</option>
+                  <option value="Documentaries">Documentaries</option>
+                </select>
+              </div>
 
-                {/* Organization */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">File Organization</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.auto_organize}
-                        onChange={(e) => setFormData({ ...formData, auto_organize: e.target.checked })}
-                        className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                      />
-                      <label className="ml-2 text-sm text-gray-700">Auto-organize files</label>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Subfolder Pattern
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.subfolder_pattern}
-                        onChange={(e) => setFormData({ ...formData, subfolder_pattern: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500"
-                        placeholder="{category} or {channel}/{year}"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Use variables: {'{category}'}, {'{channel}'}, {'{year}'}, {'{month}'}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Filename Pattern
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.filename_pattern}
-                        onChange={(e) => setFormData({ ...formData, filename_pattern: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500"
-                        placeholder="{title} or {channel} - {title}"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Use variables: {'{title}'}, {'{channel}'}, {'{date}'}, {'{id}'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Default Video Format</label>
+                <select
+                  value={preferences.default_video_format}
+                  onChange={(e) => updatePreference('default_video_format', e.target.value)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="mp4">MP4</option>
+                  <option value="mkv">MKV</option>
+                  <option value="webm">WebM</option>
+                </select>
+              </div>
 
-                {/* Metadata */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Metadata & Extras</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.embed_metadata}
-                        onChange={(e) => setFormData({ ...formData, embed_metadata: e.target.checked })}
-                        className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                      />
-                      <label className="ml-2 text-sm text-gray-700">Embed metadata (title, artist, etc.)</label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.embed_thumbnail}
-                        onChange={(e) => setFormData({ ...formData, embed_thumbnail: e.target.checked })}
-                        className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                      />
-                      <label className="ml-2 text-sm text-gray-700">Embed thumbnail</label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.embed_subtitles}
-                        onChange={(e) => setFormData({ ...formData, embed_subtitles: e.target.checked })}
-                        className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                      />
-                      <label className="ml-2 text-sm text-gray-700">Embed subtitles</label>
-                    </div>
-                    {formData.embed_subtitles && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Subtitle Languages
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.subtitle_languages}
-                          onChange={(e) => setFormData({ ...formData, subtitle_languages: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500"
-                          placeholder="en, es, fr (comma-separated)"
-                        />
-                      </div>
-                    )}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.extract_audio}
-                        onChange={(e) => setFormData({ ...formData, extract_audio: e.target.checked })}
-                        className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                      />
-                      <label className="ml-2 text-sm text-gray-700">Extract audio only (ignore video)</label>
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Default Audio Format</label>
+                <select
+                  value={preferences.default_audio_format}
+                  onChange={(e) => updatePreference('default_audio_format', e.target.value)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="mp3">MP3</option>
+                  <option value="m4a">M4A</option>
+                  <option value="aac">AAC</option>
+                  <option value="opus">Opus</option>
+                  <option value="flac">FLAC</option>
+                </select>
+              </div>
 
-                {/* Actions */}
-                <div className="flex gap-3 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700"
-                  >
-                    {editingPreset ? 'Update Preset' : 'Create Preset'}
-                  </button>
-                </div>
-              </form>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Concurrent Downloads: {preferences.concurrent_downloads}
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={preferences.concurrent_downloads}
+                  onChange={(e) => updatePreference('concurrent_downloads', parseInt(e.target.value))}
+                  className="w-full accent-blue-600"
+                />
+                <p className="text-xs text-gray-500 mt-1">Number of simultaneous downloads</p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Bandwidth Controls Tab */}
+        {activeTab === 'bandwidth' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Bandwidth Controls</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Download Speed Limit (MB/s)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Unlimited"
+                  value={preferences.download_speed_limit ? preferences.download_speed_limit / (1024 * 1024) : ''}
+                  onChange={(e) => updatePreference('download_speed_limit', e.target.value ? parseFloat(e.target.value) * 1024 * 1024 : null)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave empty for unlimited</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Upload Speed Limit (MB/s)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Unlimited"
+                  value={preferences.upload_speed_limit ? preferences.upload_speed_limit / (1024 * 1024) : ''}
+                  onChange={(e) => updatePreference('upload_speed_limit', e.target.value ? parseFloat(e.target.value) * 1024 * 1024 : null)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">For torrent seeding</p>
+              </div>
+            </div>
+
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+              <p className="text-sm text-blue-300">
+                <strong>Note:</strong> Bandwidth limits apply to all downloads and uploads. Restart the download worker for changes to take effect.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Jellyfin Integration Tab */}
+        {activeTab === 'jellyfin' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Jellyfin Integration</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Server URL</label>
+                <input
+                  type="url"
+                  placeholder="http://localhost:8096"
+                  value={preferences.jellyfin_server_url || ''}
+                  onChange={(e) => updatePreference('jellyfin_server_url', e.target.value || null)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">API Key</label>
+                <input
+                  type="password"
+                  placeholder="Your Jellyfin API key"
+                  value={preferences.jellyfin_api_key || ''}
+                  onChange={(e) => updatePreference('jellyfin_api_key', e.target.value || null)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={preferences.jellyfin_auto_scan}
+                    onChange={(e) => updatePreference('jellyfin_auto_scan', e.target.checked)}
+                    className="w-4 h-4 accent-blue-600"
+                  />
+                  <span className="text-sm text-gray-300">Auto-scan library after downloads</span>
+                </label>
+              </div>
+
+              <div className="border-t border-gray-700 pt-4">
+                <h3 className="text-lg font-medium mb-3">Library Paths</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Movies Path</label>
+                    <input
+                      type="text"
+                      value={preferences.jellyfin_library_paths.movies}
+                      onChange={(e) => updatePreference('jellyfin_library_paths', { ...preferences.jellyfin_library_paths, movies: e.target.value })}
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">TV Shows Path</label>
+                    <input
+                      type="text"
+                      value={preferences.jellyfin_library_paths.tv}
+                      onChange={(e) => updatePreference('jellyfin_library_paths', { ...preferences.jellyfin_library_paths, tv: e.target.value })}
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Music Path</label>
+                    <input
+                      type="text"
+                      value={preferences.jellyfin_library_paths.music}
+                      onChange={(e) => updatePreference('jellyfin_library_paths', { ...preferences.jellyfin_library_paths, music: e.target.value })}
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Documentaries Path</label>
+                    <input
+                      type="text"
+                      value={preferences.jellyfin_library_paths.documentaries}
+                      onChange={(e) => updatePreference('jellyfin_library_paths', { ...preferences.jellyfin_library_paths, documentaries: e.target.value })}
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notifications Tab */}
+        {activeTab === 'notifications' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Notification Preferences</h2>
+
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preferences.notifications_enabled}
+                  onChange={(e) => updatePreference('notifications_enabled', e.target.checked)}
+                  className="w-5 h-5 accent-blue-600"
+                />
+                <div>
+                  <div className="font-medium text-white">Enable Notifications</div>
+                  <div className="text-sm text-gray-400">Master switch for all notifications</div>
+                </div>
+              </label>
+
+              {preferences.notifications_enabled && (
+                <>
+                  <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={preferences.notify_download_complete}
+                      onChange={(e) => updatePreference('notify_download_complete', e.target.checked)}
+                      className="w-5 h-5 accent-blue-600"
+                    />
+                    <div>
+                      <div className="font-medium text-white">Download Complete</div>
+                      <div className="text-sm text-gray-400">Notify when downloads finish successfully</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={preferences.notify_download_failed}
+                      onChange={(e) => updatePreference('notify_download_failed', e.target.checked)}
+                      className="w-5 h-5 accent-blue-600"
+                    />
+                    <div>
+                      <div className="font-medium text-white">Download Failed</div>
+                      <div className="text-sm text-gray-400">Notify when downloads fail or encounter errors</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={preferences.notification_sound}
+                      onChange={(e) => updatePreference('notification_sound', e.target.checked)}
+                      className="w-5 h-5 accent-blue-600"
+                    />
+                    <div>
+                      <div className="font-medium text-white">Notification Sound</div>
+                      <div className="text-sm text-gray-400">Play sound with notifications</div>
+                    </div>
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Storage Management Tab */}
+        {activeTab === 'storage' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Storage Management</h2>
+
+            {storageInfo && (
+              <div className="bg-gray-900 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-medium mb-4">Current Usage</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  {storageInfo.by_category.map((cat) => (
+                    <div key={cat.category} className="bg-gray-800 p-4 rounded-lg">
+                      <div className="text-sm text-gray-400">{cat.category}</div>
+                      <div className="text-2xl font-bold text-white">{cat.gb} GB</div>
+                      <div className="text-xs text-gray-500">{cat.file_count} files</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-gray-700 pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Total Storage Used</span>
+                    <span className="text-2xl font-bold text-white">{storageInfo.total.gb} GB</span>
+                  </div>
+                  {storageInfo.limit.percentage && (
+                    <div className="mt-2">
+                      <div className="bg-gray-700 rounded-full h-3">
+                        <div
+                          className={`h-3 rounded-full ${
+                            parseFloat(storageInfo.limit.percentage) > 90 ? 'bg-red-500' :
+                            parseFloat(storageInfo.limit.percentage) > 75 ? 'bg-yellow-500' :
+                            'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min(parseFloat(storageInfo.limit.percentage), 100)}%` }}
+                        />
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        {storageInfo.limit.percentage}% of {storageInfo.limit.gb} GB limit
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Storage Limit (GB)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Unlimited"
+                  value={preferences.storage_limit_gb || ''}
+                  onChange={(e) => updatePreference('storage_limit_gb', e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave empty for unlimited storage</p>
+              </div>
+
+              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preferences.auto_cleanup_enabled}
+                  onChange={(e) => updatePreference('auto_cleanup_enabled', e.target.checked)}
+                  className="w-5 h-5 accent-blue-600"
+                />
+                <div>
+                  <div className="font-medium text-white">Enable Auto-Cleanup</div>
+                  <div className="text-sm text-gray-400">Automatically delete old files</div>
+                </div>
+              </label>
+
+              {preferences.auto_cleanup_enabled && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Delete files older than (days): {preferences.auto_cleanup_days}
+                  </label>
+                  <input
+                    type="range"
+                    min="7"
+                    max="365"
+                    value={preferences.auto_cleanup_days}
+                    onChange={(e) => updatePreference('auto_cleanup_days', parseInt(e.target.value))}
+                    className="w-full accent-blue-600"
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={handleCleanup}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
+              >
+                Run Cleanup Now
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Behavior Settings Tab */}
+        {activeTab === 'behavior' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Behavior Settings</h2>
+
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preferences.auto_organize_files}
+                  onChange={(e) => updatePreference('auto_organize_files', e.target.checked)}
+                  className="w-5 h-5 accent-blue-600"
+                />
+                <div>
+                  <div className="font-medium text-white">Auto-Organize Files</div>
+                  <div className="text-sm text-gray-400">Automatically organize downloads into category folders</div>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preferences.auto_fetch_thumbnails}
+                  onChange={(e) => updatePreference('auto_fetch_thumbnails', e.target.checked)}
+                  className="w-5 h-5 accent-blue-600"
+                />
+                <div>
+                  <div className="font-medium text-white">Auto-Fetch Thumbnails</div>
+                  <div className="text-sm text-gray-400">Automatically fetch thumbnails from TMDB for torrents</div>
+                </div>
+              </label>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Keep Download History (days): {preferences.keep_download_history_days}
+                </label>
+                <input
+                  type="range"
+                  min="7"
+                  max="365"
+                  value={preferences.keep_download_history_days}
+                  onChange={(e) => updatePreference('keep_download_history_days', parseInt(e.target.value))}
+                  className="w-full accent-blue-600"
+                />
+                <p className="text-xs text-gray-500 mt-1">History of completed/failed downloads</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Privacy/Advanced Tab */}
+        {activeTab === 'privacy' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Privacy & Advanced</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  YouTube Cookies File Path
+                </label>
+                <input
+                  type="text"
+                  placeholder="/path/to/cookies.txt"
+                  value={preferences.youtube_cookies_path || ''}
+                  onChange={(e) => updatePreference('youtube_cookies_path', e.target.value || null)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  For age-restricted videos. Export cookies from your browser using a cookies.txt extension.
+                </p>
+              </div>
+
+              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preferences.clear_search_history_on_exit}
+                  onChange={(e) => updatePreference('clear_search_history_on_exit', e.target.checked)}
+                  className="w-5 h-5 accent-blue-600"
+                />
+                <div>
+                  <div className="font-medium text-white">Clear Search History on Exit</div>
+                  <div className="text-sm text-gray-400">Automatically clear search history when closing the app</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -121,16 +121,31 @@ downloadsRouter.get('/:id', requireAuth, async (req, res) => {
 downloadsRouter.post('/', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
+
+    // Fetch user preferences to use as defaults
+    let userPrefs: any = null;
+    try {
+      const prefsResult = await AppDataSource
+        .createQueryBuilder()
+        .select('*')
+        .from('user_preferences', 'p')
+        .where('p.user_id = :userId', { userId })
+        .getRawOne();
+      userPrefs = prefsResult;
+    } catch (err) {
+      console.error('Failed to fetch user preferences:', err);
+    }
+
     const {
       url,
       downloader = 'yt-dlp',
       options = {},
-      category = 'movies',
+      category = userPrefs?.default_folder || 'Downloads',
       customFolder,
       organizeByUploader = false,
-      quality = 'best',
-      videoFormat = 'mp4',
-      audioFormat = 'mp3'
+      quality = userPrefs?.default_quality || 'best',
+      videoFormat = userPrefs?.default_video_format || 'mp4',
+      audioFormat = userPrefs?.default_audio_format || 'mp3'
     } = req.body;
 
     if (!url) {

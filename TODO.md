@@ -14,10 +14,11 @@
 - **YouTube Integration** - Channel/playlist browse, multi-select, bookmarks, accurate counts
 - **BBC iPlayer** - 9000+ programmes, channel filters, expiry tracking
 - **SoundCloud** - Artist/track search, bookmarks (300-result limit)
-- **Download Worker** - Background processing, progress tracking, auto-media creation
+- **Download Worker** - Background processing, progress tracking, auto-media creation, per-user concurrent limits
 - **Jellyfin Auto-Formatting** - TV show detection, TMDB metadata, inline preview
 - **Bookmarks/Favorites** - Save channels/playlists with auto-count updates
 - **Presets System** - User-configurable download templates
+- **Settings System** - Comprehensive user preferences with 7 categories (Download, Bandwidth, Jellyfin, Notifications, Storage, Behavior, Privacy)
 - **Media Library** - Browse, stream, search downloaded files
 - **Background Services** - tmux-based persistent services (qBittorrent, API, Web, Worker)
 - **Infinite Scroll** - Smooth browsing on Movies, TV Shows, Documentaries pages
@@ -250,7 +251,79 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-08 (Session 7) ✅ COMPLETED
+### Current Session: 2025-12-08 (Session 8) ✅ COMPLETED
+**Focus:** Comprehensive Settings System with User Preferences
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Created database migration 009** - user_preferences table
+  - 20+ preference columns across 7 categories
+  - Download preferences (quality, folder, formats, concurrent downloads)
+  - Bandwidth controls (download/upload speed limits)
+  - Jellyfin integration (server URL, API key, library paths, auto-scan)
+  - Notification preferences (enable/disable, download complete/failed, sound)
+  - Storage management (limits, auto-cleanup settings)
+  - Behavior settings (auto-organize, auto-fetch thumbnails, history retention)
+  - Privacy/advanced (YouTube cookies path, clear search history)
+  - Auto-creates default preferences for existing users
+  - Triggers for auto-updating timestamps
+- [x] **Built backend API** - `/api/v1/preferences`
+  - GET /preferences - Fetch user preferences (auto-creates defaults)
+  - PUT /preferences - Update preferences (partial updates supported)
+  - GET /preferences/storage - Storage usage by media type with limits/percentages
+  - POST /preferences/cleanup - Manual cleanup of old files
+  - All endpoints require authentication
+  - Integrated with index.ts routes
+- [x] **Created comprehensive Settings UI** - 7 tabbed sections
+  - Download Preferences tab - quality (2160p-360p/audio), default folder, video/audio formats, concurrent downloads slider (1-10)
+  - Bandwidth Controls tab - download/upload speed limits in MB/s
+  - Jellyfin Integration tab - server URL, API key, library paths for movies/tv/music/docs, auto-scan toggle
+  - Notifications tab - master toggle, download complete/failed alerts, sound toggle
+  - Storage Management tab - live storage stats by media type, storage limit, auto-cleanup toggle/days slider, manual cleanup button
+  - Behavior Settings tab - auto-organize files, auto-fetch TMDB thumbnails, download history retention slider
+  - Privacy/Advanced tab - YouTube cookies path for age-restricted content, clear search history toggle
+  - Green "Save All Settings" button with success/error messaging
+  - Storage visualization with colored progress bar (green/yellow/red)
+  - Beautiful UI with lucide-react icons
+- [x] **Integrated preferences with download workflow**
+  - Downloads POST endpoint fetches user preferences
+  - Uses preference defaults if not explicitly provided in request
+  - Quality, folder, video format, audio format all use user defaults
+  - Download worker respects per-user concurrent download limits
+  - Tracks active downloads per user independently
+  - Each user can have different concurrent limits (1-10)
+- [x] **Fixed export issues** - Settings component export name
+- [x] **Fixed storage endpoint** - Changed from `category` to `media_type` column
+
+**Implementation Details:**
+- Migration 009: user_preferences table with UNIQUE constraint on user_id
+- Preferences router with requireAuth middleware
+- Settings page with useState for tab management and preferences state
+- Per-user concurrent tracking with Map<userId, Set<downloadId>>
+- Preferences fetched on each download to ensure latest settings
+- Storage endpoint calculates usage by media_type and shows percentage if limit set
+
+**Files Created:**
+- `apps/api/src/migrations/009_create_user_preferences.sql`
+- `apps/api/src/routes/preferences.ts`
+- `apps/web/src/pages/Settings.tsx` (completely rebuilt)
+- `apps/web/src/pages/SettingsPresets.tsx` (old presets-only backup)
+
+**Files Modified:**
+- `apps/api/src/index.ts` - Added preferences router registration
+- `apps/api/src/routes/downloads.ts` - Integrated user preferences as defaults
+- `apps/api/src/workers/download.worker.ts` - Per-user concurrent download limits
+
+**Next Session Start Point:**
+→ Settings system complete! Future enhancements:
+  - Per-platform download preferences (different settings for Movies, TV, YouTube, iPlayer, etc.)
+  - BBC iPlayer quality options (currently HD only, need FHD/SD options)
+  - Bandwidth limit enforcement in qBittorrent service
+  - Browser notification implementation (UI ready, needs Notification API)
+  - Auto-cleanup scheduler (currently manual only)
+
+---
+
+### Session: 2025-12-08 (Session 7) ✅ COMPLETED
 **Focus:** BBC iPlayer Download Modal with Folder Selection
 **Status:** ✅ COMPLETED
 **Completed:**
@@ -640,13 +713,57 @@ Ocean Wisdom - Ting Dun Feat. Method Man:
 
 ---
 
-## 🚀 IMMEDIATE ACTION ITEMS (Next 3 Tasks)
+## 🚀 IMMEDIATE ACTION ITEMS (Priority Tasks for Next Session)
 
-Based on Phase 3 remaining tasks:
+Based on Settings system completion and identified gaps:
 
-1. **Quick filter sidebar** - Genre pills, year slider, rating filter for easier content discovery
-2. **Make sort options more visible** - Move sort dropdown to prominent position
-3. **Content Discovery Features** - Recommended/trending/popular aggregated views
+### High Priority
+
+1. **Per-Platform Download Preferences** (Settings Enhancement)
+   - Extend Settings system to allow platform-specific preferences
+   - Each platform (Movies, TV Shows, Documentaries, YouTube, iPlayer, SoundCloud, etc.) gets own settings tab
+   - Override global defaults with platform-specific quality, format, folder preferences
+   - UI: Sub-tabs or accordion in Settings → Download Preferences
+   - Database: Expand user_preferences with JSON columns for per-platform overrides
+   - Integration: Download workflow checks platform-specific settings first, falls back to global
+   - Benefits: Users can set "Movies = 4K MKV" and "YouTube = 1080p MP4" independently
+
+2. **BBC iPlayer Quality Options** (Critical Missing Feature)
+   - Current limitation: iPlayer downloads locked to HD quality only
+   - Need: Full quality range support (SD, HD, FHD/1080p, possibly 4K where available)
+   - Investigation required: Check get_iplayer capabilities and available quality modes
+   - Implementation: Add quality parameter to get_iplayer service calls
+   - UI: Quality selector in BBC iPlayer browse page and download modal
+   - Integration: Respect user's default quality preference from Settings
+   - Test: Verify different quality downloads work correctly
+   - Documentation: Document quality options and file size implications
+
+3. **Bandwidth Limit Enforcement** (Settings Integration)
+   - Current state: UI exists in Settings → Bandwidth, but not enforced
+   - Implementation: Apply user's bandwidth limits to qBittorrent when torrents start
+   - API: Call qBittorrent setPreferences API with speed_limit_dl_enabled + dl_limit, up_limit
+   - Fetch user preferences when adding torrents to qBittorrent
+   - Respect per-user limits for torrent traffic
+   - Test: Verify speed limits actually constrain download/upload speeds
+
+### Medium Priority
+
+4. **Browser Notification Implementation**
+   - Settings UI exists, need to wire up Notification API
+   - Request permission on first enable
+   - Send notifications on download complete/failed based on preferences
+   - Include notification sound if user enabled it
+
+5. **Auto-Cleanup Scheduler**
+   - Currently manual-only via "Run Cleanup Now" button
+   - Implement cron-like scheduler for automatic cleanup
+   - Run daily/weekly based on auto_cleanup_enabled and auto_cleanup_days settings
+
+### Lower Priority (Phase 3 Remaining)
+
+6. **Quick filter sidebar** - Genre pills, year slider, rating filter
+7. **Make sort options more visible** - Move sort dropdown to prominent position
+8. **Content Discovery Features** - Recommended/trending/popular aggregated views
 
 ---
 

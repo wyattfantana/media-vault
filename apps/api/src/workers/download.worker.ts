@@ -13,8 +13,8 @@ export class DownloadWorker {
   private pollInterval = 5000; // Check every 5 seconds
   private torrentPollInterval = 10000; // Check torrents every 10 seconds
   private currentDownloadId: string | null = null;
-  private maxConcurrentDownloads = 3; // Maximum concurrent downloads
-  private activeDownloads = new Set<string>(); // Track active download IDs
+  private defaultMaxConcurrentDownloads = 3; // Default maximum concurrent downloads
+  private activeDownloadsByUser = new Map<string, Set<string>>(); // Track active downloads per user
 
   constructor() {
     // Listen for progress events from downloaders
@@ -60,29 +60,66 @@ export class DownloadWorker {
   private async processQueue() {
     while (this.isRunning) {
       try {
-        // Calculate how many more downloads we can start
-        const availableSlots = this.maxConcurrentDownloads - this.activeDownloads.size;
+        // Get all pending downloads
+        const pendingDownloads = await AppDataSource
+          .createQueryBuilder()
+          .select('*')
+          .from('downloads', 'd')
+          .where('d.status = :status', { status: 'pending' })
+          .orderBy('d.created_at', 'ASC')
+          .getRawMany();
 
-        if (availableSlots > 0) {
-          // Get pending downloads up to available slots
-          const pendingDownloads = await AppDataSource
-            .createQueryBuilder()
-            .select('*')
-            .from('downloads', 'd')
-            .where('d.status = :status', { status: 'pending' })
-            .orderBy('d.created_at', 'ASC')
-            .limit(availableSlots)
-            .getRawMany();
+        // Group by user
+        const downloadsByUser = new Map<string, any[]>();
+        for (const download of pendingDownloads) {
+          const userId = download.user_id;
+          if (!downloadsByUser.has(userId)) {
+            downloadsByUser.set(userId, []);
+          }
+          downloadsByUser.get(userId)!.push(download);
+        }
 
-          // Process each download concurrently (fire and forget)
-          for (const download of pendingDownloads) {
-            if (!this.activeDownloads.has(download.id)) {
-              this.activeDownloads.add(download.id);
+        // Process downloads for each user up to their concurrent limit
+        for (const [userId, userDownloads] of downloadsByUser) {
+          // Get user's concurrent download preference
+          let maxConcurrent = this.defaultMaxConcurrentDownloads;
+          try {
+            const prefs = await AppDataSource
+              .createQueryBuilder()
+              .select('concurrent_downloads')
+              .from('user_preferences', 'p')
+              .where('p.user_id = :userId', { userId })
+              .getRawOne();
+            if (prefs && prefs.concurrent_downloads) {
+              maxConcurrent = prefs.concurrent_downloads;
+            }
+          } catch (err) {
+            console.error(`Failed to fetch preferences for user ${userId}:`, err);
+          }
+
+          // Get or create active downloads set for this user
+          if (!this.activeDownloadsByUser.has(userId)) {
+            this.activeDownloadsByUser.set(userId, new Set());
+          }
+          const userActiveDownloads = this.activeDownloadsByUser.get(userId)!;
+
+          // Calculate available slots for this user
+          const availableSlots = maxConcurrent - userActiveDownloads.size;
+
+          // Process up to available slots for this user
+          const downloadsToProcess = userDownloads.slice(0, availableSlots);
+          for (const download of downloadsToProcess) {
+            if (!userActiveDownloads.has(download.id)) {
+              userActiveDownloads.add(download.id);
 
               // Process download in background, remove from active when done
               this.processDownload(download)
                 .finally(() => {
-                  this.activeDownloads.delete(download.id);
+                  userActiveDownloads.delete(download.id);
+                  // Clean up empty sets
+                  if (userActiveDownloads.size === 0) {
+                    this.activeDownloadsByUser.delete(userId);
+                  }
                 });
             }
           }
