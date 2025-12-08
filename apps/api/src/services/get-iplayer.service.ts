@@ -173,7 +173,9 @@ export class GetIPlayerService extends EventEmitter {
       const args = [
         '--get',
         '--pid', pid,
-        '--output', iplayerDir
+        '--output', iplayerDir,
+        '--force', // Force download even if already in history
+        '--overwrite' // Overwrite existing files
       ];
 
       if (options.quality) {

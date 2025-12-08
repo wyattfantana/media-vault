@@ -1,0 +1,83 @@
+import { useState } from 'react';
+
+interface BBCDownloadOptionsProps {
+  programmeName: string;
+  onConfirm: (options: { category: string; searchTMDB: boolean }) => void;
+  onCancel: () => void;
+}
+
+export function BBCDownloadOptions({ programmeName, onConfirm, onCancel }: BBCDownloadOptionsProps) {
+  const [category, setCategory] = useState<string>('iplayer');
+  const [searchTMDB, setSearchTMDB] = useState(true);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onConfirm({ category, searchTMDB });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h2 className="text-xl font-bold mb-4">Download Options</h2>
+        <p className="text-gray-600 mb-4">Configure download for: <strong>{programmeName}</strong></p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Category Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Destination Folder
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            >
+              <option value="iplayer">iPlayer (Default)</option>
+              <option value="tv">TV Shows</option>
+              <option value="movies">Movies</option>
+              <option value="documentaries">Documentaries</option>
+              <option value="music">Music</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Files will be organized into: /MediaVault/{category === 'iplayer' ? 'iplayer' : category === 'tv' ? 'TV Shows' : category === 'movies' ? 'Movies' : category === 'documentaries' ? 'Documentaries' : 'Music'}
+            </p>
+          </div>
+
+          {/* TMDB Search Option */}
+          <div className="flex items-start">
+            <input
+              type="checkbox"
+              id="searchTMDB"
+              checked={searchTMDB}
+              onChange={(e) => setSearchTMDB(e.target.checked)}
+              className="mt-1 mr-2"
+            />
+            <label htmlFor="searchTMDB" className="text-sm text-gray-700">
+              <strong>Search TMDB for metadata</strong>
+              <p className="text-xs text-gray-500 mt-1">
+                Automatically fetch metadata (posters, descriptions, episode info) from The Movie Database
+              </p>
+            </label>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700"
+            >
+              Start Download
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

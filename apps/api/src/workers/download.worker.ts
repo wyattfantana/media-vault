@@ -147,20 +147,43 @@ export class DownloadWorker {
           throw new Error('Invalid iPlayer PID');
         }
 
-        const result = await getIPlayerService.downloadByPid(pidMatch[0], {
-          quality: 'fhd', // Full HD quality for get_iplayer
-          subtitles: true
-        });
-        outputPath = result.outputPath;
-
-        // Parse duration from programme info
-        if (result.info.duration) {
-          const durationMatch = result.info.duration.match(/(\d+):(\d+):(\d+)/);
-          if (durationMatch) {
-            duration = parseInt(durationMatch[1]) * 3600 +
-                      parseInt(durationMatch[2]) * 60 +
-                      parseInt(durationMatch[3]);
+        // Listen to progress events
+        const progressHandler = async (progressData: any) => {
+          if (progressData.status === 'downloading' && progressData.progress) {
+            await AppDataSource
+              .createQueryBuilder()
+              .update('downloads')
+              .set({ progress: progressData.progress })
+              .where('id = :id', { id: download.id })
+              .execute();
           }
+        };
+
+        getIPlayerService.on('progress', progressHandler);
+
+        let result;
+        try {
+          result = await getIPlayerService.downloadByPid(pidMatch[0], {
+            quality: 'hd', // HD quality (fhd not always available)
+            subtitles: true
+          });
+          outputPath = result.outputPath;
+
+          // Parse duration from programme info
+          if (result.info.duration) {
+            const durationMatch = result.info.duration.match(/(\d+):(\d+):(\d+)/);
+            if (durationMatch) {
+              duration = parseInt(durationMatch[1]) * 3600 +
+                        parseInt(durationMatch[2]) * 60 +
+                        parseInt(durationMatch[3]);
+            }
+          }
+
+          // Remove listener
+          getIPlayerService.off('progress', progressHandler);
+        } catch (err) {
+          getIPlayerService.off('progress', progressHandler);
+          throw err;
         }
       } else if (download.downloader === 'qbittorrent') {
         // For qBittorrent downloads, they are added to qBittorrent immediately in the POST endpoint
@@ -266,29 +289,43 @@ export class DownloadWorker {
         console.log('[Download Worker] Cleanup skipped');
       }
 
-      // Create media entry
+      // Create or update media entry (handle re-downloads)
       const mediaType = download.downloader === 'get_iplayer' ? 'tv_show' : 'video';
 
-      await AppDataSource
-        .createQueryBuilder()
-        .insert()
-        .into('media')
-        .values({
-          download_id: download.id,
-          user_id: download.user_id,
-          title: download.title || 'Unknown',
-          description: download.description || '',
-          file_path: finalPath,
-          file_size: fileSize,
-          duration: duration,
-          format: format || path.extname(finalPath).slice(1),
-          resolution: resolution || '',
-          thumbnail: download.thumbnail || '',
-          media_type: mediaType,
-          source: download.downloader,
-          metadata: download.metadata || '{}'
-        })
-        .execute();
+      // Use raw SQL for upsert to handle duplicate file_path constraint
+      await AppDataSource.query(`
+        INSERT INTO media (download_id, user_id, title, description, file_path, file_size, duration, format, resolution, thumbnail, media_type, source, metadata, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+        ON CONFLICT (file_path)
+        DO UPDATE SET
+          download_id = EXCLUDED.download_id,
+          user_id = EXCLUDED.user_id,
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          file_size = EXCLUDED.file_size,
+          duration = EXCLUDED.duration,
+          format = EXCLUDED.format,
+          resolution = EXCLUDED.resolution,
+          thumbnail = EXCLUDED.thumbnail,
+          media_type = EXCLUDED.media_type,
+          source = EXCLUDED.source,
+          metadata = EXCLUDED.metadata,
+          updated_at = NOW()
+      `, [
+        download.id,
+        download.user_id,
+        download.title || 'Unknown',
+        download.description || '',
+        finalPath,
+        fileSize,
+        duration,
+        format || path.extname(finalPath).slice(1),
+        resolution || '',
+        download.thumbnail || '',
+        mediaType,
+        download.downloader,
+        download.metadata || '{}'
+      ]);
 
       // Trigger Jellyfin library scan
       try {

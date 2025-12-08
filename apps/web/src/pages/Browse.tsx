@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { BBCDownloadOptions } from '../components/BBCDownloadOptions';
 
 interface Programme {
   pid: string;
@@ -19,7 +20,6 @@ export function Browse() {
   const [channel, setChannel] = useState('');
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('tv');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'recent' | 'expiry' | 'name'>('recent');
   const [filterChannel, setFilterChannel] = useState<string>('');
@@ -29,6 +29,7 @@ export function Browse() {
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [currentProgramme, setCurrentProgramme] = useState<Programme | null>(null);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   const observer = useRef<IntersectionObserver | null>(null);
   const lastProgrammeRef = useCallback((node: HTMLDivElement | null) => {
     if (loadingMore) return;
@@ -115,14 +116,24 @@ export function Browse() {
     }, 100);
   };
 
-  const handleDownload = async (programme: Programme) => {
-    // BBC iPlayer content doesn't need format preview - it already has metadata from BBC API
-    // Just submit the download directly
+  const handleDownload = (programme: Programme) => {
+    // Show download options modal
     setCurrentProgramme(programme);
-    await submitDownload(programme);
+    setShowDownloadModal(true);
   };
 
-  const submitDownload = async (programme: Programme) => {
+  const handleDownloadConfirm = async (options: { category: string; searchTMDB: boolean }) => {
+    if (!currentProgramme) return;
+    setShowDownloadModal(false);
+    await submitDownload(currentProgramme, options);
+  };
+
+  const handleDownloadCancel = () => {
+    setShowDownloadModal(false);
+    setCurrentProgramme(null);
+  };
+
+  const submitDownload = async (programme: Programme, options: { category: string; searchTMDB: boolean }) => {
     try {
       const url = `https://www.bbc.co.uk/iplayer/episode/${programme.pid}`;
 
@@ -133,7 +144,8 @@ export function Browse() {
         body: JSON.stringify({
           url,
           downloader: 'get_iplayer',
-          category: selectedCategory,
+          category: options.category,
+          searchTMDB: options.searchTMDB,
           metadata: {
             title: programme.name,
             episode: programme.episode,
@@ -228,17 +240,6 @@ export function Browse() {
               <option value="all">All Content</option>
               <option value="tv">TV Only</option>
               <option value="radio">Radio Only</option>
-            </select>
-
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500"
-            >
-              <option value="tv">Save to TV Shows</option>
-              <option value="movies">Save to Movies</option>
-              <option value="music">Save to Music</option>
-              <option value="documentaries">Save to Documentaries</option>
             </select>
 
             <select
@@ -482,6 +483,15 @@ export function Browse() {
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-2"></div>
           <p className="text-gray-500">Loading more programmes...</p>
         </div>
+      )}
+
+      {/* Download Options Modal */}
+      {showDownloadModal && currentProgramme && (
+        <BBCDownloadOptions
+          programmeName={`${currentProgramme.name}${currentProgramme.episode ? ` - ${currentProgramme.episode}` : ''}`}
+          onConfirm={handleDownloadConfirm}
+          onCancel={handleDownloadCancel}
+        />
       )}
     </div>
   );
