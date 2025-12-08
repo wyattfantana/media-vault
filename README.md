@@ -51,7 +51,6 @@ MediaVault lets you download and manage media from BBC iPlayer, YouTube, torrent
 - **get_iplayer** (BBC iPlayer downloader)
 - **qBittorrent-nox** (torrent client)
 
-Don't worry - we'll walk you through installing everything!
 
 ### Installation
 
