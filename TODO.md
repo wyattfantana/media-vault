@@ -1,6 +1,6 @@
 # MediaVault - Development Roadmap & Session Tracker
 
-**Last Updated:** 2025-12-07
+**Last Updated:** 2025-12-08
 **Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete
 **Next Session:** Phase 3 (remaining tasks), Phase 4 (advanced features), or Phase 5 (production polish)
 
@@ -250,7 +250,50 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-07 (Session 6) ✅ COMPLETED
+### Current Session: 2025-12-08 (Session 7) ✅ COMPLETED
+**Focus:** BBC iPlayer Download Modal with Folder Selection
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Created BBC iPlayer download modal** with folder selection
+  - BBCDownloadOptions component (apps/web/src/components/BBCDownloadOptions.tsx)
+  - Defaults to 'iPlayer' folder with options for TV Shows, Movies, Documentaries, Music
+  - TMDB metadata search toggle option
+  - Simple, clean UI as requested by user
+- [x] **Integrated modal into Browse page** (apps/web/src/pages/Browse.tsx)
+  - Shows modal on download button click
+  - Removed category dropdown from search form (now in modal)
+  - Passes selected options to download submission
+- [x] **Fixed duplicate key constraint error** (apps/api/src/workers/download.worker.ts)
+  - Root cause: Re-downloading same file caused unique constraint violation on media.file_path
+  - Solution: PostgreSQL native upsert with ON CONFLICT DO UPDATE
+  - Uses raw SQL instead of TypeORM .orUpdate() (which caused entity metadata error)
+  - Now updates existing media record instead of failing on re-downloads
+- [x] **Fixed TypeORM entity metadata error**
+  - Error: "Cannot get entity metadata for the given alias 'media'"
+  - Root cause: .orUpdate() method not properly supported
+  - Solution: Replaced with raw PostgreSQL INSERT...ON CONFLICT query
+  - All fields update on conflict: download_id, user_id, title, description, file_size, duration, format, resolution, thumbnail, media_type, source, metadata
+
+**Implementation Details:**
+- Modal state management with useState for showDownloadModal and currentProgramme
+- Modal handlers: handleDownload (shows modal), handleDownloadConfirm (submits), handleDownloadCancel (closes)
+- Download submission includes category and searchTMDB options from modal
+- Upsert SQL handles duplicate file_path by updating all fields with EXCLUDED values
+- Timestamps: created_at preserved, updated_at refreshed on conflict
+
+**Files Modified:**
+- `apps/web/src/components/BBCDownloadOptions.tsx` - Added iplayer folder option as default
+- `apps/web/src/pages/Browse.tsx` - Integrated modal, removed category dropdown
+- `apps/api/src/workers/download.worker.ts` - PostgreSQL upsert for media table
+
+**Commit:** 22b78dd - "Add BBC iPlayer download modal with folder selection"
+
+**Next Session Start Point:**
+→ All BBC iPlayer download features complete! Consider: Phase 3 browsing UX improvements, Phase 4 advanced automation, or Phase 5 production polish
+
+---
+
+### Session: 2025-12-07 (Session 6) ✅ COMPLETED
 **Focus:** Scroll Position Persistence ("Continue Browsing" State)
 **Status:** ✅ COMPLETED
 **Completed:**
