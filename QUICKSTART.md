@@ -64,9 +64,9 @@ QBITTORRENT_USERNAME=admin
 QBITTORRENT_PASSWORD=adminadmin
 
 # Download paths
-DOWNLOAD_DIR=/home/beerm/downloads
-YTDLP_PATH=/home/beerm/bin/yt-dlp
-GET_IPLAYER_PATH=/home/beerm/get_iplayer/get_iplayer
+DOWNLOAD_DIR=/home/yourusername/downloads
+YTDLP_PATH=/home/yourusername/bin/yt-dlp
+GET_IPLAYER_PATH=/home/yourusername/get_iplayer/get_iplayer
 ```
 
 ## 4. Run Database Migrations
