@@ -200,8 +200,10 @@ export class DownloadWorker {
 
         let result;
         try {
+          // Use quality from download record, default to 'hd' if not specified
+          const quality = download.quality || 'hd';
           result = await getIPlayerService.downloadByPid(pidMatch[0], {
-            quality: 'hd', // HD quality (fhd not always available)
+            quality: quality as any,
             subtitles: true
           });
           outputPath = result.outputPath;
