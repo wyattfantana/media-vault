@@ -15,7 +15,7 @@ export const AppDataSource = new DataSource({
   port: parseInt(process.env.POSTGRES_PORT || '5432'),
   username: process.env.POSTGRES_USER || 'postgres',
   password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB || 'quotemaster',
+  database: process.env.POSTGRES_DB || 'mediavault',
   synchronize: false, // Never use true in production!
   logging: process.env.NODE_ENV === 'development',
   entities: [Client, Estimate, EstimateItem, Invoice, InvoiceItem, Product, Revenue, Settings],

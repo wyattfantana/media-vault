@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "universal-app-starter",
+  "productName": "MediaVault",
   "version": "0.1.0",
-  "identifier": "com.dwdec.universal-app-starter",
+  "identifier": "com.dwdec.mediavault",
   "build": {
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "npm run build",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "universal-app-starter",
+        "title": "MediaVault",
         "width": 800,
         "height": 600,
         "fullscreen": false,

@@ -123,7 +123,7 @@ qbittorrent-nox --webui-port=8080 --confirm-legal-notice
 
 # Terminal 2: Start MediaVault services
 cd ~/projects/media-vault
-npx turbo dev --filter=starter-api --filter=starter-web --filter=worker
+npx turbo dev --filter=api --filter=web --filter=worker
 ```
 
 ## 6. Access MediaVault

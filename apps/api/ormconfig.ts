@@ -10,7 +10,7 @@ export default new DataSource({
   port: parseInt(process.env.POSTGRES_PORT || '5432'),
   username: process.env.POSTGRES_USER || 'postgres',
   password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB || 'quotemaster',
+  database: process.env.POSTGRES_DB || 'mediavault',
   entities: ['src/entities/*.ts'],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,

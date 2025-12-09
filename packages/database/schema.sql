@@ -1,4 +1,4 @@
--- QuoteMaster PostgreSQL Database Schema
+-- MediaVault PostgreSQL Database Schema
 -- Drop tables if they exist (for clean migrations)
 DROP TABLE IF EXISTS estimate_items CASCADE;
 DROP TABLE IF EXISTS estimates CASCADE;
