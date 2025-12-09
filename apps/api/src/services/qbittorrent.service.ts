@@ -118,6 +118,15 @@ export class QBittorrentService {
   }
 
   /**
+   * Ensure we're authenticated before making requests
+   */
+  private async ensureAuthenticated(): Promise<void> {
+    if (!this.cookie) {
+      await this.login();
+    }
+  }
+
+  /**
    * Add torrent by URL (magnet link or .torrent URL)
    */
   async addTorrent(

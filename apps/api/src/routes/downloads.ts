@@ -240,6 +240,28 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
         });
 
         if (result.success) {
+          // Apply bandwidth limits from user preferences if set
+          if (userPrefs) {
+            try {
+              if (userPrefs.download_speed_limit && userPrefs.download_speed_limit > 0) {
+                // Convert MB/s to bytes/s (qBittorrent expects bytes/sec)
+                const downloadLimit = userPrefs.download_speed_limit * 1024 * 1024;
+                await qbittorrentService.setDownloadLimit(downloadLimit);
+                console.log(`Applied download limit: ${userPrefs.download_speed_limit} MB/s for user ${userId}`);
+              }
+
+              if (userPrefs.upload_speed_limit && userPrefs.upload_speed_limit > 0) {
+                // Convert MB/s to bytes/s (qBittorrent expects bytes/sec)
+                const uploadLimit = userPrefs.upload_speed_limit * 1024 * 1024;
+                await qbittorrentService.setUploadLimit(uploadLimit);
+                console.log(`Applied upload limit: ${userPrefs.upload_speed_limit} MB/s for user ${userId}`);
+              }
+            } catch (limitErr) {
+              console.error('Failed to apply bandwidth limits:', limitErr);
+              // Don't fail the download if bandwidth limits can't be set
+            }
+          }
+
           // Update status to downloading
           await AppDataSource
             .createQueryBuilder()
