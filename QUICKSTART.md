@@ -79,6 +79,9 @@ psql mediavault < src/migrations/003_create_bookmarks_table.sql
 psql mediavault < src/migrations/004_create_presets_table.sql
 psql mediavault < src/migrations/005_add_platform_to_presets.sql
 psql mediavault < src/migrations/006_add_jellyfin_formatting_columns.sql
+psql mediavault < src/migrations/007_add_qbittorrent_downloader.sql
+psql mediavault < src/migrations/008_add_quality_format_columns.sql
+psql mediavault < src/migrations/009_create_user_preferences.sql
 ```
 
 ## 5. Start MediaVault

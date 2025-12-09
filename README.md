@@ -80,8 +80,14 @@ npm install
 **3. Set up the database:**
 
 ```bash
+# Start PostgreSQL (if not already running)
+sudo service postgresql start
+
 # Create the database
 createdb mediavault
+
+# Set password for postgres user
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'mediavault123';"
 
 # Run the setup (this creates all the tables)
 cd apps/api
@@ -91,6 +97,9 @@ psql mediavault < src/migrations/003_create_bookmarks_table.sql
 psql mediavault < src/migrations/004_create_presets_table.sql
 psql mediavault < src/migrations/005_add_platform_to_presets.sql
 psql mediavault < src/migrations/006_add_jellyfin_formatting_columns.sql
+psql mediavault < src/migrations/007_add_qbittorrent_downloader.sql
+psql mediavault < src/migrations/008_add_quality_format_columns.sql
+psql mediavault < src/migrations/009_create_user_preferences.sql
 ```
 
 **4. Configure your settings:**
@@ -110,6 +119,10 @@ TMDB_API_KEY=your_tmdb_api_key
 
 # Where to save downloads
 DOWNLOAD_DIR=/home/yourusername/downloads
+
+# Tool paths (optional - these are the defaults)
+YTDLP_PATH=/home/yourusername/bin/yt-dlp
+GET_IPLAYER_PATH=/home/yourusername/get_iplayer/get_iplayer
 
 # Other settings (use these defaults)
 PORT=3001
