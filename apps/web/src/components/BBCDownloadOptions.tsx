@@ -3,18 +3,17 @@ import { useState } from 'react';
 interface BBCDownloadOptionsProps {
   programmeName: string;
   programmeType?: 'tv' | 'radio';
-  onConfirm: (options: { category: string; searchTMDB: boolean; quality: string }) => void;
+  onConfirm: (options: { category: string; quality: string }) => void;
   onCancel: () => void;
 }
 
 export function BBCDownloadOptions({ programmeName, programmeType = 'tv', onConfirm, onCancel }: BBCDownloadOptionsProps) {
   const [category, setCategory] = useState<string>('iplayer');
-  const [searchTMDB, setSearchTMDB] = useState(true);
   const [quality, setQuality] = useState<string>('hd');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onConfirm({ category, searchTMDB, quality });
+    onConfirm({ category, quality });
   };
 
   return (
@@ -75,23 +74,6 @@ export function BBCDownloadOptions({ programmeName, programmeType = 'tv', onConf
             <p className="text-xs text-gray-500 mt-1">
               Higher quality = larger file size and longer download time
             </p>
-          </div>
-
-          {/* TMDB Search Option */}
-          <div className="flex items-start">
-            <input
-              type="checkbox"
-              id="searchTMDB"
-              checked={searchTMDB}
-              onChange={(e) => setSearchTMDB(e.target.checked)}
-              className="mt-1 mr-2"
-            />
-            <label htmlFor="searchTMDB" className="text-sm text-gray-700">
-              <strong>Search TMDB for metadata</strong>
-              <p className="text-xs text-gray-500 mt-1">
-                Automatically fetch metadata (posters, descriptions, episode info) from The Movie Database
-              </p>
-            </label>
           </div>
 
           {/* Action Buttons */}

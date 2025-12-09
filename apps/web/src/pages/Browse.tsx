@@ -122,7 +122,7 @@ export function Browse() {
     setShowDownloadModal(true);
   };
 
-  const handleDownloadConfirm = async (options: { category: string; searchTMDB: boolean; quality: string }) => {
+  const handleDownloadConfirm = async (options: { category: string; quality: string }) => {
     if (!currentProgramme) return;
     setShowDownloadModal(false);
     await submitDownload(currentProgramme, options);
@@ -133,7 +133,7 @@ export function Browse() {
     setCurrentProgramme(null);
   };
 
-  const submitDownload = async (programme: Programme, options: { category: string; searchTMDB: boolean; quality: string }) => {
+  const submitDownload = async (programme: Programme, options: { category: string; quality: string }) => {
     try {
       const url = `https://www.bbc.co.uk/iplayer/episode/${programme.pid}`;
 
@@ -145,7 +145,6 @@ export function Browse() {
           url,
           downloader: 'get_iplayer',
           category: options.category,
-          searchTMDB: options.searchTMDB,
           quality: options.quality,
           metadata: {
             title: programme.name,
