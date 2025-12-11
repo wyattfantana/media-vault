@@ -1,7 +1,7 @@
 # MediaVault - Development Roadmap & Session Tracker
 
 **Last Updated:** 2025-12-11
-**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete
+**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete
 **Next Session:** Phase 3 (remaining tasks), Phase 4 (advanced features), or Phase 5 (production polish)
 
 ---
@@ -25,6 +25,8 @@
 - **Jellyfin Plugins** - Intro Skipper, JellyScrub, TheTVDB, TMDb Box Sets (installed, restart required)
 - **VPN Integration** - Windows Mullvad integration with automatic traffic protection, sidebar toggle, status display
 - **Database** - PostgreSQL running in WSL2 (Unix sockets, all-in-one architecture)
+- **Startup System** - Passwordless sudo, auto-start all services (PostgreSQL, Docker, Jellyfin, qBittorrent, MediaVault), single-command startup/stop/status scripts
+- **Jellyfin Container** - Properly configured Docker container with persistent volumes, auto-restart, accessible at http://localhost:8096
 
 ### Partially Working ⚠️
 - **Torrent Integration** - qBittorrent API works, but has critical database bug (see below)
@@ -605,6 +607,62 @@
 - Configure plugins via Jellyfin Dashboard → Plugins
 - Test intro skipping on TV shows
 - Test JellyScrub preview thumbnails
+
+---
+
+### Session: 2025-12-11 (Session 11) ✅ COMPLETED
+**Focus:** Startup System Hardening & Jellyfin Container Fix
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Fixed WSL DNS networking issues**
+  - Configured static DNS (8.8.8.8, 1.1.1.1) in /etc/resolv.conf
+  - Set Windows vEthernet adapter DNS properly
+  - Locked resolv.conf with chattr +i to prevent WSL overwrites
+  - Fixed WSL → internet connectivity after multiple wsl --shutdown cycles
+- [x] **Configured passwordless sudo** for MediaVault services
+  - Created /etc/sudoers.d/mediavault for PostgreSQL and Docker service commands
+  - Eliminated password prompts from startup script
+  - Startup now fully automated with zero user interaction
+- [x] **Fixed Jellyfin Docker container**
+  - Discovered old container had no name (couldn't be found by startup script)
+  - Removed corrupted unnamed container
+  - Created fresh Jellyfin container with proper configuration:
+    - Named: `jellyfin`
+    - Port: 8096:8096
+    - Volumes: ~/downloads → /media, ~/jellyfin/config, ~/jellyfin/cache
+    - Auto-restart: unless-stopped
+  - Verified accessible at http://localhost:8096
+- [x] **Updated startup scripts**
+  - ~/start-mediavault.sh: Auto-starts PostgreSQL, Docker, Jellyfin, qBittorrent, MediaVault (API/Web/Worker)
+  - ~/stop-mediavault.sh: Cleanly stops all services
+  - ~/status-mediavault.sh: Shows real-time status of all services
+  - All scripts run without password prompts
+  - Fixed port numbers (Web UI: 5173, not 3000)
+- [x] **Created worker .env file**
+  - Added POSTGRES_HOST=localhost for database connection
+  - Worker now connects to PostgreSQL via TCP instead of Unix sockets
+- [x] **Verified full system startup**
+  - All 7 services start successfully: PostgreSQL, Docker, Jellyfin, qBittorrent, API, Web, Worker
+  - Total startup time: ~15 seconds
+  - No errors or warnings
+  - Dashboard "Open Jellyfin" button now works
+
+**Files Modified:**
+- ~/start-mediavault.sh (passwordless, added Docker/Jellyfin)
+- ~/stop-mediavault.sh (updated messages)
+- ~/status-mediavault.sh (fixed port numbers)
+- ~/MEDIAVAULT-QUICKSTART.md (created quickstart guide)
+- apps/worker/.env (created with database config)
+- /etc/sudoers.d/mediavault (passwordless sudo)
+- /etc/resolv.conf (static DNS)
+
+**Commits:**
+- fdf1d21: Add VPN integration and Claude Code commands
+
+**Next Session Start Point:**
+- System is fully operational and stable
+- All services auto-start with single command
+- Ready for feature development or UX improvements
 
 ---
 
@@ -1233,7 +1291,7 @@ SELECT id, title, status, downloader, progress FROM downloads ORDER BY created_a
 ### Service URLs
 - Web UI: http://localhost:5173
 - API: http://localhost:3001
-- qBittorrent: http://localhost:8080 (admin/adminadmin)
+- qBittorrent: http://localhost:8080 (no login required from localhost)
 - Jellyfin: http://localhost:8096
 
 ---
