@@ -1,6 +1,87 @@
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 
+interface VPNStatus {
+  connected: boolean;
+  server?: string;
+}
+
 export function Layout() {
+  const [vpnStatus, setVpnStatus] = useState<VPNStatus | null>(null);
+  const [vpnLoading, setVpnLoading] = useState(false);
+
+  useEffect(() => {
+    fetchVPNStatus();
+    // Poll VPN status every 30 seconds
+    const interval = setInterval(fetchVPNStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchVPNStatus = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/api/v1/vpn/status', {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVpnStatus(data);
+      }
+    } catch (err) {
+      // Silently fail - VPN status is optional
+    }
+  };
+
+  const toggleVPN = async () => {
+    if (vpnLoading || !vpnStatus) return;
+
+    const wasConnected = vpnStatus.connected;
+    setVpnLoading(true);
+
+    // Optimistic update - immediately show expected state
+    setVpnStatus({
+      ...vpnStatus,
+      connected: !wasConnected
+    });
+
+    try {
+      const endpoint = wasConnected ? 'disconnect' : 'connect';
+      const res = await fetch(`http://localhost:3001/api/v1/vpn/${endpoint}`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        // Poll for actual status quickly, then return to normal polling
+        let attempts = 0;
+        const quickPoll = setInterval(async () => {
+          await fetchVPNStatus();
+          attempts++;
+
+          // Stop quick polling after 10 attempts (5 seconds) or when state matches expected
+          if (attempts >= 10 || vpnStatus?.connected !== wasConnected) {
+            clearInterval(quickPoll);
+            setVpnLoading(false);
+          }
+        }, 500);
+      } else {
+        // Revert optimistic update on failure
+        setVpnStatus({
+          ...vpnStatus,
+          connected: wasConnected
+        });
+        setVpnLoading(false);
+      }
+    } catch (err) {
+      console.error('Failed to toggle VPN:', err);
+      // Revert optimistic update on error
+      setVpnStatus({
+        ...vpnStatus,
+        connected: wasConnected
+      });
+      setVpnLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Sidebar */}
@@ -71,6 +152,49 @@ export function Layout() {
             </svg>
             Settings
           </NavLink>
+
+          {/* VPN Status Toggle */}
+          {vpnStatus && (
+            <div className="mt-6 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${vpnStatus.connected ? 'bg-green-500' : 'bg-red-500'} ${vpnLoading ? 'animate-pulse' : ''}`} />
+                  <span className="text-xs font-medium text-gray-700">
+                    VPN
+                  </span>
+                </div>
+
+                {/* Toggle Switch */}
+                <button
+                  onClick={toggleVPN}
+                  disabled={vpnLoading}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    vpnStatus.connected ? 'bg-green-600' : 'bg-gray-300'
+                  }`}
+                  title={vpnLoading ? 'Switching...' : (vpnStatus.connected ? 'Disconnect VPN' : 'Connect VPN')}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      vpnStatus.connected ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Server info or loading state */}
+              {vpnLoading ? (
+                <p className="text-xs text-gray-500 mt-1">
+                  {vpnStatus.connected ? 'Connecting...' : 'Disconnecting...'}
+                </p>
+              ) : (
+                vpnStatus.connected && vpnStatus.server && (
+                  <p className="text-xs text-gray-500 mt-1 truncate" title={vpnStatus.server}>
+                    {vpnStatus.server}
+                  </p>
+                )
+              )}
+            </div>
+          )}
         </nav>
       </aside>
 

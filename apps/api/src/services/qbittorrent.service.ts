@@ -381,6 +381,118 @@ export class QBittorrentService {
       throw error;
     }
   }
+
+  /**
+   * Get application preferences (including network interface)
+   */
+  async getPreferences(): Promise<any> {
+    try {
+      await this.ensureAuthenticated();
+      const response = await this.client.get('/app/preferences', {
+        headers: this.getHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get preferences:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set application preferences
+   */
+  async setPreferences(preferences: any): Promise<void> {
+    try {
+      await this.ensureAuthenticated();
+      const formData = new URLSearchParams();
+      formData.append('json', JSON.stringify(preferences));
+
+      await this.client.post('/app/setPreferences', formData, {
+        headers: {
+          ...this.getHeaders(),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      console.log('[qBittorrent] Preferences updated successfully');
+    } catch (error) {
+      console.error('Failed to set preferences:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current network interface binding
+   */
+  async getNetworkInterface(): Promise<string | null> {
+    try {
+      const prefs = await this.getPreferences();
+      const currentInterface = prefs.current_interface_name || null;
+      console.log('[qBittorrent] Current network interface:', currentInterface || 'None (all interfaces)');
+      return currentInterface;
+    } catch (error) {
+      console.error('Failed to get network interface:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Set network interface binding for qBittorrent
+   * This ensures torrents only work when connected to the specified interface
+   */
+  async setNetworkInterface(interfaceName: string | null): Promise<void> {
+    try {
+      await this.ensureAuthenticated();
+
+      const preferences: any = {
+        current_interface_name: interfaceName || '',
+      };
+
+      // If interface is set, also set the interface address type to prefer IPv4
+      if (interfaceName) {
+        preferences.current_interface_address = '';
+        console.log(`[qBittorrent] Binding to network interface: ${interfaceName}`);
+      } else {
+        console.log('[qBittorrent] Unbinding from network interface (allowing all interfaces)');
+      }
+
+      await this.setPreferences(preferences);
+
+      console.log('[qBittorrent] Network interface binding updated successfully');
+    } catch (error) {
+      console.error('Failed to set network interface:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bind qBittorrent to VPN interface (auto-kill switch)
+   * When bound to VPN interface, torrents will only work when VPN is connected
+   */
+  async bindToVPN(vpnInterface: string): Promise<void> {
+    try {
+      console.log(`[qBittorrent] Binding to VPN interface: ${vpnInterface}`);
+      await this.setNetworkInterface(vpnInterface);
+      console.log('[qBittorrent] Successfully bound to VPN interface - torrents will only work when VPN is active');
+    } catch (error) {
+      console.error('Failed to bind to VPN:', error);
+      throw new Error('Failed to bind qBittorrent to VPN interface');
+    }
+  }
+
+  /**
+   * Unbind qBittorrent from VPN interface
+   */
+  async unbindFromVPN(): Promise<void> {
+    try {
+      console.log('[qBittorrent] Unbinding from VPN interface');
+      await this.setNetworkInterface(null);
+      console.log('[qBittorrent] Successfully unbound from VPN interface');
+    } catch (error) {
+      console.error('Failed to unbind from VPN:', error);
+      throw new Error('Failed to unbind qBittorrent from VPN interface');
+    }
+  }
 }
 
 // Singleton instance

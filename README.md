@@ -24,6 +24,7 @@ MediaVault lets you download and manage media from BBC iPlayer, YouTube, torrent
 - 🎛️ **Quality Control** - Choose from 4K down to 360p, or audio-only
 - 🗂️ **Auto-Organization** - Files sorted into Movies, TV, Music, Documentaries automatically
 - 📺 **Jellyfin Ready** - Perfect naming for your media server (S01E01, movie years, etc.)
+- 🔒 **VPN Integration** - Windows Mullvad support with automatic traffic protection and sidebar toggle
 
 ### Beautiful Interface
 - 🎨 **Netflix-Style Browse** - Grid view with thumbnails and ratings
@@ -80,26 +81,31 @@ npm install
 **3. Set up the database:**
 
 ```bash
-# Start PostgreSQL (if not already running)
+# Start PostgreSQL in WSL2 (recommended for all-in-one setup)
 sudo service postgresql start
 
-# Create the database
-createdb mediavault
+# Create mediavault user and database
+sudo -u postgres psql <<EOF
+CREATE USER mediavault WITH PASSWORD 'mediavault123';
+CREATE DATABASE mediavault OWNER mediavault;
+\q
+EOF
 
-# Set password for postgres user
-sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'mediavault123';"
+# Configure PostgreSQL for password authentication
+sudo sed -i 's/^local   all             all                                     peer/local   all             all                                     md5/' /etc/postgresql/16/main/pg_hba.conf
+sudo service postgresql reload
 
-# Run the setup (this creates all the tables)
+# Run the migrations (this creates all the tables)
 cd apps/api
-npx tsx src/scripts/migrate-better-auth.ts
-psql mediavault < src/migrations/002_create_media_tables.sql
-psql mediavault < src/migrations/003_create_bookmarks_table.sql
-psql mediavault < src/migrations/004_create_presets_table.sql
-psql mediavault < src/migrations/005_add_platform_to_presets.sql
-psql mediavault < src/migrations/006_add_jellyfin_formatting_columns.sql
-psql mediavault < src/migrations/007_add_qbittorrent_downloader.sql
-psql mediavault < src/migrations/008_add_quality_format_columns.sql
-psql mediavault < src/migrations/009_create_user_preferences.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/002_create_media_tables.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/003_create_bookmarks_table.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/004_create_presets_table.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/005_add_platform_to_presets.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/006_add_jellyfin_formatting_columns.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/007_add_qbittorrent_downloader.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/008_add_quality_format_columns.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/009_create_user_preferences.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/010_add_vpn_preferences.sql
 ```
 
 **4. Configure your settings:**
@@ -107,12 +113,12 @@ psql mediavault < src/migrations/009_create_user_preferences.sql
 Create a file at `apps/api/.env` with these settings:
 
 ```bash
-# Database
-POSTGRES_HOST=localhost
+# Database (using Unix socket for WSL2)
+POSTGRES_HOST=/var/run/postgresql
 POSTGRES_PORT=5432
 POSTGRES_DB=mediavault
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your_password
+POSTGRES_USER=mediavault
+POSTGRES_PASSWORD=mediavault123
 
 # Get a free TMDB API key at https://www.themoviedb.org/settings/api
 TMDB_API_KEY=your_tmdb_api_key
@@ -159,6 +165,28 @@ Go to **http://localhost:5173** and create your account!
 2. **Browse** - Use the Discover tab to find movies, TV shows, or BBC programmes
 3. **Download** - Click download on anything you like, or paste a YouTube/torrent link
 4. **Watch** - Files are automatically organized in your downloads folder, ready for Jellyfin or any media player
+
+---
+
+## 🔒 VPN Setup (Optional but Recommended)
+
+MediaVault integrates with **Windows Mullvad VPN** for automatic torrent protection.
+
+**How it works:**
+- Install [Mullvad VPN](https://mullvad.net/) on Windows (not in WSL2)
+- MediaVault automatically detects and uses it
+- All WSL2 traffic (including torrents) routes through the VPN thanks to mirrored networking
+- One-click toggle in the sidebar to connect/disconnect
+- VPN status displayed with server location and IP
+
+**No binding needed!** - Unlike traditional setups, qBittorrent doesn't need to bind to a VPN interface. When Mullvad is connected on Windows, all WSL2 traffic automatically uses it.
+
+**Features:**
+- ✅ Sidebar toggle - Connect/disconnect with one click
+- ✅ Real-time status - See connection state, server, and IP
+- ✅ Auto-connect - Automatically connect before torrent downloads
+- ✅ Require VPN - Block torrents unless VPN is active
+- ✅ Traffic verification - Test endpoint confirms protection
 
 ---
 

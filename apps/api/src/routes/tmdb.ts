@@ -388,12 +388,12 @@ router.get('/popular/tv', async (req, res) => {
 
 /**
  * Get trending content
- * GET /api/v1/tmdb/trending/:mediaType?timeWindow=week
+ * GET /api/v1/tmdb/trending/:mediaType/:timeWindow
  */
-router.get('/trending/:mediaType', async (req, res) => {
+router.get('/trending/:mediaType/:timeWindow', async (req, res) => {
   try {
     const mediaType = req.params.mediaType as 'movie' | 'tv';
-    const timeWindow = (req.query.timeWindow as 'day' | 'week') || 'week';
+    const timeWindow = (req.params.timeWindow as 'day' | 'week') || 'week';
 
     if (!['movie', 'tv'].includes(mediaType)) {
       return res.status(400).json({ error: 'mediaType must be "movie" or "tv"' });

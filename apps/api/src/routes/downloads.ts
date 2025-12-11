@@ -3,6 +3,7 @@ import { auth } from '../auth.js';
 import { ytdlpService } from '../services/ytdlp.service.js';
 import { getIPlayerService } from '../services/get-iplayer.service.js';
 import { qbittorrentService, QBittorrentService } from '../services/qbittorrent.service.js';
+import { vpnService } from '../services/vpn.service.js';
 import { jellyfinFormatter } from '../services/jellyfin-formatter.service.js';
 import { AppDataSource } from '../data-source.js';
 
@@ -227,6 +228,71 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
 
     // If it's a torrent, immediately add it to qBittorrent
     if (isTorrent) {
+      // Check if VPN auto-connect is enabled
+      const shouldAutoConnect = await vpnService.shouldAutoConnect(userId);
+      let vpnStatus = await vpnService.getStatus();
+
+      // Auto-connect to VPN if enabled and not connected
+      if (shouldAutoConnect && !vpnStatus.connected) {
+        try {
+          console.log('[Downloads] Auto-connecting to VPN...');
+
+          // Check if there's a preferred location
+          const preferredLocation = await vpnService.getPreferredLocation(userId);
+          if (preferredLocation) {
+            console.log(`[Downloads] Setting VPN location to: ${preferredLocation}`);
+            await vpnService.setLocation(preferredLocation);
+          }
+
+          // Connect to VPN
+          await vpnService.connect();
+
+          // Refresh VPN status after connecting
+          vpnStatus = await vpnService.getStatus();
+          console.log('[Downloads] VPN auto-connected successfully');
+        } catch (err: any) {
+          console.error('[Downloads] Failed to auto-connect VPN:', err);
+          // Continue with download even if auto-connect fails
+        }
+      }
+
+      // Check if VPN is required
+      const vpnRequired = await vpnService.isVPNRequiredForTorrents(userId);
+
+      if (vpnRequired && !vpnStatus.connected) {
+        // VPN is required but not connected - warn user but allow download
+        console.warn('[Downloads] VPN not connected but torrent download requested');
+
+        // Update download metadata to include VPN warning
+        await AppDataSource
+          .createQueryBuilder()
+          .update('downloads')
+          .set({
+            metadata: JSON.stringify({
+              ...metadata,
+              vpnWarning: 'VPN was not connected when this download was started'
+            })
+          })
+          .where('id = :id', { id: download.id })
+          .execute();
+      }
+
+      // Auto-bind qBittorrent to VPN if connected and user preference is set
+      const shouldAutoBind = await vpnService.shouldAutoBindQBittorrent(userId);
+      if (vpnStatus.connected && vpnStatus.interface && shouldAutoBind) {
+        try {
+          const currentInterface = await qbittorrentService.getNetworkInterface();
+
+          // Only bind if not already bound to VPN
+          if (currentInterface !== vpnStatus.interface) {
+            console.log('[Downloads] Auto-binding qBittorrent to VPN interface');
+            await qbittorrentService.bindToVPN(vpnStatus.interface);
+          }
+        } catch (err) {
+          console.error('[Downloads] Failed to auto-bind qBittorrent to VPN:', err);
+        }
+      }
+
       try {
         const downloadDir = process.env.DOWNLOAD_DIR || '/mnt/d/MediaVault';
         const savePath = customFolder

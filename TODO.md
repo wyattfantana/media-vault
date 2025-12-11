@@ -1,7 +1,7 @@
 # MediaVault - Development Roadmap & Session Tracker
 
-**Last Updated:** 2025-12-10
-**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete
+**Last Updated:** 2025-12-11
+**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete
 **Next Session:** Phase 3 (remaining tasks), Phase 4 (advanced features), or Phase 5 (production polish)
 
 ---
@@ -23,6 +23,8 @@
 - **Background Services** - tmux-based persistent services (qBittorrent, API, Web, Worker)
 - **Infinite Scroll** - Smooth browsing on Movies, TV Shows, Documentaries pages
 - **Jellyfin Plugins** - Intro Skipper, JellyScrub, TheTVDB, TMDb Box Sets (installed, restart required)
+- **VPN Integration** - Windows Mullvad integration with automatic traffic protection, sidebar toggle, status display
+- **Database** - PostgreSQL running in WSL2 (Unix sockets, all-in-one architecture)
 
 ### Partially Working ⚠️
 - **Torrent Integration** - qBittorrent API works, but has critical database bug (see below)
@@ -251,7 +253,90 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-10 (Session 10) ✅ COMPLETED
+### Current Session: 2025-12-11 (Session 11) ✅ COMPLETED
+**Focus:** PostgreSQL + Windows Mullvad VPN Integration
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Moved PostgreSQL from Windows to WSL2** - True "all-in-one" architecture
+  - Stopped and disabled Windows PostgreSQL service
+  - Started WSL2 PostgreSQL using Unix sockets (no TCP/IP)
+  - Updated MediaVault .env to use `/var/run/postgresql` socket
+  - Fixed authentication (peer → md5 in pg_hba.conf)
+  - All services now run entirely in WSL2
+- [x] **Windows Mullvad VPN Integration** - Seamless VPN without crashes
+  - Integrated Windows Mullvad CLI (`/mnt/c/Program Files/Mullvad VPN/resources/mullvad.exe`)
+  - Updated VPN service to use Windows Mullvad from WSL2
+  - Added VPN status detection (connected, server, location, IP)
+  - Verified traffic protection via mirrored networking (WSL2 IP = VPN IP)
+  - qBittorrent downloads automatically protected (no binding needed)
+- [x] **VPN API Enhancements** - Smart Windows Mullvad handling
+  - Added `/api/v1/vpn/test` endpoint (checks public IP vs VPN IP)
+  - Updated `/api/v1/vpn/status` endpoint to detect Windows Mullvad setup
+  - Returns `isWindowsMullvad`, `bindingAvailable`, `trafficProtected` flags
+  - Bind endpoint returns success with explanation (binding not needed)
+- [x] **Simplified VPN UI** - Removed unnecessary controls
+  - Removed "qBittorrent VPN Binding" section (not applicable)
+  - Removed "Auto-bind qBittorrent to VPN" preference
+  - Removed "VPN Kill Switch" preference (traffic automatically protected)
+  - Removed "Preferred VPN Location" (managed via Windows Mullvad GUI)
+  - Kept only relevant settings: Enable VPN, Require VPN for Torrents, Auto-connect
+  - Updated info box to explain automatic protection via mirrored networking
+- [x] **Sidebar VPN Toggle** - One-click VPN control
+  - Added interactive toggle switch in sidebar
+  - Shows VPN status (Connected/Disconnected) with color indicator
+  - Displays server name when connected
+  - Optimistic UI updates with quick polling (500ms) for verification
+  - Loading states ("Connecting..." / "Disconnecting...")
+  - Works from any page in the app
+- [x] **Fixed TMDB Trending Endpoint** - Route parameter bug
+  - Changed route from `/trending/:mediaType?timeWindow=week` to `/trending/:mediaType/:timeWindow`
+  - Frontend was calling `/movie/week` but backend expected `?timeWindow=week`
+  - Now matches frontend's URL structure
+- [x] **Started qBittorrent Service** - Required for VPN binding tests
+  - Started qBittorrent-nox in tmux session
+  - Configured with default credentials (admin/adminadmin)
+  - Running on port 8080
+
+**Architecture Achievement:**
+- ✅ **All-in-One WSL2 Setup**: PostgreSQL, API, Web, Worker, qBittorrent all in WSL2
+- ✅ **Windows VPN Integration**: Mullvad runs on Windows, protects WSL2 traffic automatically
+- ✅ **No More Crashes**: Eliminated WSL2 networking crashes from daemon conflicts
+- ✅ **Automatic Protection**: Torrents use VPN without manual binding (mirrored networking)
+
+**Implementation Details:**
+- VPN service uses Windows executable directly via WSL2's ability to run .exe files
+- Public IP test confirms traffic protection: `curl https://api.ipify.org` returns VPN IP
+- Sidebar toggle uses optimistic updates for instant feedback
+- Quick polling (every 500ms for 5 seconds) verifies actual VPN state
+- Frontend auto-reloads with Vite HMR for all changes
+
+**Files Created:**
+- N/A (all modifications to existing files)
+
+**Files Modified:**
+- `apps/api/.env` - Changed POSTGRES_HOST to Unix socket path
+- `apps/api/src/services/vpn.service.ts` - Windows Mullvad CLI integration, testConnection method
+- `apps/api/src/routes/vpn.ts` - Test endpoint, Windows Mullvad detection, smart bind handling
+- `apps/api/src/routes/tmdb.ts` - Fixed trending route parameter
+- `apps/web/src/pages/Settings.tsx` - Removed binding controls, simplified VPN preferences
+- `apps/web/src/components/layout/Layout.tsx` - Added VPN toggle switch with optimistic updates
+
+**System Configuration:**
+- `/etc/postgresql/16/main/postgresql.conf` - `listen_addresses = ''` (Unix sockets only)
+- `/etc/postgresql/16/main/pg_hba.conf` - `local all all md5` (password auth)
+- Windows Services - postgresql-x64-16 disabled permanently
+
+**User Feedback:**
+- "wow nice work" - After VPN integration complete
+- "ok better" - After optimistic toggle updates
+- "perfect" - After fixing connecting/disconnecting message swap
+
+**Next Session Start Point:**
+→ VPN system complete! Consider: Phase 3 browsing UX, Phase 4 automation, or TMDB/IMDb list integration
+
+---
+
+### Session: 2025-12-10 (Session 10) ✅ COMPLETED
 **Focus:** Automatic Torrent Search Integration
 **Status:** ✅ COMPLETED
 **Completed:**

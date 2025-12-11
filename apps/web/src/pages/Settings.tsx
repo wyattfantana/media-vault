@@ -9,7 +9,8 @@ import {
   Cog,
   Shield,
   Save,
-  AlertCircle
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
 
 interface UserPreferences {
@@ -54,6 +55,14 @@ interface UserPreferences {
   // Privacy/Advanced
   youtube_cookies_path: string | null;
   clear_search_history_on_exit: boolean;
+
+  // VPN Preferences
+  vpn_enabled: boolean;
+  require_vpn_for_torrents: boolean;
+  vpn_auto_connect: boolean;
+  vpn_auto_bind_qbittorrent: boolean;
+  vpn_preferred_location: string | null;
+  vpn_kill_switch_enabled: boolean;
 }
 
 interface StorageInfo {
@@ -75,20 +84,38 @@ interface StorageInfo {
   };
 }
 
-type TabKey = 'download' | 'bandwidth' | 'jellyfin' | 'notifications' | 'storage' | 'behavior' | 'privacy';
+interface VPNStatus {
+  installed: boolean;
+  connected: boolean;
+  server?: string;
+  location?: string;
+  ip?: string;
+  interface?: string;
+  qbittorrent?: {
+    interface: string | null;
+    boundToVPN: boolean;
+  };
+  message?: string;
+}
+
+type TabKey = 'download' | 'bandwidth' | 'vpn' | 'jellyfin' | 'notifications' | 'storage' | 'behavior' | 'privacy';
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<TabKey>('download');
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
+  const [vpnStatus, setVpnStatus] = useState<VPNStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [vpnMessage, setVpnMessage] = useState('');
 
   useEffect(() => {
     fetchPreferences();
     if (activeTab === 'storage') {
       fetchStorageInfo();
+    } else if (activeTab === 'vpn') {
+      fetchVPNStatus();
     }
   }, [activeTab]);
 
@@ -169,7 +196,103 @@ export function Settings() {
       }
     } catch (err) {
       console.error('Failed to cleanup:', err);
-      alert('Cleanup failed');
+    }
+  };
+
+  // VPN Functions
+  const fetchVPNStatus = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/api/v1/vpn/status', {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVpnStatus(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch VPN status:', err);
+    }
+  };
+
+  const connectVPN = async () => {
+    setVpnMessage('Connecting to VPN...');
+    try {
+      const res = await fetch('http://localhost:3001/api/v1/vpn/connect', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        setVpnMessage('Connected to VPN successfully!');
+        setTimeout(() => setVpnMessage(''), 3000);
+        fetchVPNStatus();
+      } else {
+        const data = await res.json();
+        setVpnMessage(data.message || 'Failed to connect to VPN');
+      }
+    } catch (err: any) {
+      console.error('Failed to connect VPN:', err);
+      setVpnMessage('Failed to connect to VPN');
+    }
+  };
+
+  const disconnectVPN = async () => {
+    setVpnMessage('Disconnecting from VPN...');
+    try {
+      const res = await fetch('http://localhost:3001/api/v1/vpn/disconnect', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        setVpnMessage('Disconnected from VPN');
+        setTimeout(() => setVpnMessage(''), 3000);
+        fetchVPNStatus();
+      } else {
+        setVpnMessage('Failed to disconnect from VPN');
+      }
+    } catch (err) {
+      console.error('Failed to disconnect VPN:', err);
+      setVpnMessage('Failed to disconnect from VPN');
+    }
+  };
+
+  const bindQBittorrent = async () => {
+    setVpnMessage('Binding qBittorrent to VPN...');
+    try {
+      const res = await fetch('http://localhost:3001/api/v1/vpn/bind-qbittorrent', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        setVpnMessage('qBittorrent bound to VPN successfully!');
+        setTimeout(() => setVpnMessage(''), 3000);
+        fetchVPNStatus();
+      } else {
+        const data = await res.json();
+        setVpnMessage(data.message || 'Failed to bind qBittorrent');
+      }
+    } catch (err) {
+      console.error('Failed to bind qBittorrent:', err);
+      setVpnMessage('Failed to bind qBittorrent');
+    }
+  };
+
+  const unbindQBittorrent = async () => {
+    setVpnMessage('Unbinding qBittorrent from VPN...');
+    try {
+      const res = await fetch('http://localhost:3001/api/v1/vpn/unbind-qbittorrent', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        setVpnMessage('qBittorrent unbound from VPN');
+        setTimeout(() => setVpnMessage(''), 3000);
+        fetchVPNStatus();
+      } else {
+        setVpnMessage('Failed to unbind qBittorrent');
+      }
+    } catch (err) {
+      console.error('Failed to unbind qBittorrent:', err);
+      setVpnMessage('Failed to unbind qBittorrent');
     }
   };
 
@@ -181,6 +304,7 @@ export function Settings() {
   const tabs = [
     { key: 'download' as TabKey, label: 'Download Preferences', icon: Download },
     { key: 'bandwidth' as TabKey, label: 'Bandwidth', icon: Gauge },
+    { key: 'vpn' as TabKey, label: 'VPN (Mullvad)', icon: ShieldCheck },
     { key: 'jellyfin' as TabKey, label: 'Jellyfin', icon: Server },
     { key: 'notifications' as TabKey, label: 'Notifications', icon: Bell },
     { key: 'storage' as TabKey, label: 'Storage', icon: HardDrive },
@@ -378,6 +502,155 @@ export function Settings() {
                 <strong>Note:</strong> Bandwidth limits apply to all downloads and uploads. Restart the download worker for changes to take effect.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* VPN (Mullvad) Tab */}
+        {activeTab === 'vpn' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">VPN (Mullvad) Settings</h2>
+
+            {/* VPN Status Card */}
+            <div className={`border rounded-lg p-6 ${
+              vpnStatus?.connected
+                ? 'bg-green-900/20 border-green-500/30'
+                : 'bg-gray-800 border-gray-700'
+            }`}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <ShieldCheck className={vpnStatus?.connected ? 'text-green-400' : 'text-gray-400'} size={24} />
+                  VPN Status
+                </h3>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  vpnStatus?.connected
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-red-500/20 text-red-400'
+                }`}>
+                  {vpnStatus?.connected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+
+              {!vpnStatus?.installed && (
+                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-yellow-300">
+                    <strong>Mullvad VPN not installed.</strong> Install with: <code className="bg-gray-800 px-2 py-1 rounded">sudo apt install mullvad-vpn</code>
+                  </p>
+                </div>
+              )}
+
+              {vpnStatus?.connected && (
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Server:</span>
+                    <span className="text-white font-mono">{vpnStatus.server || 'Unknown'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Location:</span>
+                    <span className="text-white">{vpnStatus.location || 'Unknown'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">VPN IP:</span>
+                    <span className="text-white font-mono">{vpnStatus.ip || 'Unknown'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Interface:</span>
+                    <span className="text-white font-mono">{vpnStatus.interface || 'Unknown'}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-4">
+                {vpnStatus?.connected ? (
+                  <button
+                    onClick={disconnectVPN}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                  >
+                    Disconnect VPN
+                  </button>
+                ) : (
+                  <button
+                    onClick={connectVPN}
+                    disabled={!vpnStatus?.installed}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Connect VPN
+                  </button>
+                )}
+                <button
+                  onClick={fetchVPNStatus}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                  Refresh Status
+                </button>
+              </div>
+            </div>
+
+            {/* VPN Preferences */}
+            {preferences && (
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-semibold mb-4">VPN Preferences</h3>
+
+                <div className="space-y-4">
+                  {/* Enable VPN */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-sm font-medium">Enable VPN Functionality</label>
+                      <p className="text-xs text-gray-400 mt-1">Enable VPN features for torrent downloads</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={preferences.vpn_enabled || false}
+                      onChange={(e) => updatePreference('vpn_enabled', e.target.checked)}
+                      className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Require VPN for Torrents */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-sm font-medium">Require VPN for Torrents</label>
+                      <p className="text-xs text-gray-400 mt-1">Block torrent downloads if VPN is not connected</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={preferences.require_vpn_for_torrents || false}
+                      onChange={(e) => updatePreference('require_vpn_for_torrents', e.target.checked)}
+                      disabled={!preferences.vpn_enabled}
+                      className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+
+                  {/* Auto-connect VPN */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-sm font-medium">Auto-connect VPN</label>
+                      <p className="text-xs text-gray-400 mt-1">Automatically connect to VPN when downloading torrents</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={preferences.vpn_auto_connect || false}
+                      onChange={(e) => updatePreference('vpn_auto_connect', e.target.checked)}
+                      disabled={!preferences.vpn_enabled}
+                      className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Info Box */}
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+              <p className="text-sm text-blue-300">
+                <strong>✅ Your torrents are automatically protected:</strong> Since you're using Windows Mullvad with WSL2, all torrent traffic automatically routes through the VPN thanks to mirrored networking. When Mullvad is connected on Windows, MediaVault downloads are protected without any manual binding.
+              </p>
+            </div>
+
+            {/* VPN Message */}
+            {vpnMessage && (
+              <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+                <p className="text-sm text-green-300">{vpnMessage}</p>
+              </div>
+            )}
           </div>
         )}
 
