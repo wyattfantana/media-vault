@@ -51,6 +51,12 @@ export default function TVShows() {
   const [loadingFormat, setLoadingFormat] = useState(false);
   const [formatError, setFormatError] = useState<string | null>(null);
   const [vpnConfirmed, setVpnConfirmed] = useState(false);
+
+  // Torrent search state
+  const [torrentResults, setTorrentResults] = useState<any[]>([]);
+  const [searchingTorrents, setSearchingTorrents] = useState(false);
+  const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
+
   const isInitialMount = React.useRef(true);
 
   // Browse mode sections
@@ -682,6 +688,45 @@ export default function TVShows() {
   const searchExtTo = (show: TVShow) => {
     const query = encodeURIComponent(`${show.name || show.title} ${show.year || ''}`);
     window.open(`https://ext.to/search?q=${query}`, '_blank');
+  };
+
+  const searchTorrents = async (show: TVShow) => {
+    const query = `${show.name || show.title} ${show.year || ''}`;
+    setSearchingTorrents(true);
+    setTorrentSearchError(null);
+    setTorrentResults([]);
+
+    try {
+      const response = await fetch(`${API_BASE}/torrents/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ query })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to search torrents');
+      }
+
+      const data = await response.json();
+      setTorrentResults(data.results || []);
+
+      if (data.results.length === 0) {
+        setTorrentSearchError('No torrents found. Try manual search instead.');
+      }
+    } catch (err: any) {
+      console.error('Torrent search failed:', err);
+      setTorrentSearchError(err.message || 'Failed to search torrents');
+    } finally {
+      setSearchingTorrents(false);
+    }
+  };
+
+  const selectTorrent = (magnet: string) => {
+    setDownloadUrl(magnet);
+    setTorrentResults([]);
   };
 
   const handleDownload = async (show: TVShow) => {
@@ -1534,6 +1579,9 @@ export default function TVShows() {
           onClick={() => {
             setSelectedShow(null);
             setVpnConfirmed(false);
+            setTorrentResults([]);
+            setTorrentSearchError(null);
+            setDownloadUrl('');
           }}
         >
           <div
@@ -1577,30 +1625,87 @@ export default function TVShows() {
               <p className="text-gray-300 mb-6">{selectedShow.overview}</p>
 
               <div className="space-y-4">
-                <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-4 mb-4">
-                  <h3 className="text-sm font-semibold text-blue-400 mb-2">How to Download</h3>
-                  <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
-                    <li>Click a search button below to find this TV show</li>
-                    <li>Copy the magnet link URL</li>
-                    <li>Paste URL below and click "Queue Download"</li>
-                  </ol>
-                </div>
+                {/* Auto-Search Torrents Button */}
+                <button
+                  onClick={() => searchTorrents(selectedShow)}
+                  disabled={searchingTorrents}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
+                >
+                  {searchingTorrents ? (
+                    <>
+                      <Loader className="w-6 h-6 animate-spin" />
+                      Searching Torrents...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-6 h-6" />
+                      Auto-Search (PirateBay)
+                    </>
+                  )}
+                </button>
 
-                <div>
-                  <div className="grid grid-cols-3 gap-2 mb-3">
+                {/* Torrent Search Results */}
+                {torrentResults.length > 0 && (
+                  <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <h3 className="text-lg font-semibold text-green-400 mb-3">
+                      Found {torrentResults.length} Torrents (sorted by seeds)
+                    </h3>
+                    <div className="space-y-2">
+                      {torrentResults.map((torrent, index) => (
+                        <div
+                          key={index}
+                          onClick={() => selectTorrent(torrent.magnet)}
+                          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 rounded-lg p-3 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-white truncate mb-1">{torrent.title}</p>
+                              <div className="flex items-center gap-3 text-xs text-gray-400">
+                                <span className={`px-2 py-1 rounded ${
+                                  torrent.source === '1337x' ? 'bg-orange-600/20 text-orange-400' :
+                                  torrent.source === 'piratebay' ? 'bg-purple-600/20 text-purple-400' :
+                                  torrent.source === 'yts' ? 'bg-red-600/20 text-red-400' :
+                                  torrent.source === 'ext' ? 'bg-pink-600/20 text-pink-400' :
+                                  torrent.source === 'rarbg' ? 'bg-green-600/20 text-green-400' :
+                                  'bg-indigo-600/20 text-indigo-400'
+                                }`}>
+                                  {torrent.source}
+                                </span>
+                                {torrent.quality && (
+                                  <span className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded">{torrent.quality}</span>
+                                )}
+                                <span>{torrent.size}</span>
+                                <span className="text-green-400 font-semibold">↑ {torrent.seeds}</span>
+                                <span className="text-red-400">↓ {torrent.peers}</span>
+                              </div>
+                            </div>
+                            <button className="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors">
+                              Select
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Torrent Search Error */}
+                {torrentSearchError && (
+                  <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4">
+                    <p className="text-yellow-400 text-sm">{torrentSearchError}</p>
+                  </div>
+                )}
+
+                {/* Manual Search (Fallback) */}
+                <div className="bg-gray-900/30 border border-gray-700 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Manual Search (Fallback)</h3>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => search1337x(selectedShow)}
                       className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
                     >
                       <Search className="w-4 h-4" />
                       1337x
-                    </button>
-                    <button
-                      onClick={() => searchPirateBay(selectedShow)}
-                      className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
-                    >
-                      <Search className="w-4 h-4" />
-                      PirateBay
                     </button>
                     <button
                       onClick={() => searchExtTo(selectedShow)}
@@ -1610,6 +1715,9 @@ export default function TVShows() {
                       Ext.to
                     </button>
                   </div>
+                </div>
+
+                <div>
                   <input
                     type="text"
                     value={downloadUrl}

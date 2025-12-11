@@ -1,6 +1,6 @@
 # MediaVault - Development Roadmap & Session Tracker
 
-**Last Updated:** 2025-12-08
+**Last Updated:** 2025-12-10
 **Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete
 **Next Session:** Phase 3 (remaining tasks), Phase 4 (advanced features), or Phase 5 (production polish)
 
@@ -251,7 +251,63 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-09 (Session 9) ✅ COMPLETED
+### Current Session: 2025-12-10 (Session 10) ✅ COMPLETED
+**Focus:** Automatic Torrent Search Integration
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Implemented automatic torrent search** across multiple torrent sites
+  - Created torrent-search.service.ts using torrent-search-api library
+  - Attempted multi-provider search (ThePirateBay, 1337x, YTS)
+  - Discovered only ThePirateBay works reliably (SSL/connection issues with others)
+  - Final implementation: Auto-Search (PirateBay) with 25 results limit
+- [x] **Created backend API** - `/api/v1/torrents/search`
+  - POST /torrents/search endpoint with authentication
+  - Returns formatted torrent results with title, magnet, seeds, peers, size, quality
+  - Deduplication and sorting by seeds
+- [x] **Enhanced frontend UI** - Movies, TV Shows, Documentaries pages
+  - Added "Auto-Search (PirateBay)" button to download modals
+  - Torrent results displayed in table with color-coded source badges
+  - Quality extraction from torrent titles (4K, 1080p, 720p, etc.)
+  - One-click magnet link selection to queue downloads
+  - Removed duplicate PirateBay manual search button
+- [x] **Provider testing and troubleshooting**
+  - Created test-providers.cjs for individual provider testing
+  - Results: ThePirateBay ✓, 1337x ✗, Eztv ✗, Rarbg ✗, YTS ✗
+  - Tried parallel and sequential search strategies
+  - Final decision: Focus on PirateBay only, keep manual buttons for fallback
+- [x] **Dependencies** - Added torrent-search-api to package.json
+
+**Implementation Details:**
+- Service: Searches ThePirateBay with sequential provider enable/disable
+- Quality detection: Regex patterns for 4K, 1080p, 720p, 480p, HDRip, BluRay, etc.
+- Deduplication: Uses Map to filter duplicate magnet links
+- Sorting: Prioritizes by seed count with diversity for similar seeds
+- UI: Green badges for PirateBay, blue for 1337x, orange for Ext.to
+
+**Files Created:**
+- `apps/api/src/services/torrent-search.service.ts`
+- `apps/api/src/routes/torrents.ts`
+- `apps/api/test-providers.cjs` (testing utility)
+
+**Files Modified:**
+- `apps/api/src/index.ts` - Registered torrents router
+- `apps/api/package.json` - Added torrent-search-api dependency
+- `apps/web/src/pages/Movies.tsx` - Auto-search UI
+- `apps/web/src/pages/TVShows.tsx` - Auto-search UI
+- `apps/web/src/pages/Documentaries.tsx` - Auto-search UI
+
+**User Feedback:**
+- Initial request: "10 results max from each of 3 sites (1337x, PirateBay, Ext.to)"
+- Testing revealed: Only PirateBay works (SSL/connection issues with others)
+- Final decision: "auto search (pirate bay) then remove the manual pirate bay button, 25 results is fine"
+- Final verdict: "ok this is absolutely epic"
+
+**Next Session Start Point:**
+→ Choose from High Priority tasks (TMDB/IMDb List Integration, Per-Platform Preferences) or Phase 3/4/5 features
+
+---
+
+### Session: 2025-12-09 (Session 9) ✅ COMPLETED
 **Focus:** Major Codebase Cleanup & Organization
 **Status:** ✅ COMPLETED
 **Completed:**
@@ -762,7 +818,36 @@ Based on Settings system completion and identified gaps:
 
 ### High Priority
 
-1. **Per-Platform Download Preferences** (Settings Enhancement)
+1. **Automatic Torrent Search** (Torrent Sites Integration) ✅ COMPLETED (Session 10)
+   - ✅ Implemented automatic torrent search using torrent-search-api library
+   - ✅ Created backend service and API endpoint (/api/v1/torrents/search)
+   - ✅ Auto-search button in Movies, TV Shows, Documentaries download modals
+   - ✅ Returns 25 results from ThePirateBay sorted by seeds
+   - ✅ One-click magnet link selection to queue downloads
+   - ✅ Quality extraction from torrent titles (4K, 1080p, 720p, etc.)
+   - ✅ Removed duplicate PirateBay manual search button
+   - Note: Only ThePirateBay provider works reliably (SSL/connection issues with 1337x, YTS, etc.)
+   - Benefit: Users can find and queue torrents without leaving MediaVault!
+
+2. **TMDB/IMDb List Integration** (Enhanced Content Discovery)
+   - Add curated list browsing from TMDB and IMDb
+   - Lists to support:
+     - IMDb Top 250 Movies
+     - IMDb Top 100 TV Shows
+     - TMDB Popular (daily/weekly trending)
+     - TMDB Top Rated Movies/TV
+     - TMDB Now Playing (in theaters)
+     - TMDB Upcoming releases
+     - Genre-specific top lists (Top Action, Top Comedy, etc.)
+     - Decade-based lists (Best of 1990s, 2000s, etc.)
+     - Custom user-created lists (via TMDB list URLs)
+   - UI: New "Browse Lists" page or dropdown in Movies/TV sections
+   - Features: Sort by rating, year, popularity; Filter by genre/decade
+   - One-click download from any list
+   - Save favorite lists for quick access
+   - Benefits: Discover highly-rated content without manual searching
+
+3. **Per-Platform Download Preferences** (Settings Enhancement)
    - Extend Settings system to allow platform-specific preferences
    - Each platform (Movies, TV Shows, Documentaries, YouTube, iPlayer, SoundCloud, etc.) gets own settings tab
    - Override global defaults with platform-specific quality, format, folder preferences
@@ -770,24 +855,6 @@ Based on Settings system completion and identified gaps:
    - Database: Expand user_preferences with JSON columns for per-platform overrides
    - Integration: Download workflow checks platform-specific settings first, falls back to global
    - Benefits: Users can set "Movies = 4K MKV" and "YouTube = 1080p MP4" independently
-
-2. **BBC iPlayer Quality Options** (Critical Missing Feature)
-   - Current limitation: iPlayer downloads locked to HD quality only
-   - Need: Full quality range support (SD, HD, FHD/1080p, possibly 4K where available)
-   - Investigation required: Check get_iplayer capabilities and available quality modes
-   - Implementation: Add quality parameter to get_iplayer service calls
-   - UI: Quality selector in BBC iPlayer browse page and download modal
-   - Integration: Respect user's default quality preference from Settings
-   - Test: Verify different quality downloads work correctly
-   - Documentation: Document quality options and file size implications
-
-3. **Bandwidth Limit Enforcement** (Settings Integration)
-   - Current state: UI exists in Settings → Bandwidth, but not enforced
-   - Implementation: Apply user's bandwidth limits to qBittorrent when torrents start
-   - API: Call qBittorrent setPreferences API with speed_limit_dl_enabled + dl_limit, up_limit
-   - Fetch user preferences when adding torrents to qBittorrent
-   - Respect per-user limits for torrent traffic
-   - Test: Verify speed limits actually constrain download/upload speeds
 
 ### Medium Priority
 
@@ -807,6 +874,245 @@ Based on Settings system completion and identified gaps:
 6. **Quick filter sidebar** - Genre pills, year slider, rating filter
 7. **Make sort options more visible** - Move sort dropdown to prominent position
 8. **Content Discovery Features** - Recommended/trending/popular aggregated views
+
+---
+
+## 🎨 UX ENHANCEMENT IDEAS
+
+### Quick Wins (Immediate Impact)
+
+#### 1. **Toast Notifications Instead of Alerts** ⭐ TOP PICK
+   - Replace `alert()` popups with elegant toast notifications
+   - Non-intrusive, auto-dismiss after 3-5 seconds
+   - Stack multiple notifications in corner
+   - Show success/error/info with icons and colors
+   - Libraries: react-hot-toast, sonner, react-toastify
+
+#### 2. **Drag & Drop URL/Magnet Support** ⭐ TOP PICK
+   - Drop URLs/magnet links anywhere on the page to start download
+   - Visual drop zone appears when dragging
+   - No need to find the download button
+   - Modern, intuitive UX
+
+#### 3. **Download Progress in Browser Tab**
+   - Show active download count in favicon/title
+   - "MediaVault (3 downloading)" in tab title
+   - Quick glance without switching tabs
+   - Use browser Favicon API
+
+#### 4. **Keyboard Shortcuts** ⭐ TOP PICK
+   - `/` - Focus search
+   - `d` - Quick download (paste URL modal)
+   - `Ctrl+K` - Command palette
+   - `Escape` - Close modals
+   - Arrow keys for grid navigation
+   - Show keyboard shortcuts help with `?` key
+
+#### 5. **Recently Downloaded Section**
+   - Quick access to last 10 downloads on dashboard
+   - Click to play/open file location
+   - Show thumbnail grid
+   - "Open in Jellyfin" link if configured
+
+---
+
+### Search & Discovery
+
+#### 6. **Search Suggestions/Autocomplete**
+   - Show popular searches as you type
+   - Recent searches dropdown
+   - Trending content suggestions
+   - "Did you mean..." for typos
+
+#### 7. **Advanced Filters Panel** ⭐ TOP PICK
+   - Slide-out filter sidebar instead of dropdowns
+   - Multiple genre selection (chips)
+   - Year range slider (1990-2024)
+   - Rating filter (★★★★+ only)
+   - Runtime filter (< 90min, 90-120min, 2h+, etc.)
+   - Apply filters without page reload
+   - Save filter presets
+
+#### 8. **Continue Where You Left Off**
+   - Remember scroll position per page ✅ PARTIALLY DONE
+   - "Resume browsing" when returning to Movies/TV
+   - Restore filters and search terms
+   - Per-user browsing state
+
+#### 9. **Related Content / "More Like This"**
+   - Show similar movies/shows based on what you're viewing
+   - "If you liked X, you might like Y"
+   - Based on genre, director, actors
+   - TMDB recommendations API integration
+
+---
+
+### Downloads Page Improvements
+
+#### 10. **Download Queue Reordering**
+   - Drag & drop to reorder pending downloads
+   - Move to top/bottom buttons
+   - Priority levels (high/normal/low)
+   - Visual position indicator
+
+#### 11. **Batch Operations** ⭐ TOP PICK
+   - Select multiple downloads (checkboxes)
+   - Bulk actions: Delete, Retry, Move to folder, Cancel
+   - "Select all pending" / "Select all failed"
+   - Keyboard: Shift+Click for range selection
+
+#### 12. **Smart Download Grouping**
+   - Group by date (Today, Yesterday, This Week, This Month)
+   - Group by status (Active, Pending, Completed, Failed)
+   - Group by category (Movies, TV, Music, etc.)
+   - Collapsible sections
+   - Show count per group (e.g., "Completed (42)")
+
+#### 13. **Download ETA Improvements**
+   - Show "Starting in 2 minutes" for queued items
+   - Visual queue position indicator
+   - "Expected completion: 3:45 PM"
+   - Estimated disk space needed
+   - Speed graph for active downloads
+
+---
+
+### Grid/Browse Experience
+
+#### 14. **Hover Previews**
+   - Enlarge thumbnail on hover
+   - Show quick info overlay (rating, year, runtime)
+   - Quick action buttons (Download, Info, Watch Trailer)
+   - Smooth transitions
+
+#### 15. **Multiple View Modes**
+   - Grid view (current) - Large thumbnails
+   - List view (compact) - More info visible, smaller thumbnails
+   - Table view (data-focused) - Sortable columns
+   - User preference saved per page
+   - Toggle buttons in header
+
+#### 16. **Infinite Scroll Loading Improvements**
+   - Skeleton cards while loading ✅ PARTIALLY DONE
+   - "Loading 20 more..." at bottom
+   - Smooth fade-in for new items
+   - "Back to top" button when scrolled far
+
+#### 17. **Quick Info Modal**
+   - Click poster → Quick info popup (not full page navigation)
+   - Show plot, cast, trailer embed, rating
+   - Download button right in modal
+   - Arrow keys to navigate next/previous in grid
+   - Close with Escape or click outside
+
+---
+
+### Settings & Preferences
+
+#### 18. **Settings Quick Toggle**
+   - Show current settings in header/sidebar
+   - Quick toggles without going to Settings page
+   - "Download quality: HD ▼" dropdown in header
+   - "Bandwidth: 5 MB/s ▼" quick adjust
+
+#### 19. **Download Templates/Presets** (Enhancement)
+   - Already have presets! But make them more visible
+   - Quick preset selector in download modal
+   - "Use Movie preset" / "Use YouTube preset" buttons
+   - Preset indicators in grid ("Will use: HD preset")
+
+#### 20. **Dark Mode**
+   - Toggle in header
+   - Saved per user preference
+   - Automatic (follow system theme)
+   - Smooth transition animation
+
+---
+
+### Feedback & Status
+
+#### 21. **Better Error Messages**
+   - Show why download failed with helpful tips
+   - "Video unavailable - Try using cookies for age-restricted content [How?]"
+   - Link to troubleshooting docs
+   - Retry button right in error message
+   - Copy error details button
+
+#### 22. **Loading States Everywhere**
+   - Skeleton screens instead of blank white pages
+   - Progress bars for slow operations
+   - "Searching 9000 programmes..." instead of generic spinner
+   - Meaningful loading messages
+
+#### 23. **Download Complete Celebrations**
+   - Confetti animation for first download 🎉
+   - Success sound (optional, from settings)
+   - "Open file location" button in notification
+   - Share achievement (optional)
+
+---
+
+### Mobile/Responsive
+
+#### 24. **Bottom Sheet Modals on Mobile**
+   - Slide up from bottom instead of center popup
+   - Native mobile feel
+   - Easier to reach with thumb
+   - Swipe down to dismiss
+
+#### 25. **Swipe Gestures**
+   - Swipe to delete download (with undo)
+   - Swipe between pages/tabs
+   - Pull to refresh browse pages
+   - Mobile-first interactions
+
+---
+
+### Smart Features
+
+#### 26. **Smart Quality Selection**
+   - Auto-select quality based on file size preferences
+   - "You're running low on space, recommend SD?"
+   - Learn from user's past choices
+   - Suggest quality based on content type
+
+#### 27. **Download Size Estimator**
+   - Show estimated file size BEFORE downloading
+   - "~1.2 GB for HD, ~3.5 GB for FHD" in quality dropdown
+   - Warn if low disk space detected
+   - Show remaining space after download
+
+#### 28. **Duplicate Detection**
+   - "You already downloaded this on Dec 5th"
+   - Option to re-download or skip
+   - Show existing file location
+   - "Open existing file" button
+
+#### 29. **Batch URL Paste** ⭐ TOP PICK
+   - Paste 10+ URLs at once (one per line)
+   - Queue them all simultaneously
+   - Perfect for binge downloading entire series
+   - Show preview: "Found 12 URLs, queue all?"
+
+#### 30. **Smart Folder Suggestions**
+   - Auto-suggest folder based on content type detected
+   - "This looks like a documentary - save to Documentaries?"
+   - Learn from user corrections
+   - Confidence indicator
+
+---
+
+## ⭐ TOP 5 RECOMMENDATIONS (Best ROI)
+
+Priority order for maximum UX improvement with reasonable effort:
+
+1. **Toast Notifications** - Replace alerts, instantly feels more polished and modern
+2. **Batch Operations** - Delete/retry multiple downloads at once, huge time saver
+3. **Smart Download Grouping** - Much easier to scan and manage Downloads page
+4. **Drag & Drop URLs** - Super convenient, modern feel, delightful interaction
+5. **Keyboard Shortcuts** - Power users will love it, accessibility win
+
+These 5 would transform the UX significantly without requiring massive architectural changes.
 
 ---
 
