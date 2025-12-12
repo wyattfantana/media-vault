@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { RecommendedForYou } from '../components/RecommendedForYou';
 
 interface Stats {
   downloads: {
@@ -233,11 +232,6 @@ export function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Personalized Recommendations */}
-      <div className="mb-8">
-        <RecommendedForYou />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
