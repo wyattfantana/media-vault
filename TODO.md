@@ -1,7 +1,7 @@
 # MediaVault - Development Roadmap & Session Tracker
 
 **Last Updated:** 2025-12-11
-**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete
+**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete | ✅ Settings Simplified
 **Next Session:** Phase 3 (remaining tasks), Phase 4 (advanced features), or Phase 5 (production polish)
 
 ---
@@ -607,6 +607,54 @@
 - Configure plugins via Jellyfin Dashboard → Plugins
 - Test intro skipping on TV shows
 - Test JellyScrub preview thumbnails
+
+---
+
+### Session: 2025-12-11 (Session 12) ✅ COMPLETED
+**Focus:** Settings Simplification + Enhanced VPN Status Indicators
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Simplified Settings page dramatically**
+  - Removed Download Preferences tab (redundant - set per-download)
+  - Removed Bandwidth Controls tab (use qBittorrent Web UI)
+  - Removed Notifications tab (contextual in app flow)
+  - Removed Behavior Settings tab (always-on features)
+  - Removed VPN Preferences section (automatic routing)
+  - Final tabs: VPN, Jellyfin, Storage, Privacy (4 tabs total)
+- [x] **Enhanced VPN status monitoring**
+  - Added getLocalIP() method to VPN service
+  - Added getEnhancedStatus() for comprehensive network info
+  - Created /api/v1/vpn/enhanced-status endpoint
+  - Returns: VPN IP, local IP, public IP, protection status, local network accessibility
+- [x] **Improved VPN Status UI**
+  - Visual indicators for VPN connection status
+  - Shows Torrent IP with 🔒 Protected badge
+  - Displays Local IP address
+  - Green/yellow box for Local Network Access status
+  - Protection summary cards (Torrent Protection + Jellyfin Access)
+  - User-friendly info box explaining VPN + local network setup
+- [x] **Configured Mullvad split tunneling solution**
+  - Enabled "Local Network Sharing" in Mullvad settings
+  - Verified torrents route through VPN (146.70.189.7)
+  - Verified Jellyfin accessible on local network
+  - Both work simultaneously - perfect setup!
+- [x] **Updated UI messaging**
+  - Changed technical jargon to user-friendly language
+  - Concise info box: "VPN + Local Network: Torrents download privately through VPN, while Jellyfin stays accessible on your local network"
+  - Simplified tab labels and section titles
+
+**Files Modified:**
+- apps/api/src/services/vpn.service.ts (added getLocalIP, getEnhancedStatus)
+- apps/api/src/routes/vpn.ts (added /enhanced-status endpoint)
+- apps/web/src/pages/Settings.tsx (massive simplification - removed 4 tabs, enhanced VPN UI)
+
+**Commits:**
+- 3d4e27f: Simplify Settings + Add Enhanced VPN Status
+
+**Next Session Start Point:**
+- Settings are ultra-clean and focused
+- VPN status monitoring is comprehensive
+- Ready for UX improvements or new features
 
 ---
 
