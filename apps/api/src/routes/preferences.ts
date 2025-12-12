@@ -96,6 +96,13 @@ preferencesRouter.put('/', requireAuth, async (req, res) => {
       // Privacy/Advanced
       youtube_cookies_path,
       clear_search_history_on_exit,
+
+      // API Keys & Paths
+      tmdb_api_key,
+      omdb_api_key,
+      download_directory,
+      ytdlp_path,
+      get_iplayer_path,
     } = req.body;
 
     // Build update object with only provided fields
@@ -129,6 +136,12 @@ preferencesRouter.put('/', requireAuth, async (req, res) => {
 
     if (youtube_cookies_path !== undefined) updateFields.youtube_cookies_path = youtube_cookies_path;
     if (clear_search_history_on_exit !== undefined) updateFields.clear_search_history_on_exit = clear_search_history_on_exit;
+
+    if (tmdb_api_key !== undefined) updateFields.tmdb_api_key = tmdb_api_key;
+    if (omdb_api_key !== undefined) updateFields.omdb_api_key = omdb_api_key;
+    if (download_directory !== undefined) updateFields.download_directory = download_directory;
+    if (ytdlp_path !== undefined) updateFields.ytdlp_path = ytdlp_path;
+    if (get_iplayer_path !== undefined) updateFields.get_iplayer_path = get_iplayer_path;
 
     // Check if preferences exist
     const existing = await AppDataSource

@@ -100,8 +100,44 @@ export class TMDBService {
   constructor() {
     this.apiKey = TMDB_API_KEY;
     if (!this.apiKey) {
-      console.warn('[TMDB] API key not configured. Set TMDB_API_KEY in environment variables.');
+      console.warn('[TMDB] API key not configured. Set in Settings → Advanced → TMDB API Key (or TMDB_API_KEY env var).');
     }
+  }
+
+  /**
+   * Set API key from user preferences
+   */
+  setApiKey(apiKey: string | null) {
+    if (apiKey) {
+      this.apiKey = apiKey;
+    }
+  }
+
+  /**
+   * Get current API key (prefer user preference over env var)
+   */
+  async getApiKey(userId?: string): Promise<string> {
+    // If userId provided, fetch from preferences
+    if (userId) {
+      try {
+        const { AppDataSource } = await import('../data-source.js');
+        const prefs = await AppDataSource
+          .createQueryBuilder()
+          .select('tmdb_api_key')
+          .from('user_preferences', 'p')
+          .where('p.user_id = :userId', { userId })
+          .getRawOne();
+
+        if (prefs?.tmdb_api_key) {
+          return prefs.tmdb_api_key;
+        }
+      } catch (error) {
+        console.error('[TMDB] Failed to fetch API key from preferences:', error);
+      }
+    }
+
+    // Fallback to env var or instance key
+    return this.apiKey || TMDB_API_KEY;
   }
 
   /**
@@ -122,11 +158,12 @@ export class TMDBService {
   /**
    * Search for movies
    */
-  async searchMovies(query: string, page: number = 1): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
+  async searchMovies(query: string, page: number = 1, userId?: string): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
+      const apiKey = await this.getApiKey(userId);
       const response = await axios.get(`${TMDB_BASE_URL}/search/movie`, {
         params: {
-          api_key: this.apiKey,
+          api_key: apiKey,
           query,
           page,
           include_adult: false
@@ -147,11 +184,12 @@ export class TMDBService {
   /**
    * Search for TV shows
    */
-  async searchTVShows(query: string, page: number = 1): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
+  async searchTVShows(query: string, page: number = 1, userId?: string): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
     try {
+      const apiKey = await this.getApiKey(userId);
       const response = await axios.get(`${TMDB_BASE_URL}/search/tv`, {
         params: {
-          api_key: this.apiKey,
+          api_key: apiKey,
           query,
           page,
           include_adult: false
@@ -528,8 +566,9 @@ export class TMDBService {
    * Find thumbnail for a title (searches both movies and TV shows)
    * Returns the best match thumbnail URL or null if not found
    */
-  async findThumbnailForTitle(title: string): Promise<string | null> {
-    if (!this.isConfigured()) {
+  async findThumbnailForTitle(title: string, userId?: string): Promise<string | null> {
+    const apiKey = await this.getApiKey(userId);
+    if (!apiKey) {
       return null;
     }
 
@@ -567,7 +606,7 @@ export class TMDBService {
 
       if (isTVShow) {
         // Search TV shows first for TV content
-        const tvResults = await this.searchTVShows(cleanTitle, 1);
+        const tvResults = await this.searchTVShows(cleanTitle, 1, userId);
         if (tvResults.results.length > 0) {
           const bestMatch = year
             ? tvResults.results.find(tv => tv.first_air_date && tv.first_air_date.startsWith(year.toString()))
@@ -581,7 +620,7 @@ export class TMDBService {
       }
 
       // Search movies (or fallback if TV didn't find anything)
-      const movieResults = await this.searchMovies(cleanTitle, 1);
+      const movieResults = await this.searchMovies(cleanTitle, 1, userId);
       if (movieResults.results.length > 0) {
         const bestMatch = year
           ? movieResults.results.find(m => m.release_date && m.release_date.startsWith(year.toString()))
@@ -595,7 +634,7 @@ export class TMDBService {
 
       // If movie search failed and we haven't tried TV yet, try it now
       if (!isTVShow) {
-        const tvResults = await this.searchTVShows(cleanTitle, 1);
+        const tvResults = await this.searchTVShows(cleanTitle, 1, userId);
         if (tvResults.results.length > 0) {
           const bestMatch = year
             ? tvResults.results.find(tv => tv.first_air_date && tv.first_air_date.startsWith(year.toString()))

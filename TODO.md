@@ -1,6 +1,6 @@
 # MediaVault - Development Roadmap & Session Tracker
 
-**Last Updated:** 2025-12-11
+**Last Updated:** 2025-12-12
 **Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete | ✅ Settings Simplified
 **Next Session:** Phase 3 (remaining tasks), Phase 4 (advanced features), or Phase 5 (production polish)
 
@@ -255,7 +255,62 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-11 (Session 11) ✅ COMPLETED
+### Current Session: 2025-12-12 (Session 13) ✅ COMPLETED
+**Focus:** User-Friendly Settings - Dynamic Library Paths & API Keys
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Dynamic Jellyfin Library Paths** - Users can add unlimited custom paths
+  - Changed jellyfin_library_paths from fixed object to array of {name, path} objects
+  - Migration 015: Converted existing data from object to array format
+  - Added UI controls: "Add Path" button, remove buttons for each path
+  - Users can now create custom categories (Anime, Kids Shows, etc.)
+  - Two-column layout: Name field + Path field for each library
+- [x] **API Keys & Paths in Settings** - No more editing environment files!
+  - Migration 016: Added tmdb_api_key, omdb_api_key, download_directory, ytdlp_path, get_iplayer_path columns
+  - Renamed "Privacy" tab to "Advanced" with 3 organized sections:
+    - API Keys: TMDB (with link to get free key), OMDB (optional)
+    - Tool Paths: Download directory, yt-dlp path, get_iplayer path
+    - Privacy: YouTube cookies, clear search history
+  - Added helpful descriptions and links to get API keys
+  - All fields saved to user preferences database
+- [x] **TMDB Service Integration** - Actually uses user's API key now
+  - Updated TMDB service with getApiKey(userId) method
+  - Fetches API key from user preferences first, falls back to env var
+  - Updated searchMovies, searchTVShows, findThumbnailForTitle to accept userId
+  - Added auth middleware to TMDB routes to extract userId
+  - Routes now pass userId to service methods
+  - **Result**: Users configure TMDB API key in Settings UI, no code editing required!
+
+**Implementation Details:**
+- Migration 014: Added iplayer path to default jellyfin_library_paths
+- Migration 015: Converted library paths from object to array with backwards compatibility
+- Migration 016: Added 5 new user-configurable columns for API keys and paths
+- Settings UI: Dynamic path management with Add/Remove buttons, password-type inputs for API keys
+- Backend: Updated preferences.ts to handle new fields
+- TMDB service: Fetches user API key from database, maintains backwards compatibility with env vars
+
+**Files Created:**
+- `apps/api/src/migrations/014_add_iplayer_to_jellyfin_paths.sql`
+- `apps/api/src/migrations/015_convert_jellyfin_paths_to_array.sql`
+- `apps/api/src/migrations/016_add_api_keys_and_paths.sql`
+
+**Files Modified:**
+- `apps/web/src/pages/Settings.tsx` - Dynamic library paths UI, API keys section, renamed Privacy to Advanced
+- `apps/api/src/services/tmdb.service.ts` - getApiKey() method, userId parameter support
+- `apps/api/src/routes/tmdb.ts` - Auth middleware, userId extraction and passing
+- `apps/api/src/routes/preferences.ts` - Handle new API key and path fields
+
+**User Feedback:**
+- "nice ok another idea i had is having the tmdb api key in the settings too"
+- "yes we need this" (referring to dynamic library paths)
+- Identified that TMDB was still hardcoded despite settings field existing
+
+**Next Session Start Point:**
+→ Settings system is now truly user-friendly! All configuration through UI, no code/env editing required. Consider: TMDB/IMDb list integration, per-platform preferences, or UX enhancements from recommendations list.
+
+---
+
+### Session: 2025-12-11 (Session 12) ✅ COMPLETED
 **Focus:** PostgreSQL + Windows Mullvad VPN Integration
 **Status:** ✅ COMPLETED
 **Completed:**

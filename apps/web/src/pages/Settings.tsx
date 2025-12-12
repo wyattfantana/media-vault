@@ -6,7 +6,9 @@ import {
   Shield,
   Save,
   AlertCircle,
-  ShieldCheck
+  ShieldCheck,
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 interface UserPreferences {
@@ -24,12 +26,10 @@ interface UserPreferences {
   // Jellyfin Integration
   jellyfin_server_url: string | null;
   jellyfin_api_key: string | null;
-  jellyfin_library_paths: {
-    movies: string;
-    tv: string;
-    music: string;
-    documentaries: string;
-  };
+  jellyfin_library_paths: Array<{
+    name: string;
+    path: string;
+  }>;
   jellyfin_auto_scan: boolean;
 
   // Notification Preferences
@@ -51,6 +51,13 @@ interface UserPreferences {
   // Privacy/Advanced
   youtube_cookies_path: string | null;
   clear_search_history_on_exit: boolean;
+
+  // API Keys & Paths
+  tmdb_api_key: string | null;
+  omdb_api_key: string | null;
+  download_directory: string;
+  ytdlp_path: string;
+  get_iplayer_path: string;
 
   // VPN Preferences
   vpn_enabled: boolean;
@@ -326,11 +333,39 @@ export function Settings() {
     setPreferences({ ...preferences, [key]: value });
   };
 
+  const addLibraryPath = () => {
+    if (!preferences) return;
+    const newPath = { name: '', path: '' };
+    setPreferences({
+      ...preferences,
+      jellyfin_library_paths: [...preferences.jellyfin_library_paths, newPath]
+    });
+  };
+
+  const removeLibraryPath = (index: number) => {
+    if (!preferences) return;
+    const updatedPaths = preferences.jellyfin_library_paths.filter((_, i) => i !== index);
+    setPreferences({
+      ...preferences,
+      jellyfin_library_paths: updatedPaths
+    });
+  };
+
+  const updateLibraryPath = (index: number, field: 'name' | 'path', value: string) => {
+    if (!preferences) return;
+    const updatedPaths = [...preferences.jellyfin_library_paths];
+    updatedPaths[index] = { ...updatedPaths[index], [field]: value };
+    setPreferences({
+      ...preferences,
+      jellyfin_library_paths: updatedPaths
+    });
+  };
+
   const tabs = [
     { key: 'vpn' as TabKey, label: 'VPN', icon: ShieldCheck },
     { key: 'jellyfin' as TabKey, label: 'Jellyfin', icon: Server },
     { key: 'storage' as TabKey, label: 'Storage', icon: HardDrive },
-    { key: 'privacy' as TabKey, label: 'Privacy', icon: Shield },
+    { key: 'privacy' as TabKey, label: 'Advanced', icon: Shield },
   ];
 
   if (loading) {
@@ -580,6 +615,17 @@ export function Settings() {
                 />
               </div>
 
+              {/* Help Text Info Box */}
+              <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                <p className="text-sm text-blue-300 mb-2">
+                  <strong>📍 Where to find these settings:</strong>
+                </p>
+                <ul className="text-sm text-blue-300 space-y-1 ml-4">
+                  <li><strong>Server URL:</strong> Default is <code className="bg-gray-800 px-2 py-0.5 rounded">http://localhost:8096</code>. Or check Jellyfin → Dashboard → Networking</li>
+                  <li><strong>API Key:</strong> Generate in Jellyfin → Dashboard → API Keys → New API Key</li>
+                </ul>
+              </div>
+
               <div>
                 <label className="flex items-center gap-2">
                   <input
@@ -593,44 +639,57 @@ export function Settings() {
               </div>
 
               <div className="border-t border-gray-700 pt-4">
-                <h3 className="text-lg font-medium mb-3">Library Paths</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Movies Path</label>
-                    <input
-                      type="text"
-                      value={preferences.jellyfin_library_paths.movies}
-                      onChange={(e) => updatePreference('jellyfin_library_paths', { ...preferences.jellyfin_library_paths, movies: e.target.value })}
-                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">TV Shows Path</label>
-                    <input
-                      type="text"
-                      value={preferences.jellyfin_library_paths.tv}
-                      onChange={(e) => updatePreference('jellyfin_library_paths', { ...preferences.jellyfin_library_paths, tv: e.target.value })}
-                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Music Path</label>
-                    <input
-                      type="text"
-                      value={preferences.jellyfin_library_paths.music}
-                      onChange={(e) => updatePreference('jellyfin_library_paths', { ...preferences.jellyfin_library_paths, music: e.target.value })}
-                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Documentaries Path</label>
-                    <input
-                      type="text"
-                      value={preferences.jellyfin_library_paths.documentaries}
-                      onChange={(e) => updatePreference('jellyfin_library_paths', { ...preferences.jellyfin_library_paths, documentaries: e.target.value })}
-                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-medium">Library Paths</h3>
+                  <button
+                    onClick={addLibraryPath}
+                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Path
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {preferences.jellyfin_library_paths.map((libPath, index) => (
+                    <div key={index} className="grid grid-cols-1 md:grid-cols-[200px_1fr_auto] gap-3 items-end bg-gray-900/50 p-3 rounded-lg">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">Name</label>
+                        <input
+                          type="text"
+                          placeholder="Movies"
+                          value={libPath.name}
+                          onChange={(e) => updateLibraryPath(index, 'name', e.target.value)}
+                          className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">Path</label>
+                        <input
+                          type="text"
+                          placeholder="/media/movies"
+                          value={libPath.path}
+                          onChange={(e) => updateLibraryPath(index, 'path', e.target.value)}
+                          className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => removeLibraryPath(index)}
+                          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                          title="Remove path"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {preferences.jellyfin_library_paths.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      No library paths configured. Click "Add Path" to create one.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -738,9 +797,102 @@ export function Settings() {
         {/* Privacy/Advanced Tab */}
         {activeTab === 'privacy' && (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">Privacy & Advanced</h2>
+            <h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
 
+            {/* API Keys Section */}
             <div className="space-y-4">
+              <h3 className="text-lg font-medium border-b border-gray-700 pb-2">API Keys</h3>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  TMDB API Key
+                </label>
+                <input
+                  type="password"
+                  placeholder="Your TMDB API key"
+                  value={preferences.tmdb_api_key || ''}
+                  onChange={(e) => updatePreference('tmdb_api_key', e.target.value || null)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  For movie/TV thumbnails and metadata. Get free API key at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">themoviedb.org/settings/api</a>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  OMDB API Key (Optional)
+                </label>
+                <input
+                  type="password"
+                  placeholder="Your OMDB API key (optional)"
+                  value={preferences.omdb_api_key || ''}
+                  onChange={(e) => updatePreference('omdb_api_key', e.target.value || null)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Alternative metadata source. Get free API key at <a href="http://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">omdbapi.com</a>
+                </p>
+              </div>
+            </div>
+
+            {/* Paths Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium border-b border-gray-700 pb-2">Tool Paths</h3>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Download Directory
+                </label>
+                <input
+                  type="text"
+                  placeholder="/home/beerm/media-vault/downloads"
+                  value={preferences.download_directory}
+                  onChange={(e) => updatePreference('download_directory', e.target.value)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Base directory where all downloads are saved
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  yt-dlp Path
+                </label>
+                <input
+                  type="text"
+                  placeholder="/home/beerm/bin/yt-dlp"
+                  value={preferences.ytdlp_path}
+                  onChange={(e) => updatePreference('ytdlp_path', e.target.value)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Full path to yt-dlp executable (for YouTube downloads)
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  get_iplayer Path
+                </label>
+                <input
+                  type="text"
+                  placeholder="/home/beerm/bin/get_iplayer"
+                  value={preferences.get_iplayer_path}
+                  onChange={(e) => updatePreference('get_iplayer_path', e.target.value)}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Full path to get_iplayer executable (for BBC iPlayer downloads)
+                </p>
+              </div>
+            </div>
+
+            {/* Privacy Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium border-b border-gray-700 pb-2">Privacy</h3>
+
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
                   YouTube Cookies File Path

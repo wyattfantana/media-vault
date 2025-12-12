@@ -1,8 +1,25 @@
 import { Router } from 'express';
 import { tmdbService } from '../services/tmdb.service';
 import { omdbService } from '../services/omdb.service';
+import { auth } from '../auth.js';
 
 const router = Router();
+
+// Middleware to get user (optional - routes work without auth but use env var fallback)
+const getUser = async (req: any, res: any, next: any) => {
+  try {
+    const session = await auth.api.getSession({ headers: req.headers });
+    if (session) {
+      req.user = session.user;
+    }
+  } catch (err) {
+    // User not authenticated - will use env var fallback
+  }
+  next();
+};
+
+// Apply middleware to all routes
+router.use(getUser);
 
 /**
  * Search movies
@@ -12,16 +29,13 @@ router.get('/search/movies', async (req, res) => {
   try {
     const query = req.query.q as string;
     const page = parseInt(req.query.page as string) || 1;
+    const userId = (req as any).user?.id;
 
     if (!query) {
       return res.status(400).json({ error: 'Query parameter "q" is required' });
     }
 
-    if (!tmdbService.isConfigured()) {
-      return res.status(503).json({ error: 'TMDB is not configured. Please set TMDB_API_KEY in environment variables.' });
-    }
-
-    const results = await tmdbService.searchMovies(query, page);
+    const results = await tmdbService.searchMovies(query, page, userId);
 
     // Fetch IMDB IDs for top results (first 20 for performance)
     const transformedResults = {
