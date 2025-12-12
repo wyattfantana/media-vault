@@ -1209,7 +1209,7 @@ export default function Movies() {
                           // Select - apply preset
                           setAllMoviesFilters({
                             minRating: 7.0,
-                            minVotes: 500,
+                            minVotes: 200,
                             excludeGenres: [],
                             selectedGenres: [],
                             yearFrom: null,
@@ -1225,7 +1225,7 @@ export default function Movies() {
                           : 'bg-purple-700 text-gray-300 hover:bg-purple-600'
                       }`}
                     >
-                      ⭐ Quality Movies (7.0+)
+                      ⭐ Quality Movies (7.0+, 200+ votes)
                     </button>
                     <button
                       onClick={() => {
@@ -1244,8 +1244,8 @@ export default function Movies() {
                         } else {
                           // Select - apply preset
                           setAllMoviesFilters({
-                            minRating: 8.0,
-                            minVotes: 1000,
+                            minRating: 7.5,
+                            minVotes: 300,
                             excludeGenres: [],
                             selectedGenres: [],
                             yearFrom: null,
@@ -1261,7 +1261,80 @@ export default function Movies() {
                           : 'bg-yellow-700 text-gray-300 hover:bg-yellow-600'
                       }`}
                     >
-                      🏆 Elite Only (8.0+)
+                      🏆 Elite Only (7.5+, 300+ votes)
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (activePreset === 'modern') {
+                          // Deselect - reset to no filters
+                          setAllMoviesFilters({
+                            minRating: 0,
+                            minVotes: 0,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'popularity.desc'
+                          });
+                          setActivePreset(null);
+                        } else {
+                          // Select - apply preset (last 5 years, 7.0+ rating)
+                          const currentYear = new Date().getFullYear();
+                          setAllMoviesFilters({
+                            minRating: 7.0,
+                            minVotes: 500,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: currentYear - 5,
+                            yearTo: currentYear,
+                            sortBy: 'vote_average.desc'
+                          });
+                          setActivePreset('modern');
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activePreset === 'modern'
+                          ? 'bg-cyan-600 text-white ring-2 ring-cyan-300 shadow-lg scale-105'
+                          : 'bg-cyan-700 text-gray-300 hover:bg-cyan-600'
+                      }`}
+                    >
+                      🆕 Modern Classics (2020-2025, 7.0+)
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (activePreset === 'hidden-gems') {
+                          // Deselect - reset to no filters
+                          setAllMoviesFilters({
+                            minRating: 0,
+                            minVotes: 0,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'popularity.desc'
+                          });
+                          setActivePreset(null);
+                        } else {
+                          // Select - apply preset (high rating, low votes - underrated gems)
+                          setAllMoviesFilters({
+                            minRating: 7.0,
+                            minVotes: 50,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'vote_average.desc'
+                          });
+                          setActivePreset('hidden-gems');
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activePreset === 'hidden-gems'
+                          ? 'bg-emerald-600 text-white ring-2 ring-emerald-300 shadow-lg scale-105'
+                          : 'bg-emerald-700 text-gray-300 hover:bg-emerald-600'
+                      }`}
+                    >
+                      💎 Hidden Gems (7.0+, less known)
                     </button>
                     {localStorage.getItem('moviesFilters') && (
                       <button
