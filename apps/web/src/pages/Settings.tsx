@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
   Settings as SettingsIcon,
-  Download,
-  Gauge,
   Server,
-  Bell,
   HardDrive,
-  Cog,
   Shield,
   Save,
   AlertCircle,
@@ -96,12 +92,16 @@ interface VPNStatus {
     boundToVPN: boolean;
   };
   message?: string;
+  localIP?: string | null;
+  publicIP?: string | null;
+  isProtected?: boolean;
+  localNetworkAccessible?: boolean;
 }
 
-type TabKey = 'download' | 'bandwidth' | 'vpn' | 'jellyfin' | 'notifications' | 'storage' | 'behavior' | 'privacy';
+type TabKey = 'vpn' | 'jellyfin' | 'storage' | 'privacy';
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState<TabKey>('download');
+  const [activeTab, setActiveTab] = useState<TabKey>('vpn');
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [vpnStatus, setVpnStatus] = useState<VPNStatus | null>(null);
@@ -202,6 +202,31 @@ export function Settings() {
   // VPN Functions
   const fetchVPNStatus = async () => {
     try {
+      // Try enhanced status first
+      const enhancedRes = await fetch('http://localhost:3001/api/v1/vpn/enhanced-status', {
+        credentials: 'include'
+      });
+
+      if (enhancedRes.ok) {
+        const data = await enhancedRes.json();
+        // Transform enhanced status to VPNStatus format
+        setVpnStatus({
+          installed: true,
+          connected: data.vpn?.connected || false,
+          server: data.vpn?.server,
+          location: data.vpn?.location,
+          ip: data.vpn?.ip,
+          interface: data.vpn?.interface,
+          localIP: data.localIP,
+          publicIP: data.publicIP,
+          isProtected: data.isProtected,
+          localNetworkAccessible: data.localNetworkAccessible,
+          message: data.message,
+        });
+        return;
+      }
+
+      // Fallback to regular status
       const res = await fetch('http://localhost:3001/api/v1/vpn/status', {
         credentials: 'include'
       });
@@ -302,13 +327,9 @@ export function Settings() {
   };
 
   const tabs = [
-    { key: 'download' as TabKey, label: 'Download Preferences', icon: Download },
-    { key: 'bandwidth' as TabKey, label: 'Bandwidth', icon: Gauge },
-    { key: 'vpn' as TabKey, label: 'VPN (Mullvad)', icon: ShieldCheck },
+    { key: 'vpn' as TabKey, label: 'VPN', icon: ShieldCheck },
     { key: 'jellyfin' as TabKey, label: 'Jellyfin', icon: Server },
-    { key: 'notifications' as TabKey, label: 'Notifications', icon: Bell },
     { key: 'storage' as TabKey, label: 'Storage', icon: HardDrive },
-    { key: 'behavior' as TabKey, label: 'Behavior', icon: Cog },
     { key: 'privacy' as TabKey, label: 'Privacy', icon: Shield },
   ];
 
@@ -376,139 +397,10 @@ export function Settings() {
 
       {/* Tab Content */}
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-        {/* Download Preferences Tab */}
-        {activeTab === 'download' && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">Download Preferences</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Default Quality</label>
-                <select
-                  value={preferences.default_quality}
-                  onChange={(e) => updatePreference('default_quality', e.target.value)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="2160p">2160p (4K)</option>
-                  <option value="1440p">1440p (2K)</option>
-                  <option value="1080p">1080p (Full HD)</option>
-                  <option value="720p">720p (HD)</option>
-                  <option value="480p">480p (SD)</option>
-                  <option value="360p">360p</option>
-                  <option value="audio">Audio Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Default Folder</label>
-                <select
-                  value={preferences.default_folder}
-                  onChange={(e) => updatePreference('default_folder', e.target.value)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="Downloads">Downloads</option>
-                  <option value="Movies">Movies</option>
-                  <option value="TV Shows">TV Shows</option>
-                  <option value="Music">Music</option>
-                  <option value="Documentaries">Documentaries</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Default Video Format</label>
-                <select
-                  value={preferences.default_video_format}
-                  onChange={(e) => updatePreference('default_video_format', e.target.value)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="mp4">MP4</option>
-                  <option value="mkv">MKV</option>
-                  <option value="webm">WebM</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Default Audio Format</label>
-                <select
-                  value={preferences.default_audio_format}
-                  onChange={(e) => updatePreference('default_audio_format', e.target.value)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="mp3">MP3</option>
-                  <option value="m4a">M4A</option>
-                  <option value="aac">AAC</option>
-                  <option value="opus">Opus</option>
-                  <option value="flac">FLAC</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Concurrent Downloads: {preferences.concurrent_downloads}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={preferences.concurrent_downloads}
-                  onChange={(e) => updatePreference('concurrent_downloads', parseInt(e.target.value))}
-                  className="w-full accent-blue-600"
-                />
-                <p className="text-xs text-gray-500 mt-1">Number of simultaneous downloads</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Bandwidth Controls Tab */}
-        {activeTab === 'bandwidth' && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">Bandwidth Controls</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Download Speed Limit (MB/s)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Unlimited"
-                  value={preferences.download_speed_limit ? preferences.download_speed_limit / (1024 * 1024) : ''}
-                  onChange={(e) => updatePreference('download_speed_limit', e.target.value ? parseFloat(e.target.value) * 1024 * 1024 : null)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">Leave empty for unlimited</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Upload Speed Limit (MB/s)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Unlimited"
-                  value={preferences.upload_speed_limit ? preferences.upload_speed_limit / (1024 * 1024) : ''}
-                  onChange={(e) => updatePreference('upload_speed_limit', e.target.value ? parseFloat(e.target.value) * 1024 * 1024 : null)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">For torrent seeding</p>
-              </div>
-            </div>
-
-            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-              <p className="text-sm text-blue-300">
-                <strong>Note:</strong> Bandwidth limits apply to all downloads and uploads. Restart the download worker for changes to take effect.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* VPN (Mullvad) Tab */}
+        {/* VPN Tab */}
         {activeTab === 'vpn' && (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">VPN (Mullvad) Settings</h2>
+            <h2 className="text-xl font-semibold mb-4">VPN Status</h2>
 
             {/* VPN Status Card */}
             <div className={`border rounded-lg p-6 ${
@@ -539,22 +431,81 @@ export function Settings() {
               )}
 
               {vpnStatus?.connected && (
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Server:</span>
-                    <span className="text-white font-mono">{vpnStatus.server || 'Unknown'}</span>
+                <div className="space-y-4">
+                  {/* VPN Connection Info */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Server:</span>
+                      <span className="text-white font-mono">{vpnStatus.server || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Location:</span>
+                      <span className="text-white">{vpnStatus.location || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Torrent IP:</span>
+                      <span className="text-white font-mono flex items-center gap-2">
+                        {vpnStatus.ip || vpnStatus.publicIP || 'Unknown'}
+                        {vpnStatus.isProtected && (
+                          <span className="text-green-400 text-xs">🔒 Protected</span>
+                        )}
+                      </span>
+                    </div>
+                    {vpnStatus.localIP && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Local IP:</span>
+                        <span className="text-white font-mono">{vpnStatus.localIP}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Location:</span>
-                    <span className="text-white">{vpnStatus.location || 'Unknown'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">VPN IP:</span>
-                    <span className="text-white font-mono">{vpnStatus.ip || 'Unknown'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Interface:</span>
-                    <span className="text-white font-mono">{vpnStatus.interface || 'Unknown'}</span>
+
+                  {/* Local Network Status */}
+                  {vpnStatus.localNetworkAccessible !== undefined && (
+                    <div className={`p-3 rounded-lg border ${
+                      vpnStatus.localNetworkAccessible
+                        ? 'bg-green-900/20 border-green-500/30'
+                        : 'bg-yellow-900/20 border-yellow-500/30'
+                    }`}>
+                      <div className="flex items-start gap-2 text-sm">
+                        <span className={vpnStatus.localNetworkAccessible ? 'text-green-400' : 'text-yellow-400'}>
+                          {vpnStatus.localNetworkAccessible ? '✅' : '⚠️'}
+                        </span>
+                        <div>
+                          <div className={`font-medium ${vpnStatus.localNetworkAccessible ? 'text-green-300' : 'text-yellow-300'}`}>
+                            {vpnStatus.localNetworkAccessible
+                              ? 'Local Network Access: Enabled'
+                              : 'Local Network Access: Disabled'
+                            }
+                          </div>
+                          <div className="text-gray-400 text-xs mt-1">
+                            {vpnStatus.localNetworkAccessible
+                              ? 'Jellyfin is accessible from devices on your local network'
+                              : 'Enable "Local Network Sharing" in Mullvad to access Jellyfin from other devices'
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Protection Summary */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-gray-900/50 p-3 rounded-lg">
+                      <div className="text-gray-400 text-xs mb-1">Torrent Protection</div>
+                      <div className="text-green-400 font-medium flex items-center gap-1">
+                        <ShieldCheck size={16} />
+                        VPN Active
+                      </div>
+                    </div>
+                    <div className="bg-gray-900/50 p-3 rounded-lg">
+                      <div className="text-gray-400 text-xs mb-1">Jellyfin Access</div>
+                      <div className={`font-medium flex items-center gap-1 ${
+                        vpnStatus.localNetworkAccessible ? 'text-green-400' : 'text-gray-400'
+                      }`}>
+                        <Server size={16} />
+                        {vpnStatus.localNetworkAccessible ? 'Local Network' : 'VPN Only'}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -585,63 +536,10 @@ export function Settings() {
               </div>
             </div>
 
-            {/* VPN Preferences */}
-            {preferences && (
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-                <h3 className="text-lg font-semibold mb-4">VPN Preferences</h3>
-
-                <div className="space-y-4">
-                  {/* Enable VPN */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium">Enable VPN Functionality</label>
-                      <p className="text-xs text-gray-400 mt-1">Enable VPN features for torrent downloads</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={preferences.vpn_enabled || false}
-                      onChange={(e) => updatePreference('vpn_enabled', e.target.checked)}
-                      className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* Require VPN for Torrents */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium">Require VPN for Torrents</label>
-                      <p className="text-xs text-gray-400 mt-1">Block torrent downloads if VPN is not connected</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={preferences.require_vpn_for_torrents || false}
-                      onChange={(e) => updatePreference('require_vpn_for_torrents', e.target.checked)}
-                      disabled={!preferences.vpn_enabled}
-                      className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
-                    />
-                  </div>
-
-                  {/* Auto-connect VPN */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium">Auto-connect VPN</label>
-                      <p className="text-xs text-gray-400 mt-1">Automatically connect to VPN when downloading torrents</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={preferences.vpn_auto_connect || false}
-                      onChange={(e) => updatePreference('vpn_auto_connect', e.target.checked)}
-                      disabled={!preferences.vpn_enabled}
-                      className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Info Box */}
             <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
               <p className="text-sm text-blue-300">
-                <strong>✅ Your torrents are automatically protected:</strong> Since you're using Windows Mullvad with WSL2, all torrent traffic automatically routes through the VPN thanks to mirrored networking. When Mullvad is connected on Windows, MediaVault downloads are protected without any manual binding.
+                <strong>💡 VPN + Local Network:</strong> Torrents download privately through VPN, while Jellyfin stays accessible on your local network. Enable "Local Network Sharing" in Mullvad to use both simultaneously.
               </p>
             </div>
 
@@ -735,71 +633,6 @@ export function Settings() {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Notifications Tab */}
-        {activeTab === 'notifications' && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">Notification Preferences</h2>
-
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={preferences.notifications_enabled}
-                  onChange={(e) => updatePreference('notifications_enabled', e.target.checked)}
-                  className="w-5 h-5 accent-blue-600"
-                />
-                <div>
-                  <div className="font-medium text-white">Enable Notifications</div>
-                  <div className="text-sm text-gray-400">Master switch for all notifications</div>
-                </div>
-              </label>
-
-              {preferences.notifications_enabled && (
-                <>
-                  <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={preferences.notify_download_complete}
-                      onChange={(e) => updatePreference('notify_download_complete', e.target.checked)}
-                      className="w-5 h-5 accent-blue-600"
-                    />
-                    <div>
-                      <div className="font-medium text-white">Download Complete</div>
-                      <div className="text-sm text-gray-400">Notify when downloads finish successfully</div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={preferences.notify_download_failed}
-                      onChange={(e) => updatePreference('notify_download_failed', e.target.checked)}
-                      className="w-5 h-5 accent-blue-600"
-                    />
-                    <div>
-                      <div className="font-medium text-white">Download Failed</div>
-                      <div className="text-sm text-gray-400">Notify when downloads fail or encounter errors</div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={preferences.notification_sound}
-                      onChange={(e) => updatePreference('notification_sound', e.target.checked)}
-                      className="w-5 h-5 accent-blue-600"
-                    />
-                    <div>
-                      <div className="font-medium text-white">Notification Sound</div>
-                      <div className="text-sm text-gray-400">Play sound with notifications</div>
-                    </div>
-                  </label>
-                </>
-              )}
             </div>
           </div>
         )}
@@ -898,56 +731,6 @@ export function Settings() {
               >
                 Run Cleanup Now
               </button>
-            </div>
-          </div>
-        )}
-
-        {/* Behavior Settings Tab */}
-        {activeTab === 'behavior' && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">Behavior Settings</h2>
-
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={preferences.auto_organize_files}
-                  onChange={(e) => updatePreference('auto_organize_files', e.target.checked)}
-                  className="w-5 h-5 accent-blue-600"
-                />
-                <div>
-                  <div className="font-medium text-white">Auto-Organize Files</div>
-                  <div className="text-sm text-gray-400">Automatically organize downloads into category folders</div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={preferences.auto_fetch_thumbnails}
-                  onChange={(e) => updatePreference('auto_fetch_thumbnails', e.target.checked)}
-                  className="w-5 h-5 accent-blue-600"
-                />
-                <div>
-                  <div className="font-medium text-white">Auto-Fetch Thumbnails</div>
-                  <div className="text-sm text-gray-400">Automatically fetch thumbnails from TMDB for torrents</div>
-                </div>
-              </label>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Keep Download History (days): {preferences.keep_download_history_days}
-                </label>
-                <input
-                  type="range"
-                  min="7"
-                  max="365"
-                  value={preferences.keep_download_history_days}
-                  onChange={(e) => updatePreference('keep_download_history_days', parseInt(e.target.value))}
-                  className="w-full accent-blue-600"
-                />
-                <p className="text-xs text-gray-500 mt-1">History of completed/failed downloads</p>
-              </div>
             </div>
           </div>
         )}

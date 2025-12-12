@@ -169,6 +169,19 @@ export class VPNService {
   }
 
   /**
+   * Get local IP address (WSL interface)
+   */
+  async getLocalIP(): Promise<string | null> {
+    try {
+      const { stdout } = await execAsync("hostname -I | awk '{print $1}'");
+      return stdout.trim() || null;
+    } catch (error: any) {
+      console.error('[VPN] Failed to get local IP:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * Test VPN connection by checking public IP
    */
   async testConnection(): Promise<{
@@ -200,6 +213,52 @@ export class VPNService {
     } catch (error: any) {
       console.error('[VPN] Failed to test connection:', error.message);
       throw new Error('Failed to test VPN connection');
+    }
+  }
+
+  /**
+   * Get comprehensive VPN status including local network info
+   */
+  async getEnhancedStatus(): Promise<{
+    vpn: VPNStatus;
+    localIP: string | null;
+    publicIP: string | null;
+    isProtected: boolean;
+    localNetworkAccessible: boolean;
+  }> {
+    try {
+      // Get VPN status
+      const vpnStatus = await this.getStatus();
+
+      // Get local IP
+      const localIP = await this.getLocalIP();
+
+      // Get public IP and protection status
+      let publicIP: string | null = null;
+      let isProtected = false;
+
+      try {
+        const testResult = await this.testConnection();
+        publicIP = testResult.publicIP;
+        isProtected = testResult.isProtected;
+      } catch (error) {
+        console.error('[VPN] Could not test connection:', error);
+      }
+
+      // Check if local network is accessible
+      // If VPN is connected and local IP is accessible, local network sharing is likely enabled
+      const localNetworkAccessible = vpnStatus.connected && localIP !== null;
+
+      return {
+        vpn: vpnStatus,
+        localIP,
+        publicIP,
+        isProtected,
+        localNetworkAccessible,
+      };
+    } catch (error: any) {
+      console.error('[VPN] Failed to get enhanced status:', error.message);
+      throw new Error('Failed to get VPN enhanced status');
     }
   }
 

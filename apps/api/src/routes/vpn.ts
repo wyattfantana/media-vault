@@ -323,3 +323,29 @@ vpnRouter.get('/test', requireAuth, async (req, res) => {
     });
   }
 });
+
+/**
+ * GET /api/v1/vpn/enhanced-status
+ * Get comprehensive VPN status including local network info
+ */
+vpnRouter.get('/enhanced-status', requireAuth, async (req, res) => {
+  try {
+    const enhancedStatus = await vpnService.getEnhancedStatus();
+
+    return res.json({
+      success: true,
+      ...enhancedStatus,
+      message: enhancedStatus.vpn.connected
+        ? enhancedStatus.localNetworkAccessible
+          ? 'VPN active with local network access enabled'
+          : 'VPN active (local network may not be accessible)'
+        : 'VPN not connected',
+    });
+  } catch (error: any) {
+    console.error('[VPN API] Failed to get enhanced status:', error);
+    return res.status(500).json({
+      error: 'Failed to get VPN enhanced status',
+      message: error.message,
+    });
+  }
+});
