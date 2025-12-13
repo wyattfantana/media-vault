@@ -94,6 +94,27 @@ export interface TMDBSeason {
   }>;
 }
 
+export interface TMDBPerson {
+  id: number;
+  name: string;
+  known_for_department: string;
+  profile_path: string | null;
+  popularity: number;
+  known_for: Array<TMDBMovie | TMDBTVShow>;
+}
+
+export interface TMDBPersonCredits {
+  id: number;
+  cast: Array<TMDBMovie & { character: string; credit_id: string }>;
+  crew: Array<TMDBMovie & { job: string; department: string; credit_id: string }>;
+}
+
+export interface TMDBPersonTVCredits {
+  id: number;
+  cast: Array<TMDBTVShow & { character: string; credit_id: string; episode_count: number }>;
+  crew: Array<TMDBTVShow & { job: string; department: string; credit_id: string; episode_count: number }>;
+}
+
 export class TMDBService {
   private apiKey: string;
 
@@ -208,13 +229,64 @@ export class TMDBService {
   }
 
   /**
+   * Search for a movie by IMDB ID
+   */
+  async searchMovieByIMDBId(imdbId: string, userId?: string): Promise<TMDBMovie | null> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/find/${imdbId}`, {
+        params: {
+          api_key: apiKey,
+          external_source: 'imdb_id'
+        }
+      });
+
+      // TMDB find endpoint returns results in movie_results array
+      if (response.data.movie_results && response.data.movie_results.length > 0) {
+        return response.data.movie_results[0];
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[TMDB] Movie search by IMDB ID error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Search for a TV show by IMDB ID
+   */
+  async searchTVByIMDBId(imdbId: string, userId?: string): Promise<TMDBTVShow | null> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/find/${imdbId}`, {
+        params: {
+          api_key: apiKey,
+          external_source: 'imdb_id'
+        }
+      });
+
+      // TMDB find endpoint returns results in tv_results array
+      if (response.data.tv_results && response.data.tv_results.length > 0) {
+        return response.data.tv_results[0];
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[TMDB] TV search by IMDB ID error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get movie details
    */
-  async getMovieDetails(movieId: number): Promise<TMDBMovieDetails> {
+  async getMovieDetails(movieId: number, userId?: string): Promise<TMDBMovieDetails> {
     try {
+      const apiKey = await this.getApiKey(userId);
       const response = await axios.get(`${TMDB_BASE_URL}/movie/${movieId}`, {
         params: {
-          api_key: this.apiKey
+          api_key: apiKey
         }
       });
 
@@ -425,11 +497,12 @@ export class TMDBService {
   /**
    * Get trending movies/TV (day or week)
    */
-  async getTrending(mediaType: 'movie' | 'tv', timeWindow: 'day' | 'week' = 'week'): Promise<{ results: (TMDBMovie | TMDBTVShow)[] }> {
+  async getTrending(mediaType: 'movie' | 'tv', timeWindow: 'day' | 'week' = 'week', userId?: string): Promise<{ results: (TMDBMovie | TMDBTVShow)[] }> {
     try {
+      const apiKey = await this.getApiKey(userId);
       const response = await axios.get(`${TMDB_BASE_URL}/trending/${mediaType}/${timeWindow}`, {
         params: {
-          api_key: this.apiKey
+          api_key: apiKey
         }
       });
 
@@ -559,6 +632,70 @@ export class TMDBService {
     } catch (error) {
       console.error('[TMDB] TV genres error:', error);
       throw new Error('Failed to get TV genres');
+    }
+  }
+
+  /**
+   * Search for people (actors, directors, etc.)
+   */
+  async searchPeople(query: string, page: number = 1, userId?: string): Promise<{ results: TMDBPerson[]; total_pages: number; total_results: number }> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/search/person`, {
+        params: {
+          api_key: apiKey,
+          query,
+          page,
+          include_adult: false
+        }
+      });
+
+      return {
+        results: response.data.results,
+        total_pages: response.data.total_pages,
+        total_results: response.data.total_results
+      };
+    } catch (error) {
+      console.error('[TMDB] People search error:', error);
+      throw new Error('Failed to search people');
+    }
+  }
+
+  /**
+   * Get movie credits for a person (actor/director)
+   */
+  async getPersonMovieCredits(personId: number, userId?: string): Promise<TMDBPersonCredits> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/person/${personId}/movie_credits`, {
+        params: {
+          api_key: apiKey
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('[TMDB] Person movie credits error:', error);
+      throw new Error('Failed to get person movie credits');
+    }
+  }
+
+  /**
+   * Get TV credits for a person (actor/director)
+   */
+  async getPersonTVCredits(personId: number, userId?: string): Promise<TMDBPersonTVCredits> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/person/${personId}/tv_credits`, {
+        params: {
+          api_key: apiKey
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('[TMDB] Person TV credits error:', error);
+      throw new Error('Failed to get person TV credits');
     }
   }
 

@@ -77,6 +77,10 @@ export default function Movies() {
   const [allMoviesLoading, setAllMoviesLoading] = useState(false);
   const [loadingMultiplePages, setLoadingMultiplePages] = useState(false);
 
+  // IMDB Top 250 state
+  const [imdbTop250Movies, setImdbTop250Movies] = useState<Movie[]>([]);
+  const [imdbTop250Loading, setImdbTop250Loading] = useState(false);
+
   // All movies filters (default to NO filters - show everything, let users customize)
   const [allMoviesFilters, setAllMoviesFilters] = useState({
     minRating: 0,
@@ -274,7 +278,7 @@ export default function Movies() {
 
   const fetchTrending = async () => {
     try {
-      const res = await fetch(`${API_BASE}/tmdb/trending/movie?timeWindow=week`, {
+      const res = await fetch(`${API_BASE}/tmdb/trending/movie/week`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -459,6 +463,33 @@ export default function Movies() {
     setViewMode('all-movies');
     setAllMoviesPage(1);
     await fetchAllMovies(1, 'all-movies');
+  };
+
+  const loadIMDBTop250Movies = async () => {
+    setAllMoviesLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/curated-lists/imdb-top-250-movies/items`, {
+        credentials: 'include'
+      });
+      console.log('[IMDB Top 250] Response status:', res.status);
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[IMDB Top 250] Received data:', data);
+        console.log('[IMDB Top 250] Items count:', data.items?.length || 0);
+        // Set the IMDB Top 250 movies as the all movies list
+        setAllMovies(data.items || []);
+        setAllMoviesTotalResults(data.items?.length || 0);
+        setAllMoviesPage(1);
+        setAllMoviesTotalPages(1);
+        setViewMode('all-movies');
+      } else {
+        console.error('[IMDB Top 250] Request failed with status:', res.status);
+      }
+    } catch (err) {
+      console.error('Failed to fetch IMDB Top 250:', err);
+    } finally {
+      setAllMoviesLoading(false);
+    }
   };
 
   const fetchAllMovies = async (page: number, mode: 'all-movies' | 'top-rated', append = false) => {
@@ -934,6 +965,7 @@ export default function Movies() {
               <Film className="w-8 h-8 text-blue-400" />
               <h1 className="text-3xl font-bold">
                 {viewMode === 'genre' && selectedGenre ? `${selectedGenre.emoji} ${selectedGenre.name} Movies` :
+                 viewMode === 'all-movies' && activePreset === 'imdb-top-250' ? '🎬 IMDB Top 250' :
                  viewMode === 'all-movies' ? '🎬 All Movies' :
                  viewMode === 'top-rated' ? '⭐ Top Rated Movies' :
                  'Movies'}
@@ -1336,6 +1368,36 @@ export default function Movies() {
                     >
                       💎 Hidden Gems (7.0+, less known)
                     </button>
+                    <button
+                      onClick={() => {
+                        if (activePreset === 'imdb-top-250') {
+                          // Deselect - reset to default all movies
+                          setAllMoviesFilters({
+                            minRating: 0,
+                            minVotes: 0,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'popularity.desc'
+                          });
+                          setActivePreset(null);
+                          setAllMoviesPage(1);
+                          fetchAllMovies(1, 'all-movies');
+                        } else {
+                          // Load IMDB Top 250 movies
+                          loadIMDBTop250Movies();
+                          setActivePreset('imdb-top-250');
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activePreset === 'imdb-top-250'
+                          ? 'bg-red-600 text-white ring-2 ring-red-300 shadow-lg scale-105'
+                          : 'bg-red-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                    >
+                      🎬 IMDB Top 250
+                    </button>
                     {localStorage.getItem('moviesFilters') && (
                       <button
                         onClick={() => {
@@ -1587,6 +1649,7 @@ export default function Movies() {
           )}
         </div>
       )}
+
 
       {/* Movie Modal */}
       {selectedMovie && (

@@ -48,6 +48,15 @@ preferencesRouter.get('/', requireAuth, async (req, res) => {
         .getRawOne();
     }
 
+    // Parse JSON fields
+    if (preferences && typeof preferences.jellyfin_library_paths === 'string') {
+      try {
+        preferences.jellyfin_library_paths = JSON.parse(preferences.jellyfin_library_paths);
+      } catch (e) {
+        console.error('Failed to parse jellyfin_library_paths:', e);
+      }
+    }
+
     res.json(preferences);
   } catch (err) {
     console.error('Failed to get preferences:', err);
@@ -118,7 +127,7 @@ preferencesRouter.put('/', requireAuth, async (req, res) => {
 
     if (jellyfin_server_url !== undefined) updateFields.jellyfin_server_url = jellyfin_server_url;
     if (jellyfin_api_key !== undefined) updateFields.jellyfin_api_key = jellyfin_api_key;
-    if (jellyfin_library_paths !== undefined) updateFields.jellyfin_library_paths = jellyfin_library_paths;
+    if (jellyfin_library_paths !== undefined) updateFields.jellyfin_library_paths = JSON.stringify(jellyfin_library_paths);
     if (jellyfin_auto_scan !== undefined) updateFields.jellyfin_auto_scan = jellyfin_auto_scan;
 
     if (notifications_enabled !== undefined) updateFields.notifications_enabled = notifications_enabled;
@@ -179,6 +188,15 @@ preferencesRouter.put('/', requireAuth, async (req, res) => {
       .from('user_preferences', 'p')
       .where('p.user_id = :userId', { userId })
       .getRawOne();
+
+    // Parse JSON fields
+    if (preferences && typeof preferences.jellyfin_library_paths === 'string') {
+      try {
+        preferences.jellyfin_library_paths = JSON.parse(preferences.jellyfin_library_paths);
+      } catch (e) {
+        console.error('Failed to parse jellyfin_library_paths:', e);
+      }
+    }
 
     res.json(preferences);
   } catch (err) {

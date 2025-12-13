@@ -80,6 +80,10 @@ export default function TVShows() {
   const [allShowsLoading, setAllShowsLoading] = useState(false);
   const [loadingMultiplePages, setLoadingMultiplePages] = useState(false);
 
+  // IMDB Top 250 state
+  const [imdbTop250Shows, setImdbTop250Shows] = useState<TVShow[]>([]);
+  const [imdbTop250Loading, setImdbTop250Loading] = useState(false);
+
   // All Shows filters (default to NO filters - show everything, let users customize)
   const [allShowsFilters, setAllShowsFilters] = useState({
     minRating: 0,
@@ -254,7 +258,7 @@ export default function TVShows() {
 
   const fetchTrending = async () => {
     try {
-      const res = await fetch(`${API_BASE}/tmdb/trending/tv?timeWindow=week`, {
+      const res = await fetch(`${API_BASE}/tmdb/trending/tv/week`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -449,6 +453,33 @@ export default function TVShows() {
       excludeGenres: []
     });
     await fetchAllShows(1, 'all-shows');
+  };
+
+  const loadIMDBTop250Shows = async () => {
+    setAllShowsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/curated-lists/imdb-top-250-tv/items`, {
+        credentials: 'include'
+      });
+      console.log('[IMDB Top 250 TV] Response status:', res.status);
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[IMDB Top 250 TV] Received data:', data);
+        console.log('[IMDB Top 250 TV] Items count:', data.items?.length || 0);
+        // Set the IMDB Top 250 shows as the all shows list
+        setAllShows(data.items || []);
+        setAllShowsTotalResults(data.items?.length || 0);
+        setAllShowsPage(1);
+        setAllShowsTotalPages(1);
+        setViewMode('all-shows');
+      } else {
+        console.error('[IMDB Top 250 TV] Request failed with status:', res.status);
+      }
+    } catch (err) {
+      console.error('Failed to fetch IMDB Top 250 TV:', err);
+    } finally {
+      setAllShowsLoading(false);
+    }
   };
 
   // Auto-apply filters when they change (skip initial mount)
@@ -960,6 +991,7 @@ export default function TVShows() {
               <Film className="w-8 h-8 text-blue-400" />
               <h1 className="text-3xl font-bold">
                 {viewMode === 'genre' && selectedGenre ? `${selectedGenre.emoji} ${selectedGenre.name} TV Shows` :
+                 viewMode === 'all-shows' && activePreset === 'imdb-top-250' ? '📺 IMDB Top 250' :
                  viewMode === 'all-shows' ? '📺 All TV Shows' :
                  viewMode === 'top-rated' ? '⭐ Top Rated TV Shows' :
                  'TV Shows'}
@@ -1289,6 +1321,36 @@ export default function TVShows() {
                     >
                       🏆 Elite Only (8.0+)
                     </button>
+                    <button
+                      onClick={() => {
+                        if (activePreset === 'imdb-top-250') {
+                          // Deselect - reset to default all shows
+                          setAllShowsFilters({
+                            minRating: 0,
+                            minVotes: 0,
+                            excludeGenres: [],
+                            selectedGenres: [],
+                            yearFrom: null,
+                            yearTo: null,
+                            sortBy: 'popularity.desc'
+                          });
+                          setActivePreset(null);
+                          setAllShowsPage(1);
+                          fetchAllShows(1, 'all-shows');
+                        } else {
+                          // Load IMDB Top 250 shows
+                          loadIMDBTop250Shows();
+                          setActivePreset('imdb-top-250');
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activePreset === 'imdb-top-250'
+                          ? 'bg-red-600 text-white ring-2 ring-red-300 shadow-lg scale-105'
+                          : 'bg-red-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                    >
+                      📺 IMDB Top 250
+                    </button>
                     {localStorage.getItem('tvShowsFilters') && (
                       <button
                         onClick={() => {
@@ -1571,6 +1633,7 @@ export default function TVShows() {
           )}
         </div>
       )}
+
 
       {/* TV Show Modal */}
       {selectedShow && (

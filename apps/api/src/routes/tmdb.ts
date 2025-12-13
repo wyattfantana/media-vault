@@ -103,6 +103,46 @@ router.get('/search/tv', async (req, res) => {
 });
 
 /**
+ * Search people (actors, directors, etc.)
+ * GET /api/v1/tmdb/search/people?q=query&page=1
+ */
+router.get('/search/people', async (req, res) => {
+  try {
+    const query = req.query.q as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const userId = (req as any).user?.id;
+
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter "q" is required' });
+    }
+
+    const results = await tmdbService.searchPeople(query, page, userId);
+
+    // Transform results to include full image URLs
+    const transformedResults = {
+      ...results,
+      results: results.results.map(person => ({
+        ...person,
+        profile_url: tmdbService.getImageUrl(person.profile_path, 'w200'),
+        known_for: person.known_for.map((item: any) => ({
+          ...item,
+          poster_url: tmdbService.getImageUrl(item.poster_path, 'w200'),
+          media_type: (item as any).title ? 'movie' : 'tv',
+          title: (item as any).title || (item as any).name,
+          year: (item as any).release_date ? (item as any).release_date.substring(0, 4) :
+                (item as any).first_air_date ? (item as any).first_air_date.substring(0, 4) : null
+        }))
+      }))
+    };
+
+    res.json(transformedResults);
+  } catch (error) {
+    console.error('TMDB people search error:', error);
+    res.status(500).json({ error: 'Failed to search people' });
+  }
+});
+
+/**
  * Get movie details
  * GET /api/v1/tmdb/movie/:id
  */
@@ -190,6 +230,82 @@ router.get('/tv/:id/season/:seasonNumber', async (req, res) => {
   } catch (error) {
     console.error('TMDB season details error:', error);
     res.status(500).json({ error: 'Failed to get season details' });
+  }
+});
+
+/**
+ * Get person's movie credits (cast & crew)
+ * GET /api/v1/tmdb/person/:id/movie-credits
+ */
+router.get('/person/:id/movie-credits', async (req, res) => {
+  try {
+    const personId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+
+    const credits = await tmdbService.getPersonMovieCredits(personId, userId);
+
+    // Transform cast credits to include full URLs
+    const transformedCast = credits.cast.map((movie: any) => ({
+      ...movie,
+      poster_url: tmdbService.getImageUrl(movie.poster_path, 'w500'),
+      backdrop_url: tmdbService.getImageUrl(movie.backdrop_path, 'w780'),
+      year: movie.release_date ? movie.release_date.substring(0, 4) : null
+    }));
+
+    // Transform crew credits to include full URLs
+    const transformedCrew = credits.crew.map((movie: any) => ({
+      ...movie,
+      poster_url: tmdbService.getImageUrl(movie.poster_path, 'w500'),
+      backdrop_url: tmdbService.getImageUrl(movie.backdrop_path, 'w780'),
+      year: movie.release_date ? movie.release_date.substring(0, 4) : null
+    }));
+
+    res.json({
+      id: credits.id,
+      cast: transformedCast,
+      crew: transformedCrew
+    });
+  } catch (error) {
+    console.error('TMDB person movie credits error:', error);
+    res.status(500).json({ error: 'Failed to get person movie credits' });
+  }
+});
+
+/**
+ * Get person's TV credits (cast & crew)
+ * GET /api/v1/tmdb/person/:id/tv-credits
+ */
+router.get('/person/:id/tv-credits', async (req, res) => {
+  try {
+    const personId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+
+    const credits = await tmdbService.getPersonTVCredits(personId, userId);
+
+    // Transform cast credits to include full URLs
+    const transformedCast = credits.cast.map((show: any) => ({
+      ...show,
+      poster_url: tmdbService.getImageUrl(show.poster_path, 'w500'),
+      backdrop_url: tmdbService.getImageUrl(show.backdrop_path, 'w780'),
+      year: show.first_air_date ? show.first_air_date.substring(0, 4) : null
+    }));
+
+    // Transform crew credits to include full URLs
+    const transformedCrew = credits.crew.map((show: any) => ({
+      ...show,
+      poster_url: tmdbService.getImageUrl(show.poster_path, 'w500'),
+      backdrop_url: tmdbService.getImageUrl(show.backdrop_path, 'w780'),
+      year: show.first_air_date ? show.first_air_date.substring(0, 4) : null
+    }));
+
+    res.json({
+      id: credits.id,
+      cast: transformedCast,
+      crew: transformedCrew
+    });
+  } catch (error) {
+    console.error('TMDB person TV credits error:', error);
+    res.status(500).json({ error: 'Failed to get person TV credits' });
   }
 });
 
@@ -408,23 +524,20 @@ router.get('/trending/:mediaType/:timeWindow', async (req, res) => {
   try {
     const mediaType = req.params.mediaType as 'movie' | 'tv';
     const timeWindow = (req.params.timeWindow as 'day' | 'week') || 'week';
+    const userId = (req as any).user?.id;
 
     if (!['movie', 'tv'].includes(mediaType)) {
       return res.status(400).json({ error: 'mediaType must be "movie" or "tv"' });
     }
 
-    if (!tmdbService.isConfigured()) {
-      return res.status(503).json({ error: 'TMDB is not configured' });
-    }
-
-    const results = await tmdbService.getTrending(mediaType, timeWindow);
+    const results = await tmdbService.getTrending(mediaType, timeWindow, userId);
 
     const transformedResults = {
       results: await Promise.all(results.results.map(async (item: any) => {
         let imdb_id = null;
         if (mediaType === 'movie') {
           try {
-            const details = await tmdbService.getMovieDetails(item.id);
+            const details = await tmdbService.getMovieDetails(item.id, userId);
             imdb_id = details.imdb_id;
           } catch (err) {
             // Skip if details fetch fails
