@@ -332,7 +332,11 @@ export class GetIPlayerService extends EventEmitter {
    */
   async getProgrammeInfo(pid: string): Promise<IPlayerProgramme[]> {
     return new Promise((resolve, reject) => {
-      const args = ['--pid', pid, '--info'];
+      const args = [
+        '--pid', pid,
+        '--info',
+        '--listformat=<pid>|<name>|<episode>|<channel>|<thumbnail>|<desc>|<available>|<type>|<categories>|<duration>'
+      ];
 
       const process = spawn('perl', [this.getIPlayerPath, ...args]);
       let output = '';

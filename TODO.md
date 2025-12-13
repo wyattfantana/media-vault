@@ -1,8 +1,8 @@
 # MediaVault - Development Roadmap & Session Tracker
 
 **Last Updated:** 2025-12-13
-**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete | ✅ Settings Simplified | ✅ Jellyfin Phone Access Fixed
-**Next Session:** Complete IMDB Top 250 integration, Phase 3 (remaining tasks), or Phase 4 (advanced features)
+**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete | ✅ Settings Simplified | ✅ Jellyfin Auto-Scan
+**Next Session:** Favorites/Watchlist feature, IMDB Top 250 completion, or Phase 4 (advanced features)
 
 ---
 
@@ -256,7 +256,7 @@
 ## 🔄 SESSION STATE TRACKER
 
 ### Current Session: 2025-12-13 (Session 14) ✅ COMPLETED
-**Focus:** VPN Status Detection, iPlayer Jellyfin Formatting & Network Troubleshooting
+**Focus:** VPN Status Detection, iPlayer Jellyfin Formatting, Auto-Scan & Network Troubleshooting
 **Status:** ✅ COMPLETED
 **Completed:**
 - [x] **VPN Status Detection for Downloads** - Automatic VPN checking
@@ -277,13 +277,25 @@
   - Root cause: Jellyfin mounted to `/home/beerm/downloads` but files were in `/mnt/d/MediaVault`
   - Recreated Jellyfin container with correct volume mount: `/mnt/d/MediaVault` → `/media`
   - Jellyfin now sees all media including iPlayer folder
+- [x] **Jellyfin Auto-Scan on Download Complete** - Automatic library updates
+  - Added code to initialize Jellyfin from database on API startup
+  - Loads config from `user_preferences` table (jellyfin_server_url, jellyfin_api_key)
+  - Download worker automatically triggers library scan after each download
+  - Scans specific library containing the new file
+  - New media appears in Jellyfin within seconds
 - [x] **Fixed Jellyfin phone connection issue** - WSL2 networking resolved
   - Root cause: Jellyfin remote IP filter set to Allowlist mode with empty list
   - Changed `IsRemoteIPFilterBlacklist` from `false` to `true` in network.xml
   - Added Windows Firewall rule for port 8096
   - Set up port forwarding: `192.168.0.78:8096` → `172.24.105.200:8096` (WSL2)
   - Phone now connects via Windows host IP: http://192.168.0.78:8096
-- [ ] **IMDB Top 250 Lists Integration** - Work in progress
+- [ ] **iPlayer Download Thumbnails** - Work in progress (WIP)
+  - Attempted to add thumbnail support for iPlayer downloads
+  - Issue: get_iplayer --info flag doesn't support --listformat
+  - Tried using search() instead of getProgrammeInfo() but still not working
+  - Needs further investigation - may require different approach
+  - Deferred to future session
+- [ ] **IMDB Top 250 Lists Integration** - Work in progress (WIP)
   - Downloaded official IMDB datasets (title.ratings.tsv.gz, title.basics.tsv.gz)
   - Processed datasets to extract Top 250 movies and TV shows
   - Updated curated-lists.service.ts with official data (250 movies, 250 TV shows)
@@ -303,6 +315,9 @@
 - `/home/beerm/projects/media-vault/apps/web/src/pages/TVShows.tsx` - VPN status detection
 - `/home/beerm/projects/media-vault/apps/web/src/pages/Documentaries.tsx` - VPN status detection
 - `/home/beerm/projects/media-vault/apps/api/src/workers/download.worker.ts` - iPlayer title formatting
+- `/home/beerm/projects/media-vault/apps/api/src/services/get-iplayer.service.ts` - Attempted thumbnail support
+- `/home/beerm/projects/media-vault/apps/api/src/routes/downloads.ts` - Use search() for iPlayer info
+- `/home/beerm/projects/media-vault/apps/api/src/index.ts` - Initialize Jellyfin from database
 - `/home/beerm/jellyfin/config/config/network.xml` - Fixed remote IP filter
 - Jellyfin Docker container - Updated volume mounts
 

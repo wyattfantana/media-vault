@@ -183,7 +183,8 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
           // For iPlayer, we'll need the PID
           const pidMatch = url.match(/[a-z0-9]{8}/i);
           if (pidMatch) {
-            const programmes = await getIPlayerService.getProgrammeInfo(pidMatch[0]);
+            // Use search instead of getProgrammeInfo to get thumbnail
+            const programmes = await getIPlayerService.search(pidMatch[0]);
             if (programmes.length > 0) {
               const prog = programmes[0];
               title = `${prog.name} - ${prog.episode}`;

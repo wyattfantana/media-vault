@@ -348,6 +348,23 @@ async function bootstrap() {
       await pool.end();
     }
 
+    // Initialize Jellyfin from database
+    try {
+      const { jellyfinService } = await import('./services/jellyfin.service.js');
+      const prefs = await AppDataSource.query(
+        'SELECT jellyfin_server_url, jellyfin_api_key FROM user_preferences LIMIT 1'
+      );
+      if (prefs && prefs.length > 0 && prefs[0].jellyfin_server_url && prefs[0].jellyfin_api_key) {
+        jellyfinService.configure({
+          url: prefs[0].jellyfin_server_url,
+          apiKey: prefs[0].jellyfin_api_key
+        });
+        logger.info('Jellyfin service configured from database ✓');
+      }
+    } catch (err) {
+      logger.warn('Failed to initialize Jellyfin from database');
+    }
+
     // Start download worker
     downloadWorker.start();
 
