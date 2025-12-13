@@ -255,33 +255,56 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-13 (Session 14) ⚠️ PARTIALLY COMPLETED
-**Focus:** IMDB Top 250 Integration & Jellyfin Network Troubleshooting
-**Status:** ⚠️ PARTIALLY COMPLETED (Jellyfin ✅ / IMDB Top 250 🚧)
+### Current Session: 2025-12-13 (Session 14) ✅ COMPLETED
+**Focus:** VPN Status Detection, iPlayer Jellyfin Formatting & Network Troubleshooting
+**Status:** ✅ COMPLETED
 **Completed:**
+- [x] **VPN Status Detection for Downloads** - Automatic VPN checking
+  - Replaced manual "I confirm VPN is connected" checkbox with automatic VPN status detection
+  - Downloads now check actual VPN connection status via API
+  - Confirm button enabled only when VPN is ON (green indicator)
+  - Confirm button greyed out when VPN is OFF (red indicator)
+  - Shows real-time status: "Checking VPN status..." / "VPN Connected" / "VPN Disconnected"
+  - Applied to all download modals: Movies, TV Shows, Documentaries
+- [x] **iPlayer Title Formatting for Jellyfin** - Clean filenames
+  - Created `formatIPlayerTitle()` function to clean ugly iPlayer filenames
+  - Removes PIDs (e.g., m002m6dy), "_original" suffix, replaces underscores with spaces
+  - Example: `AI_Decoded_-_Stephen_Fry_m002m6dy_original.mp4` → `AI Decoded - Stephen Fry.mp4`
+  - Automatically renames both video and subtitle files after download
+  - Uses programme metadata (name + episode) when available, falls back to filename cleanup
+  - Applied to all new iPlayer downloads
+- [x] **Fixed Jellyfin not seeing iPlayer files** - Volume mount issue
+  - Root cause: Jellyfin mounted to `/home/beerm/downloads` but files were in `/mnt/d/MediaVault`
+  - Recreated Jellyfin container with correct volume mount: `/mnt/d/MediaVault` → `/media`
+  - Jellyfin now sees all media including iPlayer folder
 - [x] **Fixed Jellyfin phone connection issue** - WSL2 networking resolved
   - Root cause: Jellyfin remote IP filter set to Allowlist mode with empty list
   - Changed `IsRemoteIPFilterBlacklist` from `false` to `true` in network.xml
   - Added Windows Firewall rule for port 8096
   - Set up port forwarding: `192.168.0.78:8096` → `172.24.105.200:8096` (WSL2)
   - Phone now connects via Windows host IP: http://192.168.0.78:8096
-  - All services working: VPN routing torrents, Jellyfin accessible on local network
 - [ ] **IMDB Top 250 Lists Integration** - Work in progress
   - Downloaded official IMDB datasets (title.ratings.tsv.gz, title.basics.tsv.gz)
   - Processed datasets to extract Top 250 movies and TV shows
   - Updated curated-lists.service.ts with official data (250 movies, 250 TV shows)
   - User feedback: "the list is still off" - needs further investigation
-  - Deferred to tomorrow for completion
+  - Deferred to future session for completion
 
 **Implementation Details:**
+- VPN Detection: Fetches `/api/v1/vpn/status` when download modal opens, enables/disables button based on `connected` status
+- iPlayer Formatting: Downloads to temp folder, renames with clean title, moves to Jellyfin library
+- Jellyfin Docker: Changed mount from `/home/beerm/downloads:/media` to `/mnt/d/MediaVault:/media`
 - Jellyfin network.xml: Switched from Allowlist (blocking all) to Blacklist mode (allowing all)
 - Windows netsh portproxy: Forwards 0.0.0.0:8096 → 172.24.105.200:8096
 - Windows Firewall: Created "Jellyfin WSL2" inbound rule for TCP port 8096
-- IMDB datasets: Filtered by titleType (movie/tvSeries), minimum 25k votes, sorted by rating
 
 **Files Modified:**
+- `/home/beerm/projects/media-vault/apps/web/src/pages/Movies.tsx` - VPN status detection
+- `/home/beerm/projects/media-vault/apps/web/src/pages/TVShows.tsx` - VPN status detection
+- `/home/beerm/projects/media-vault/apps/web/src/pages/Documentaries.tsx` - VPN status detection
+- `/home/beerm/projects/media-vault/apps/api/src/workers/download.worker.ts` - iPlayer title formatting
 - `/home/beerm/jellyfin/config/config/network.xml` - Fixed remote IP filter
-- `/home/beerm/projects/media-vault/apps/api/src/services/curated-lists.service.ts` - Updated IMDB arrays
+- Jellyfin Docker container - Updated volume mounts
 
 **Next Session Start Point:**
 → Investigate why IMDB Top 250 lists are "still off" - verify rankings against official IMDB website, check filtering/sorting logic

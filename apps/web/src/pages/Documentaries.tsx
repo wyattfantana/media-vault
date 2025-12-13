@@ -49,7 +49,8 @@ export default function Documentaries() {
   const [formattedPath, setFormattedPath] = useState<any>(null);
   const [loadingFormat, setLoadingFormat] = useState(false);
   const [formatError, setFormatError] = useState<string | null>(null);
-  const [vpnConfirmed, setVpnConfirmed] = useState(false);
+  const [vpnConnected, setVpnConnected] = useState(false);
+  const [checkingVpn, setCheckingVpn] = useState(false);
 
   // Torrent search state
   const [torrentResults, setTorrentResults] = useState<any[]>([]);
@@ -728,6 +729,19 @@ export default function Documentaries() {
     setFormatError(null);
     setShowFormatPreview(true);
 
+    // Check VPN status
+    setCheckingVpn(true);
+    fetch(`${API_BASE}/vpn/status`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        setVpnConnected(data.connected || false);
+        setCheckingVpn(false);
+      })
+      .catch(() => {
+        setVpnConnected(false);
+        setCheckingVpn(false);
+      });
+
     // Fetch format preview
     try {
       const response = await fetch(`${API_BASE}/downloads/format-preview`, {
@@ -811,7 +825,7 @@ export default function Documentaries() {
         setDownloadUrl('');
         setShowFormatPreview(false);
         setFormattedPath(null);
-        setVpnConfirmed(false);
+        setVpnConnected(false);
       } else {
         const error = await res.json();
         alert(`Download failed: ${error.error || 'Unknown error'}`);
@@ -1534,7 +1548,7 @@ export default function Documentaries() {
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => {
             setSelectedDocumentary(null);
-            setVpnConfirmed(false);
+            setVpnConnected(false);
             setTorrentResults([]);
             setTorrentSearchError(null);
             setDownloadUrl('');
@@ -1766,26 +1780,51 @@ export default function Documentaries() {
 
                   {showFormatPreview && formattedPath && !loadingFormat && !formatError && (
                     <div className="mt-4 space-y-4">
-                      {/* VPN Safety Check */}
-                      <div className="bg-orange-900/30 border border-orange-500/50 rounded-lg p-4">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={vpnConfirmed}
-                            onChange={(e) => setVpnConfirmed(e.target.checked)}
-                            className="w-5 h-5 rounded border-gray-600 bg-gray-700 text-orange-600 focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer"
-                          />
-                          <span className="text-orange-300 font-medium text-sm">
-                            I confirm that my VPN is connected before downloading
-                          </span>
-                        </label>
+                      {/* VPN Status Check */}
+                      <div className={`border rounded-lg p-4 ${
+                        checkingVpn ? 'bg-gray-900/30 border-gray-500/50' :
+                        vpnConnected ? 'bg-green-900/30 border-green-500/50' :
+                        'bg-red-900/30 border-red-500/50'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          {checkingVpn ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="text-gray-300 font-medium text-sm">
+                                Checking VPN status...
+                              </span>
+                            </>
+                          ) : vpnConnected ? (
+                            <>
+                              <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                              <span className="text-green-300 font-medium text-sm">
+                                VPN Connected - Ready to download
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </div>
+                              <span className="text-red-300 font-medium text-sm">
+                                VPN Disconnected - Please enable VPN to download
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       {/* Buttons */}
                       <div className="flex gap-3">
                         <button
                           onClick={() => submitDownload(selectedDocumentary)}
-                          disabled={!vpnConfirmed}
+                          disabled={!vpnConnected || checkingVpn}
                           className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
                         >
                           <Download className="w-5 h-5" />
@@ -1795,7 +1834,7 @@ export default function Documentaries() {
                           onClick={() => {
                             setShowFormatPreview(false);
                             setFormattedPath(null);
-                            setVpnConfirmed(false);
+                            setVpnConnected(false);
                           }}
                           className="px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
                         >

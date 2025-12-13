@@ -1,12 +1,44 @@
 import { AppDataSource } from '../data-source.js';
 import { ytdlpService } from '../services/ytdlp.service.js';
-import { getIPlayerService } from '../services/get-iplayer.service.js';
+import { getIPlayerService, IPlayerProgramme } from '../services/get-iplayer.service.js';
 import { qbittorrentService } from '../services/qbittorrent.service.js';
 import { fileOrganizerService } from '../services/file-organizer.service.js';
 import { jellyfinService } from '../services/jellyfin.service.js';
 import { tmdbService } from '../services/tmdb.service.js';
 import fs from 'fs/promises';
 import path from 'path';
+
+/**
+ * Format iPlayer title for Jellyfin
+ * Cleans up ugly filenames like "AI_Decoded_-_Stephen_Fry_Meets_Godfather_of_AI_m002m6dy_original"
+ * to "AI Decoded - Stephen Fry Meets Godfather of AI"
+ */
+function formatIPlayerTitle(info: IPlayerProgramme | undefined, filename: string): string {
+  // If we have programme info, use it
+  if (info && (info.name || info.episode)) {
+    const parts: string[] = [];
+    if (info.name) parts.push(info.name);
+    if (info.episode) parts.push(info.episode);
+    return parts.join(' - ');
+  }
+
+  // Fallback: clean up the filename
+  const basename = path.basename(filename, path.extname(filename));
+
+  // Remove PID (pattern: underscore followed by 8 alphanumeric characters like m002m6dy)
+  let cleaned = basename.replace(/_[a-z0-9]{8,}_/gi, '_');
+
+  // Remove "_original" suffix
+  cleaned = cleaned.replace(/_original$/i, '');
+
+  // Replace underscores with spaces
+  cleaned = cleaned.replace(/_/g, ' ');
+
+  // Trim whitespace
+  cleaned = cleaned.trim();
+
+  return cleaned || 'Unknown';
+}
 
 export class DownloadWorker {
   private isRunning = false;
@@ -159,6 +191,7 @@ export class DownloadWorker {
       let format: string = '';
       let resolution: string = '';
       let videoInfo: any = null;
+      let iplayerInfo: IPlayerProgramme | undefined;
 
       // Download using appropriate service
       if (download.downloader === 'yt-dlp') {
@@ -207,6 +240,7 @@ export class DownloadWorker {
             subtitles: true
           });
           outputPath = result.outputPath;
+          iplayerInfo = result.info; // Save iPlayer info for title formatting
 
           // Parse duration from programme info
           if (result.info.duration) {
@@ -309,12 +343,29 @@ export class DownloadWorker {
             const targetDir = path.join(downloadDir, categoryFolder);
 
             await fs.mkdir(targetDir, { recursive: true });
-            const targetPath = path.join(targetDir, path.basename(outputPath));
+
+            // Clean up the filename for Jellyfin
+            const originalFilename = path.basename(outputPath);
+            const extension = path.extname(originalFilename);
+            const cleanTitle = formatIPlayerTitle(iplayerInfo, originalFilename);
+            const cleanFilename = cleanTitle + extension;
+            const targetPath = path.join(targetDir, cleanFilename);
 
             await fs.rename(outputPath, targetPath);
             finalPath = targetPath;
 
-            console.log(`[Download Worker] Moved to category folder: ${targetPath}`);
+            console.log(`[Download Worker] Renamed and moved: ${cleanFilename}`);
+
+            // Also rename subtitle file if it exists
+            const originalSrtPath = outputPath.replace(extension, '.srt');
+            const targetSrtPath = targetPath.replace(extension, '.srt');
+            try {
+              await fs.access(originalSrtPath);
+              await fs.rename(originalSrtPath, targetSrtPath);
+              console.log(`[Download Worker] Renamed subtitle: ${path.basename(targetSrtPath)}`);
+            } catch {
+              // Subtitle file doesn't exist, that's okay
+            }
           }
         }
       } catch (err) {
@@ -330,6 +381,11 @@ export class DownloadWorker {
 
       // Create or update media entry (handle re-downloads)
       const mediaType = download.downloader === 'get_iplayer' ? 'tv_show' : 'video';
+
+      // Format title for Jellyfin (clean up iPlayer filenames)
+      const formattedTitle = download.downloader === 'get_iplayer'
+        ? formatIPlayerTitle(iplayerInfo, finalPath)
+        : (download.title || 'Unknown');
 
       // Use raw SQL for upsert to handle duplicate file_path constraint
       await AppDataSource.query(`
@@ -353,7 +409,7 @@ export class DownloadWorker {
       `, [
         download.id,
         download.user_id,
-        download.title || 'Unknown',
+        formattedTitle,
         download.description || '',
         finalPath,
         fileSize,
