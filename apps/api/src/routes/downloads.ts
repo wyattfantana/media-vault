@@ -146,7 +146,10 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
       organizeByUploader = false,
       quality = userPrefs?.default_quality || 'best',
       videoFormat = userPrefs?.default_video_format || 'mp4',
-      audioFormat = userPrefs?.default_audio_format || 'mp3'
+      audioFormat = userPrefs?.default_audio_format || 'mp3',
+      // TMDB-specific fields for watchlist integration
+      tmdb_id,
+      tmdb_media_type
     } = req.body;
 
     if (!url) {
@@ -220,7 +223,10 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
         organize_by_uploader: organizeByUploader,
         quality,
         video_format: videoFormat,
-        audio_format: audioFormat
+        audio_format: audioFormat,
+        // TMDB fields for watchlist integration
+        tmdb_id: tmdb_id || null,
+        tmdb_media_type: tmdb_media_type || null
       })
       .returning('*')
       .execute();

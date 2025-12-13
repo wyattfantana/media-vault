@@ -52,6 +52,8 @@ export default function TVShows() {
   const [formatError, setFormatError] = useState<string | null>(null);
   const [vpnConnected, setVpnConnected] = useState(false);
   const [checkingVpn, setCheckingVpn] = useState(false);
+  const [bookmarkedShows, setBookmarkedShows] = useState<Set<number>>(new Set());
+  const [downloadedShows, setDownloadedShows] = useState<Set<number>>(new Set());
 
   // Torrent search state
   const [torrentResults, setTorrentResults] = useState<any[]>([]);
@@ -167,6 +169,43 @@ export default function TVShows() {
     if (!savedBrowseState) {
       loadShows();
     }
+  }, []);
+
+  // Load bookmarked shows
+  useEffect(() => {
+    const fetchBookmarks = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/bookmarks?type=tmdb_tv`, {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const bookmarkedIds = new Set(data.bookmarks.map((b: any) => b.tmdb_id));
+          setBookmarkedShows(bookmarkedIds);
+        }
+      } catch (err) {
+        console.error('Failed to fetch bookmarks:', err);
+      }
+    };
+    fetchBookmarks();
+  }, []);
+
+  // Load downloaded shows
+  useEffect(() => {
+    const fetchDownloaded = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/media/downloaded-tmdb-ids`, {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDownloadedShows(new Set(data.tv || []));
+        }
+      } catch (err) {
+        console.error('Failed to fetch downloaded shows:', err);
+      }
+    };
+    fetchDownloaded();
   }, []);
 
   // Save browse state to sessionStorage when it changes
@@ -880,6 +919,55 @@ export default function TVShows() {
     }
   };
 
+  const toggleBookmark = async (show: TVShow, e?: React.MouseEvent) => {
+    e?.stopPropagation(); // Prevent opening the download modal
+
+    const isBookmarked = bookmarkedShows.has(show.id);
+
+    try {
+      if (isBookmarked) {
+        // Remove from watchlist
+        const res = await fetch(`${API_BASE}/bookmarks/check-tmdb/${show.id}?mediaType=tv`, {
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.bookmark) {
+          await fetch(`${API_BASE}/bookmarks/${data.bookmark.id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          setBookmarkedShows(prev => {
+            const next = new Set(prev);
+            next.delete(show.id);
+            return next;
+          });
+        }
+      } else {
+        // Add to watchlist
+        await fetch(`${API_BASE}/bookmarks`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'tmdb_tv',
+            tmdb_id: show.id,
+            media_type: 'tv',
+            title: show.name || show.title,
+            description: show.overview,
+            thumbnail: show.poster_url,
+            backdrop_url: show.backdrop_url,
+            release_year: show.year ? parseInt(show.year) : null,
+            vote_average: show.vote_average
+          })
+        });
+        setBookmarkedShows(prev => new Set(prev).add(show.id));
+      }
+    } catch (err) {
+      console.error('Failed to toggle bookmark:', err);
+      alert('Failed to update watchlist');
+    }
+  };
+
   const TVShowCard = ({ show, size = 'normal' }: { show: TVShow; size?: 'normal' | 'small' }) => {
     // Color code ratings: 9+ = gold, 8-9 = green, 7-8 = blue, <7 = gray
     const getRatingColor = (rating: number) => {
@@ -890,6 +978,8 @@ export default function TVShows() {
     };
 
     const rating = show.imdb_rating ? parseFloat(show.imdb_rating) : show.vote_average;
+    const isBookmarked = bookmarkedShows.has(show.id);
+    const isDownloaded = downloadedShows.has(show.id);
 
     return (
       <div
@@ -910,13 +1000,35 @@ export default function TVShows() {
           </div>
         )}
 
-        {/* Always show rating badge - color coded by score */}
-        <div className={`absolute top-2 right-2 ${getRatingColor(rating)} text-white px-2 py-1 rounded-md font-bold text-sm shadow-lg flex items-center gap-1`}>
-          <Star className="w-3 h-3 fill-white" />
-          {rating.toFixed(1)}
-        </div>
+        {/* Downloaded badge - top right, above rating */}
+        {isDownloaded && (
+          <div className="absolute top-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded shadow-lg font-semibold flex items-center gap-1 z-10">
+            ✓ Downloaded
+          </div>
+        )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Rating badge - color coded by score */}
+        {!isDownloaded && (
+          <div className={`absolute top-2 right-2 ${getRatingColor(rating)} text-white px-2 py-1 rounded-md font-bold text-sm shadow-lg flex items-center gap-1`}>
+            <Star className="w-3 h-3 fill-white" />
+            {rating.toFixed(1)}
+          </div>
+        )}
+
+        {/* Bookmark button */}
+        <button
+          onClick={(e) => toggleBookmark(show, e)}
+          className={`absolute top-2 left-2 p-2 rounded-full shadow-lg transition-all z-20 ${
+            isBookmarked
+              ? 'bg-yellow-500 text-white'
+              : 'bg-black/50 text-white hover:bg-black/70'
+          }`}
+          title={isBookmarked ? 'Remove from Watchlist' : 'Add to Watchlist'}
+        >
+          <Star className={`w-4 h-4 ${isBookmarked ? 'fill-white' : ''}`} />
+        </button>
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-0">
           <div className="absolute bottom-0 p-3 w-full">
             <h3 className="text-white font-bold text-sm mb-1 line-clamp-2">{show.name || show.title}</h3>
             <div className="flex items-center gap-2 text-xs text-gray-300">

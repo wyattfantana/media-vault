@@ -389,8 +389,8 @@ export class DownloadWorker {
 
       // Use raw SQL for upsert to handle duplicate file_path constraint
       await AppDataSource.query(`
-        INSERT INTO media (download_id, user_id, title, description, file_path, file_size, duration, format, resolution, thumbnail, media_type, source, metadata, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+        INSERT INTO media (download_id, user_id, title, description, file_path, file_size, duration, format, resolution, thumbnail, media_type, source, metadata, tmdb_id, tmdb_media_type, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
         ON CONFLICT (file_path)
         DO UPDATE SET
           download_id = EXCLUDED.download_id,
@@ -405,6 +405,8 @@ export class DownloadWorker {
           media_type = EXCLUDED.media_type,
           source = EXCLUDED.source,
           metadata = EXCLUDED.metadata,
+          tmdb_id = EXCLUDED.tmdb_id,
+          tmdb_media_type = EXCLUDED.tmdb_media_type,
           updated_at = NOW()
       `, [
         download.id,
@@ -419,7 +421,9 @@ export class DownloadWorker {
         download.thumbnail || '',
         mediaType,
         download.downloader,
-        download.metadata || '{}'
+        download.metadata || '{}',
+        download.tmdb_id || null,
+        download.tmdb_media_type || null
       ]);
 
       // Trigger Jellyfin library scan

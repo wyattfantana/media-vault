@@ -100,6 +100,10 @@ export default function Documentaries() {
   });
   const [showGenreFilters, setShowGenreFilters] = useState(false);
 
+  // Watchlist state
+  const [bookmarkedDocumentaries, setBookmarkedDocumentaries] = useState<Set<number>>(new Set());
+  const [downloadedDocumentaries, setDownloadedDocumentaries] = useState<Set<number>>(new Set());
+
   const API_BASE = 'http://localhost:3001/api/v1';
 
   const isInitialMount = React.useRef(true);
@@ -217,6 +221,43 @@ export default function Documentaries() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Load bookmarked documentaries
+  useEffect(() => {
+    const fetchBookmarks = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/bookmarks?type=tmdb_documentary`, {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const bookmarkedIds = new Set(data.bookmarks.map((b: any) => b.tmdb_id));
+          setBookmarkedDocumentaries(bookmarkedIds);
+        }
+      } catch (err) {
+        console.error('Failed to fetch bookmarks:', err);
+      }
+    };
+    fetchBookmarks();
+  }, []);
+
+  // Load downloaded documentaries
+  useEffect(() => {
+    const fetchDownloaded = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/media/downloaded-tmdb-ids`, {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDownloadedDocumentaries(new Set(data.documentary || []));
+        }
+      } catch (err) {
+        console.error('Failed to fetch downloaded documentaries:', err);
+      }
+    };
+    fetchDownloaded();
   }, []);
 
   // Function to load documentaries based on current filters
@@ -836,6 +877,55 @@ export default function Documentaries() {
     }
   };
 
+  const toggleBookmark = async (documentary: Documentary, e?: React.MouseEvent) => {
+    e?.stopPropagation(); // Prevent opening the download modal
+
+    const isBookmarked = bookmarkedDocumentaries.has(documentary.id);
+
+    try {
+      if (isBookmarked) {
+        // Remove from watchlist
+        const res = await fetch(`${API_BASE}/bookmarks/check-tmdb/${documentary.id}?mediaType=documentary`, {
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.bookmark) {
+          await fetch(`${API_BASE}/bookmarks/${data.bookmark.id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          setBookmarkedDocumentaries(prev => {
+            const next = new Set(prev);
+            next.delete(documentary.id);
+            return next;
+          });
+        }
+      } else {
+        // Add to watchlist
+        await fetch(`${API_BASE}/bookmarks`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'tmdb_documentary',
+            tmdb_id: documentary.id,
+            media_type: 'documentary',
+            title: documentary.title,
+            description: documentary.overview,
+            thumbnail: documentary.poster_url,
+            backdrop_url: documentary.backdrop_url,
+            release_year: documentary.year ? parseInt(documentary.year) : null,
+            vote_average: documentary.vote_average
+          })
+        });
+        setBookmarkedDocumentaries(prev => new Set(prev).add(documentary.id));
+      }
+    } catch (err) {
+      console.error('Failed to toggle bookmark:', err);
+      alert('Failed to update watchlist');
+    }
+  };
+
   const DocumentaryCard = ({ documentary, size = 'normal' }: { documentary: Documentary; size?: 'normal' | 'small' }) => {
     // Color code ratings: 9+ = gold, 8-9 = green, 7-8 = blue, <7 = gray
     const getRatingColor = (rating: number) => {
@@ -846,6 +936,8 @@ export default function Documentaries() {
     };
 
     const rating = documentary.imdb_rating ? parseFloat(documentary.imdb_rating) : documentary.vote_average;
+    const isBookmarked = bookmarkedDocumentaries.has(documentary.id);
+    const isDownloaded = downloadedDocumentaries.has(documentary.id);
 
     return (
       <div
@@ -866,13 +958,35 @@ export default function Documentaries() {
           </div>
         )}
 
-        {/* Always show rating badge - color coded by score */}
-        <div className={`absolute top-2 right-2 ${getRatingColor(rating)} text-white px-2 py-1 rounded-md font-bold text-sm shadow-lg flex items-center gap-1`}>
-          <Star className="w-3 h-3 fill-white" />
-          {rating.toFixed(1)}
-        </div>
+        {/* Bookmark button - top left */}
+        <button
+          onClick={(e) => toggleBookmark(documentary, e)}
+          className={`absolute top-2 left-2 p-2 rounded-full shadow-lg transition-all z-20 ${
+            isBookmarked
+              ? 'bg-yellow-500 text-white'
+              : 'bg-black/50 text-white hover:bg-black/70'
+          }`}
+          title={isBookmarked ? 'Remove from Watchlist' : 'Add to Watchlist'}
+        >
+          <Star className={`w-4 h-4 ${isBookmarked ? 'fill-white' : ''}`} />
+        </button>
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Downloaded badge - top right, above rating */}
+        {isDownloaded && (
+          <div className="absolute top-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded shadow-lg font-semibold flex items-center gap-1 z-10">
+            ✓ Downloaded
+          </div>
+        )}
+
+        {/* Rating badge - color coded by score */}
+        {!isDownloaded && (
+          <div className={`absolute top-2 right-2 ${getRatingColor(rating)} text-white px-2 py-1 rounded-md font-bold text-sm shadow-lg flex items-center gap-1`}>
+            <Star className="w-3 h-3 fill-white" />
+            {rating.toFixed(1)}
+          </div>
+        )}
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-0">
           <div className="absolute bottom-0 p-3 w-full">
             <h3 className="text-white font-bold text-sm mb-1 line-clamp-2">{documentary.title}</h3>
             <div className="flex items-center gap-2 text-xs text-gray-300">

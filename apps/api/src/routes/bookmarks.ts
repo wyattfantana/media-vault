@@ -23,8 +23,70 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
 bookmarksRouter.get('/', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const { type } = req.query;
+    const { type, enrichWithDownloadStatus } = req.query;
 
+    // If enrichment requested, use LEFT JOIN to get download/media status
+    if (enrichWithDownloadStatus === 'true') {
+      let query = `
+        SELECT
+          b.*,
+          m.id AS media_id,
+          m.file_path AS media_file_path,
+          m.file_size AS media_file_size,
+          d.id AS download_id,
+          d.status AS download_status,
+          d.progress AS download_progress
+        FROM bookmarks b
+        LEFT JOIN media m ON (
+          b.tmdb_id = m.tmdb_id
+          AND b.user_id = m.user_id
+          AND b.media_type = m.tmdb_media_type
+        )
+        LEFT JOIN downloads d ON (
+          b.tmdb_id = d.tmdb_id
+          AND b.user_id = d.user_id
+          AND d.status IN ('pending', 'downloading')
+        )
+        WHERE b.user_id = $1
+      `;
+
+      const params: any[] = [userId];
+
+      if (type) {
+        query += ` AND b.type = $2`;
+        params.push(type);
+      }
+
+      query += ` ORDER BY b.created_at DESC`;
+
+      const rawBookmarks = await AppDataSource.query(query, params);
+
+      // Transform to nest download_status object
+      const bookmarks = rawBookmarks.map((b: any) => {
+        const { media_id, media_file_path, media_file_size, download_id, download_status, download_progress, ...bookmark } = b;
+
+        return {
+          ...bookmark,
+          download_status: media_id ? {
+            is_downloaded: true,
+            media_id,
+            file_path: media_file_path,
+            file_size: media_file_size
+          } : download_id ? {
+            is_downloaded: false,
+            status: download_status,
+            progress: download_progress
+          } : null
+        };
+      });
+
+      return res.json({
+        bookmarks,
+        total: bookmarks.length
+      });
+    }
+
+    // Standard query without enrichment
     const queryBuilder = AppDataSource
       .createQueryBuilder()
       .select('*')
@@ -85,28 +147,63 @@ bookmarksRouter.post('/', requireAuth, async (req, res) => {
       channel_name,
       subscriber_count,
       video_count,
-      metadata = {}
+      metadata = {},
+      // TMDB-specific fields
+      tmdb_id,
+      media_type,
+      release_year,
+      vote_average,
+      backdrop_url
     } = req.body;
 
-    if (!url || !type || !title) {
-      return res.status(400).json({
-        error: 'URL, type, and title are required'
-      });
-    }
+    // Validate TMDB bookmarks
+    if (type?.startsWith('tmdb_')) {
+      if (!tmdb_id || !media_type) {
+        return res.status(400).json({
+          error: 'tmdb_id and media_type are required for TMDB bookmarks'
+        });
+      }
 
-    // Check if bookmark already exists
-    const existing = await AppDataSource
-      .createQueryBuilder()
-      .select('*')
-      .from('bookmarks', 'b')
-      .where('b.user_id = :userId AND b.url = :url', { userId, url })
-      .getRawOne();
+      // Check for duplicate TMDB bookmark
+      const existing = await AppDataSource
+        .createQueryBuilder()
+        .select('*')
+        .from('bookmarks', 'b')
+        .where('b.user_id = :userId AND b.tmdb_id = :tmdbId AND b.media_type = :mediaType', {
+          userId,
+          tmdbId: tmdb_id,
+          mediaType: media_type
+        })
+        .getRawOne();
 
-    if (existing) {
-      return res.status(409).json({
-        error: 'Bookmark already exists',
-        bookmark: existing
-      });
+      if (existing) {
+        return res.status(409).json({
+          error: 'Already in watchlist',
+          bookmark: existing
+        });
+      }
+    } else {
+      // Validate URL-based bookmarks (YouTube, SoundCloud, etc.)
+      if (!url || !type || !title) {
+        return res.status(400).json({
+          error: 'URL, type, and title are required'
+        });
+      }
+
+      // Check if bookmark already exists
+      const existing = await AppDataSource
+        .createQueryBuilder()
+        .select('*')
+        .from('bookmarks', 'b')
+        .where('b.user_id = :userId AND b.url = :url', { userId, url })
+        .getRawOne();
+
+      if (existing) {
+        return res.status(409).json({
+          error: 'Bookmark already exists',
+          bookmark: existing
+        });
+      }
     }
 
     const insertResult = await AppDataSource
@@ -115,7 +212,7 @@ bookmarksRouter.post('/', requireAuth, async (req, res) => {
       .into('bookmarks')
       .values({
         user_id: userId,
-        url,
+        url: url || null,
         type,
         title,
         description,
@@ -123,7 +220,13 @@ bookmarksRouter.post('/', requireAuth, async (req, res) => {
         channel_name,
         subscriber_count,
         video_count,
-        metadata: JSON.stringify(metadata)
+        metadata,
+        // TMDB fields
+        tmdb_id: tmdb_id || null,
+        media_type: media_type || null,
+        release_year: release_year || null,
+        vote_average: vote_average || null,
+        backdrop_url: backdrop_url || null
       })
       .returning('*')
       .execute();
@@ -259,6 +362,38 @@ function normalizeYouTubeUrl(url: string): string {
     .replace(/\/videos$/, '')
     .replace(/\/$/, '');
 }
+
+// GET /api/v1/bookmarks/check-tmdb/:tmdbId - Check if TMDB item is bookmarked
+bookmarksRouter.get('/check-tmdb/:tmdbId', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const tmdbId = parseInt(req.params.tmdbId);
+    const mediaType = req.query.mediaType as string;
+
+    if (!mediaType) {
+      return res.status(400).json({ error: 'mediaType query parameter is required' });
+    }
+
+    const bookmark = await AppDataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('bookmarks', 'b')
+      .where('b.user_id = :userId AND b.tmdb_id = :tmdbId AND b.media_type = :mediaType', {
+        userId,
+        tmdbId,
+        mediaType
+      })
+      .getRawOne();
+
+    res.json({
+      isBookmarked: !!bookmark,
+      bookmark: bookmark || null
+    });
+  } catch (err) {
+    console.error('Failed to check TMDB bookmark:', err);
+    res.status(500).json({ error: 'Failed to check bookmark' });
+  }
+});
 
 // GET /api/v1/bookmarks/check/:encodedUrl - Check if URL is bookmarked
 bookmarksRouter.get('/check/:encodedUrl', requireAuth, async (req, res) => {

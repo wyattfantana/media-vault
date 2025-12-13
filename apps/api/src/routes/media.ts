@@ -59,6 +59,34 @@ mediaRouter.get('/stats', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/v1/media/downloaded-tmdb-ids - Get all downloaded TMDB IDs for current user
+mediaRouter.get('/downloaded-tmdb-ids', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+
+    const results = await AppDataSource
+      .createQueryBuilder()
+      .select('DISTINCT tmdb_id', 'tmdb_id')
+      .addSelect('tmdb_media_type', 'media_type')
+      .from('media', 'm')
+      .where('m.user_id = :userId', { userId })
+      .andWhere('m.tmdb_id IS NOT NULL')
+      .getRawMany();
+
+    // Return as an object with arrays by media type for easy lookup
+    const downloadedIds = {
+      movie: results.filter(r => r.media_type === 'movie').map(r => r.tmdb_id),
+      tv: results.filter(r => r.media_type === 'tv').map(r => r.tmdb_id),
+      documentary: results.filter(r => r.media_type === 'documentary').map(r => r.tmdb_id)
+    };
+
+    res.json(downloadedIds);
+  } catch (err) {
+    console.error('Failed to get downloaded TMDB IDs:', err);
+    res.status(500).json({ error: 'Failed to get downloaded TMDB IDs' });
+  }
+});
+
 // GET /api/v1/media - Get all media for current user
 mediaRouter.get('/', requireAuth, async (req, res) => {
   try {

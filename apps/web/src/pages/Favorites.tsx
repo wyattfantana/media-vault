@@ -2,14 +2,30 @@ import { useState, useEffect } from 'react';
 
 interface Bookmark {
   id: string;
-  url: string;
+  url?: string;
   type: string;
   title: string;
-  description: string;
+  description?: string;
   thumbnail: string;
+  // YouTube/SoundCloud fields
   channel_name?: string;
   subscriber_count?: number;
   video_count?: number;
+  // TMDB fields
+  tmdb_id?: number;
+  media_type?: 'movie' | 'tv' | 'documentary';
+  release_year?: number;
+  vote_average?: number;
+  backdrop_url?: string;
+  // Download status
+  download_status?: {
+    is_downloaded: boolean;
+    media_id?: string;
+    file_path?: string;
+    file_size?: number;
+    status?: 'pending' | 'downloading';
+    progress?: number;
+  };
   created_at: string;
 }
 
@@ -24,7 +40,7 @@ export function Favorites() {
 
   const fetchBookmarks = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/bookmarks', {
+      const res = await fetch('http://localhost:3001/api/v1/bookmarks?enrichWithDownloadStatus=true', {
         credentials: 'include'
       });
       if (res.ok) {
@@ -71,6 +87,9 @@ export function Favorites() {
     youtube_channel: bookmarks.filter(b => b.type === 'youtube_channel').length,
     youtube_playlist: bookmarks.filter(b => b.type === 'youtube_playlist').length,
     soundcloud_user: bookmarks.filter(b => b.type === 'soundcloud_user').length,
+    tmdb_movie: bookmarks.filter(b => b.type === 'tmdb_movie').length,
+    tmdb_tv: bookmarks.filter(b => b.type === 'tmdb_tv').length,
+    tmdb_documentary: bookmarks.filter(b => b.type === 'tmdb_documentary').length,
     other: bookmarks.filter(b => b.type === 'other').length
   };
 
@@ -83,6 +102,159 @@ export function Favorites() {
       return (count / 1000).toFixed(1) + 'K';
     }
     return count.toString();
+  };
+
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes) return '';
+    if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} GB`;
+    if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(2)} MB`;
+    if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(2)} KB`;
+    return `${bytes} B`;
+  };
+
+  const handleQuickDownload = (bookmark: Bookmark) => {
+    // Redirect to browse page with pre-selected item
+    const page = bookmark.media_type === 'movie' ? 'movies' :
+                 bookmark.media_type === 'tv' ? 'tv' : 'documentaries';
+    window.location.href = `/${page}?tmdbId=${bookmark.tmdb_id}`;
+  };
+
+  const openInJellyfin = async (bookmark: Bookmark) => {
+    try {
+      // Get Jellyfin preferences
+      const res = await fetch('http://localhost:3001/api/v1/preferences', { credentials: 'include' });
+      const prefs = await res.json();
+
+      if (prefs.jellyfin_server_url) {
+        // Try to find the item in Jellyfin by title
+        const jellyfinUrl = `${prefs.jellyfin_server_url}/web/index.html#!/search?query=${encodeURIComponent(bookmark.title)}`;
+        window.open(jellyfinUrl, '_blank');
+      } else {
+        alert('Jellyfin not configured. Please set up Jellyfin in Settings.');
+      }
+    } catch (err) {
+      console.error('Failed to open Jellyfin:', err);
+      alert('Failed to open Jellyfin');
+    }
+  };
+
+  const renderTMDBCard = (bookmark: Bookmark) => {
+    const isDownloaded = bookmark.download_status?.is_downloaded;
+    const isDownloading = bookmark.download_status?.status === 'downloading';
+
+    return (
+      <div key={bookmark.id} className="card hover:shadow-xl transition-shadow">
+        {/* Poster */}
+        <div className="aspect-[2/3] relative overflow-hidden rounded-lg mb-3">
+          {bookmark.thumbnail ? (
+            <img
+              src={bookmark.thumbnail}
+              alt={bookmark.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h18M3 16h18" />
+              </svg>
+            </div>
+          )}
+
+          {/* Status badge - top right */}
+          {isDownloaded && (
+            <div className="absolute top-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded shadow">
+              ✓ Downloaded
+            </div>
+          )}
+          {isDownloading && (
+            <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded shadow">
+              Downloading {bookmark.download_status?.progress}%
+            </div>
+          )}
+
+          {/* Rating badge - top left */}
+          {bookmark.vote_average && typeof bookmark.vote_average === 'number' && (
+            <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-yellow-400 text-xs px-2 py-1 rounded">
+              ★ {bookmark.vote_average.toFixed(1)}
+            </div>
+          )}
+        </div>
+
+        {/* Title */}
+        <h3 className="font-semibold text-lg line-clamp-2 min-h-[2.5rem] mb-2">
+          {bookmark.title}
+          {bookmark.release_year && (
+            <span className="text-gray-500 ml-2">({bookmark.release_year})</span>
+          )}
+        </h3>
+
+        {/* Type badge */}
+        <div className="mb-2">
+          <span className={`inline-block px-2 py-1 text-xs rounded ${
+            bookmark.media_type === 'movie' ? 'bg-purple-100 text-purple-700' :
+            bookmark.media_type === 'tv' ? 'bg-blue-100 text-blue-700' :
+            'bg-green-100 text-green-700'
+          }`}>
+            {bookmark.media_type === 'movie' ? 'Movie' :
+             bookmark.media_type === 'tv' ? 'TV Show' : 'Documentary'}
+          </span>
+        </div>
+
+        {/* File info if downloaded */}
+        {isDownloaded && bookmark.download_status?.file_size && (
+          <div className="mb-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+              </svg>
+              <span>{formatFileSize(bookmark.download_status.file_size)}</span>
+            </div>
+            {bookmark.download_status.file_path && (
+              <div className="mt-1 text-gray-500 truncate" title={bookmark.download_status.file_path}>
+                {bookmark.download_status.file_path.split('/').pop()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          {!isDownloaded && !isDownloading && (
+            <button
+              onClick={() => handleQuickDownload(bookmark)}
+              className="flex-1 flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download
+            </button>
+          )}
+
+          {isDownloaded && (
+            <button
+              onClick={() => openInJellyfin(bookmark)}
+              className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Watch
+            </button>
+          )}
+
+          <button
+            onClick={() => handleDelete(bookmark.id)}
+            className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -150,6 +322,24 @@ export function Favorites() {
           >
             SoundCloud ({stats.soundcloud_user})
           </button>
+          <button
+            onClick={() => setFilter('tmdb_movie')}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_movie' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            Movies ({stats.tmdb_movie})
+          </button>
+          <button
+            onClick={() => setFilter('tmdb_tv')}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_tv' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            TV Shows ({stats.tmdb_tv})
+          </button>
+          <button
+            onClick={() => setFilter('tmdb_documentary')}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_documentary' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            Documentaries ({stats.tmdb_documentary})
+          </button>
         </div>
       </div>
 
@@ -170,7 +360,14 @@ export function Favorites() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredBookmarks.map((bookmark) => (
+          {filteredBookmarks.map((bookmark) => {
+            // Render TMDB cards differently from YouTube/SoundCloud cards
+            if (bookmark.type.startsWith('tmdb_')) {
+              return renderTMDBCard(bookmark);
+            }
+
+            // Render YouTube/SoundCloud cards (existing logic)
+            return (
             <div key={bookmark.id} className="card hover:shadow-lg transition-shadow">
               {/* Thumbnail */}
               {bookmark.thumbnail && bookmark.thumbnail.trim() !== '' ? (
@@ -256,7 +453,7 @@ export function Favorites() {
               {/* Actions */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleVisit(bookmark.url)}
+                  onClick={() => handleVisit(bookmark.url!)}
                   className="flex-1 px-3 py-1.5 bg-brand-600 text-white text-sm rounded hover:bg-brand-700"
                 >
                   Browse
@@ -269,7 +466,8 @@ export function Favorites() {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
