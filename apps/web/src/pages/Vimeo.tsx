@@ -154,8 +154,8 @@ export function Vimeo() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Vimeo Browse</h1>
-        <p className="text-gray-600">Browse Vimeo videos and channels</p>
+        <h1 className="text-3xl font-bold text-gray-100 mb-2">Vimeo Browse</h1>
+        <p className="text-gray-400">Browse Vimeo videos and channels</p>
         <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800">
             <strong>Note:</strong> Vimeo currently requires login credentials for browsing.
@@ -166,7 +166,7 @@ export function Vimeo() {
 
       <form onSubmit={handleBrowse} className="card mb-6">
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Video or Channel URL
           </label>
           <input
@@ -174,7 +174,7 @@ export function Vimeo() {
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
             placeholder="https://vimeo.com/123456789 or https://vimeo.com/username"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             required
           />
         </div>
@@ -254,7 +254,7 @@ export function Vimeo() {
           )}
 
           {!hasMore && videos.length > 0 && (
-            <div className="mt-6 text-center text-sm text-gray-500">
+            <div className="mt-6 text-center text-sm text-gray-400">
               All videos loaded ({videos.length} total)
             </div>
           )}
@@ -271,7 +271,7 @@ export function Vimeo() {
             </p>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Category
               </label>
               <select
@@ -290,7 +290,7 @@ export function Vimeo() {
 
             {category === 'custom' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Custom Folder Name
                 </label>
                 <input

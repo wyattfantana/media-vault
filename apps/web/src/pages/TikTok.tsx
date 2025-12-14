@@ -152,13 +152,13 @@ export function TikTok() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">TikTok Browse</h1>
-        <p className="text-gray-600">Browse TikTok user profiles and videos</p>
+        <h1 className="text-3xl font-bold text-gray-100 mb-2">TikTok Browse</h1>
+        <p className="text-gray-400">Browse TikTok user profiles and videos</p>
       </div>
 
       <form onSubmit={handleBrowse} className="card mb-6">
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             User Profile URL
           </label>
           <input
@@ -166,7 +166,7 @@ export function TikTok() {
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
             placeholder="https://www.tiktok.com/@username"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             required
           />
         </div>
@@ -242,7 +242,7 @@ export function TikTok() {
           )}
 
           {!hasMore && videos.length > 0 && (
-            <div className="mt-6 text-center text-sm text-gray-500">
+            <div className="mt-6 text-center text-sm text-gray-400">
               All videos loaded ({videos.length} total)
             </div>
           )}
@@ -259,7 +259,7 @@ export function TikTok() {
             </p>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Category
               </label>
               <select
@@ -278,7 +278,7 @@ export function TikTok() {
 
             {category === 'custom' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Custom Folder Name
                 </label>
                 <input

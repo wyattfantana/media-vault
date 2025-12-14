@@ -205,8 +205,8 @@ export function Media() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Media Library</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-gray-100">Media Library</h1>
+          <p className="text-gray-400 mt-1">
             {filteredMedia.length} {filteredMedia.length === 1 ? 'item' : 'items'}
             {selectedItems.size > 0 && ` (${selectedItems.size} selected)`}
           </p>
@@ -230,7 +230,7 @@ export function Media() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search media by title or description..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             />
             <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -240,7 +240,7 @@ export function Media() {
 
         {/* Type Filter */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Media Type</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Media Type</label>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilter('all')}
@@ -272,7 +272,7 @@ export function Media() {
         {/* Platform Filter */}
         {platforms.length > 1 && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Platform</label>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setPlatformFilter('all')}
@@ -296,7 +296,7 @@ export function Media() {
         {/* Category Filter */}
         {categories.length > 1 && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setCategoryFilter('all')}
@@ -320,7 +320,7 @@ export function Media() {
         {/* Sort Controls */}
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Sort By</label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -333,7 +333,7 @@ export function Media() {
             </select>
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Order</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Order</label>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'ASC' | 'DESC')}

@@ -155,13 +155,13 @@ export function Reddit() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Reddit Download</h1>
-        <p className="text-gray-600">Download individual Reddit video posts</p>
+        <h1 className="text-3xl font-bold text-gray-100 mb-2">Reddit Download</h1>
+        <p className="text-gray-400">Download individual Reddit video posts</p>
       </div>
 
       <form onSubmit={handleBrowse} className="card mb-6">
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Reddit Post URL
           </label>
           <input
@@ -169,10 +169,10 @@ export function Reddit() {
             value={postUrl}
             onChange={(e) => setPostUrl(e.target.value)}
             placeholder="https://www.reddit.com/r/videos/comments/..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             required
           />
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-gray-400">
             Note: Enter the full URL of a Reddit video post, not a subreddit.
           </p>
         </div>
@@ -252,7 +252,7 @@ export function Reddit() {
           )}
 
           {!hasMore && videos.length > 0 && (
-            <div className="mt-6 text-center text-sm text-gray-500">
+            <div className="mt-6 text-center text-sm text-gray-400">
               All videos loaded ({videos.length} total)
             </div>
           )}
@@ -269,7 +269,7 @@ export function Reddit() {
             </p>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Category
               </label>
               <select
@@ -288,7 +288,7 @@ export function Reddit() {
 
             {category === 'custom' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Custom Folder Name
                 </label>
                 <input

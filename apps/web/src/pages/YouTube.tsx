@@ -764,14 +764,14 @@ export function YouTube() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">YouTube</h1>
-        <p className="text-gray-600">Search videos or browse channels and playlists</p>
+        <h1 className="text-3xl font-bold text-gray-100 mb-2">YouTube</h1>
+        <p className="text-gray-400">Search videos or browse channels and playlists</p>
       </div>
 
       {/* Browse/Search Form */}
       <form onSubmit={handleBrowse} className="card mb-6">
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Mode
           </label>
           <div className="flex gap-4">
@@ -783,7 +783,7 @@ export function YouTube() {
                 onChange={(e) => setSearchMode(e.target.value as 'url' | 'search')}
                 className="text-brand-600 focus:ring-brand-500"
               />
-              <span className="text-sm">Browse by URL</span>
+              <span className="text-sm text-gray-300">Browse by URL</span>
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -793,7 +793,7 @@ export function YouTube() {
                 onChange={(e) => setSearchMode(e.target.value as 'url' | 'search')}
                 className="text-brand-600 focus:ring-brand-500"
               />
-              <span className="text-sm">Search Videos</span>
+              <span className="text-sm text-gray-300">Search Videos</span>
             </label>
           </div>
         </div>
@@ -801,7 +801,7 @@ export function YouTube() {
         {searchMode === 'url' ? (
           <>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Type
               </label>
               <div className="flex gap-4">
@@ -813,7 +813,7 @@ export function YouTube() {
                     onChange={(e) => setType(e.target.value as 'channel' | 'playlist')}
                     className="text-brand-600 focus:ring-brand-500"
                   />
-                  <span className="text-sm">Channel</span>
+                  <span className="text-sm text-gray-300">Channel</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -823,13 +823,13 @@ export function YouTube() {
                     onChange={(e) => setType(e.target.value as 'channel' | 'playlist')}
                     className="text-brand-600 focus:ring-brand-500"
                   />
-                  <span className="text-sm">Playlist</span>
+                  <span className="text-sm text-gray-300">Playlist</span>
                 </label>
               </div>
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 {type === 'channel' ? 'Channel URL' : 'Playlist URL'}
               </label>
               <input
@@ -841,14 +841,14 @@ export function YouTube() {
                     ? 'https://www.youtube.com/@channelname or https://www.youtube.com/c/channelname'
                     : 'https://www.youtube.com/playlist?list=...'
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 required
               />
             </div>
           </>
         ) : (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               Search Query
             </label>
             <input
@@ -856,10 +856,10 @@ export function YouTube() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Enter keywords to search YouTube..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               required
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-400">
               Search for videos across all of YouTube (up to 50 results)
             </p>
           </div>
@@ -1015,7 +1015,7 @@ export function YouTube() {
                     {video.uploader}
                   </p>
 
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
                     {video.viewCount && (
                       <span>{formatCount(video.viewCount)} views</span>
                     )}
@@ -1078,7 +1078,7 @@ export function YouTube() {
           )}
 
           {!hasMore && videos.length > 0 && !loadingAll && (
-            <div className="mt-6 text-center text-sm text-gray-500">
+            <div className="mt-6 text-center text-sm text-gray-400">
               All videos loaded ({videos.length} total)
             </div>
           )}
@@ -1131,7 +1131,7 @@ export function YouTube() {
 
             {presets.length > 0 && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Use Preset (Optional)
                 </label>
                 <select
@@ -1151,7 +1151,7 @@ export function YouTube() {
             )}
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Category
               </label>
               <select
@@ -1170,7 +1170,7 @@ export function YouTube() {
 
             {category === 'custom' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Custom Folder Name
                 </label>
                 <input
@@ -1187,7 +1187,7 @@ export function YouTube() {
             {/* Only show quality selector if NOT Music category */}
             {category !== 'music' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Quality
                 </label>
                 <select
@@ -1210,7 +1210,7 @@ export function YouTube() {
             {/* Show audio format for Music category OR when Audio Only quality is selected */}
             {(category === 'music' || quality === 'audio') ? (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Audio Format
                 </label>
                 <select
@@ -1227,7 +1227,7 @@ export function YouTube() {
               </div>
             ) : (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Video Format
                 </label>
                 <select

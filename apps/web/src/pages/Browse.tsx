@@ -205,8 +205,8 @@ export function Browse() {
     <div>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse BBC iPlayer</h1>
-        <p className="text-gray-600">Discover and download from thousands of BBC programmes</p>
+        <h1 className="text-3xl font-bold text-gray-100 mb-2">Browse BBC iPlayer</h1>
+        <p className="text-gray-400">Discover and download from thousands of BBC programmes</p>
       </div>
 
       {/* Search Bar */}
@@ -218,7 +218,7 @@ export function Browse() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search for programmes, shows, or topics..."
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-lg"
+              className="flex-1 px-4 py-3 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-lg"
             />
             <button
               type="submit"
@@ -236,7 +236,7 @@ export function Browse() {
             <select
               value={searchType}
               onChange={(e) => setSearchType(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500"
+              className="px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-500"
             >
               <option value="all">All Content</option>
               <option value="tv">TV Only</option>
@@ -246,7 +246,7 @@ export function Browse() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500"
+              className="px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-500"
             >
               <option value="recent">Recently Added</option>
               <option value="expiry">Expiring Soon</option>
@@ -278,7 +278,7 @@ export function Browse() {
 
         {/* Quick Browse */}
         <div className="mt-4 flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-700">Quick Browse:</span>
+          <span className="text-sm font-medium text-gray-300">Quick Browse:</span>
           <button
             onClick={() => {
               setSearchQuery('.*');
@@ -322,7 +322,7 @@ export function Browse() {
             <select
               value={filterChannel}
               onChange={(e) => setFilterChannel(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 bg-white text-sm"
+              className="px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-500 text-sm"
             >
               <option value="">All Channels</option>
               {uniqueChannels.map(ch => (
@@ -401,8 +401,8 @@ export function Browse() {
               <div className="p-3">
                 <h3 className="font-semibold text-sm line-clamp-1 mb-1">{programme.name}</h3>
                 <p className="text-xs text-gray-600 line-clamp-1 mb-2">{programme.episode}</p>
-                <p className="text-xs text-gray-500 line-clamp-2 leading-tight">{programme.description}</p>
-                <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                <p className="text-xs text-gray-400 line-clamp-2 leading-tight">{programme.description}</p>
+                <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
                   <span className="flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -435,7 +435,7 @@ export function Browse() {
                     <h3 className="font-semibold text-lg">{programme.name}</h3>
                     <p className="text-sm text-gray-600">{programme.episode}</p>
                     <p className="text-sm text-gray-700 mt-1 line-clamp-2">{programme.description}</p>
-                    <div className="flex gap-3 mt-2 text-xs text-gray-500">
+                    <div className="flex gap-3 mt-2 text-xs text-gray-400">
                       <span>{programme.channel}</span>
                       {programme.available && <span>⏰ {programme.available}</span>}
                       <span className={`px-2 py-0.5 rounded ${programme.type === 'tv' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
@@ -462,8 +462,8 @@ export function Browse() {
           <svg className="w-20 h-20 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Browse BBC iPlayer</h3>
-          <p className="text-gray-500 mb-6">Click "Browse All TV" or "Browse All Radio" above to get started</p>
+          <h3 className="text-xl font-semibold text-gray-100 mb-2">Browse BBC iPlayer</h3>
+          <p className="text-gray-400 mb-6">Click "Browse All TV" or "Browse All Radio" above to get started</p>
         </div>
       )}
 

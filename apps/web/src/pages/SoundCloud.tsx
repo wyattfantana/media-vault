@@ -552,13 +552,13 @@ export function SoundCloud() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">SoundCloud Browse</h1>
-        <p className="text-gray-600">Browse artists, playlists, or search for tracks - with artist profiles!</p>
+        <h1 className="text-3xl font-bold text-gray-100 mb-2">SoundCloud Browse</h1>
+        <p className="text-gray-400">Browse artists, playlists, or search for tracks - with artist profiles!</p>
       </div>
 
       <form onSubmit={handleBrowse} className="card mb-6">
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Artist URL or Search Query
           </label>
           <input
@@ -566,10 +566,10 @@ export function SoundCloud() {
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
             placeholder="https://soundcloud.com/artist-name or search keywords..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             required
           />
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-gray-400">
             Enter a SoundCloud user URL, playlist URL, or search keywords to find tracks.
           </p>
         </div>
@@ -747,7 +747,7 @@ export function SoundCloud() {
                   </p>
 
                   {track.viewCount && track.viewCount > 0 && (
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-gray-400 mb-2">
                       {formatCount(track.viewCount)} plays
                     </p>
                   )}
@@ -777,7 +777,7 @@ export function SoundCloud() {
           )}
 
           {!hasMore && tracks.length > 0 && (
-            <div className="mt-6 text-center text-sm text-gray-500">
+            <div className="mt-6 text-center text-sm text-gray-400">
               All tracks loaded ({tracks.length} total)
             </div>
           )}
@@ -796,7 +796,7 @@ export function SoundCloud() {
 
             {presets.length > 0 && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Use Preset (Optional)
                 </label>
                 <select
@@ -816,7 +816,7 @@ export function SoundCloud() {
             )}
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Category
               </label>
               <select
@@ -835,7 +835,7 @@ export function SoundCloud() {
 
             {category === 'custom' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Custom Folder Name
                 </label>
                 <input
