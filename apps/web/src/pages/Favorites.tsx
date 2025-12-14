@@ -265,7 +265,7 @@ export function Favorites() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+            <div className="w-full h-full bg-gray-700 flex items-center justify-center">
               <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h18M3 16h18" />
               </svg>
@@ -316,7 +316,7 @@ export function Favorites() {
 
           {/* File info if downloaded */}
           {isDownloaded && bookmark.download_status?.file_size && (
-            <div className="mb-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
+            <div className="mb-3 p-2 bg-gray-900/50 rounded text-xs text-gray-400">
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
@@ -384,79 +384,91 @@ export function Favorites() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Favorites</h1>
-        <p className="text-gray-600 mt-1">Your bookmarked channels and playlists</p>
+        <h1 className="text-3xl font-bold text-gray-100">Favorites</h1>
+        <p className="text-gray-400 mt-1">Your bookmarked channels, playlists, movies, shows, and documentaries</p>
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
         <div className="card">
-          <div className="text-sm text-gray-600 mb-1">Total</div>
-          <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+          <div className="text-sm text-gray-400 mb-1">Total</div>
+          <div className="text-2xl font-bold text-gray-100">{stats.total}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-red-600 mb-1">YT Channels</div>
-          <div className="text-2xl font-bold text-red-700">{stats.youtube_channel}</div>
+          <div className="text-sm text-purple-400 mb-1">Movies</div>
+          <div className="text-2xl font-bold text-purple-300">{stats.tmdb_movie}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-red-600 mb-1">YT Playlists</div>
-          <div className="text-2xl font-bold text-red-700">{stats.youtube_playlist}</div>
+          <div className="text-sm text-blue-400 mb-1">TV Shows</div>
+          <div className="text-2xl font-bold text-blue-300">{stats.tmdb_tv}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-orange-600 mb-1">SoundCloud</div>
-          <div className="text-2xl font-bold text-orange-700">{stats.soundcloud_user}</div>
+          <div className="text-sm text-green-400 mb-1">Documentaries</div>
+          <div className="text-2xl font-bold text-green-300">{stats.tmdb_documentary}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-gray-600 mb-1">Other</div>
-          <div className="text-2xl font-bold text-gray-700">{stats.other}</div>
+          <div className="text-sm text-red-400 mb-1">YT Channels</div>
+          <div className="text-2xl font-bold text-red-300">{stats.youtube_channel}</div>
+        </div>
+        <div className="card">
+          <div className="text-sm text-red-400 mb-1">YT Playlists</div>
+          <div className="text-2xl font-bold text-red-300">{stats.youtube_playlist}</div>
+        </div>
+        <div className="card">
+          <div className="text-sm text-orange-400 mb-1">SoundCloud</div>
+          <div className="text-2xl font-bold text-orange-300">{stats.soundcloud_user}</div>
+        </div>
+        <div className="card">
+          <div className="text-sm text-gray-400 mb-1">Other</div>
+          <div className="text-2xl font-bold text-gray-300">{stats.other}</div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="card mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Type</label>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Type</label>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg text-sm ${filter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
           >
             All ({stats.total})
           </button>
           <button
-            onClick={() => setFilter('youtube_channel')}
-            className={`px-4 py-2 rounded-lg text-sm ${filter === 'youtube_channel' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-          >
-            YouTube Channels ({stats.youtube_channel})
-          </button>
-          <button
-            onClick={() => setFilter('youtube_playlist')}
-            className={`px-4 py-2 rounded-lg text-sm ${filter === 'youtube_playlist' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-          >
-            YouTube Playlists ({stats.youtube_playlist})
-          </button>
-          <button
-            onClick={() => setFilter('soundcloud_user')}
-            className={`px-4 py-2 rounded-lg text-sm ${filter === 'soundcloud_user' ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-          >
-            SoundCloud ({stats.soundcloud_user})
-          </button>
-          <button
             onClick={() => setFilter('tmdb_movie')}
-            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_movie' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_movie' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
           >
             Movies ({stats.tmdb_movie})
           </button>
           <button
             onClick={() => setFilter('tmdb_tv')}
-            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_tv' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_tv' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
           >
             TV Shows ({stats.tmdb_tv})
           </button>
           <button
             onClick={() => setFilter('tmdb_documentary')}
-            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_documentary' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_documentary' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
           >
             Documentaries ({stats.tmdb_documentary})
+          </button>
+          <button
+            onClick={() => setFilter('youtube_channel')}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'youtube_channel' ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          >
+            YouTube Channels ({stats.youtube_channel})
+          </button>
+          <button
+            onClick={() => setFilter('youtube_playlist')}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'youtube_playlist' ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          >
+            YouTube Playlists ({stats.youtube_playlist})
+          </button>
+          <button
+            onClick={() => setFilter('soundcloud_user')}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'soundcloud_user' ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          >
+            SoundCloud ({stats.soundcloud_user})
           </button>
         </div>
       </div>
@@ -489,7 +501,7 @@ export function Favorites() {
             <div key={bookmark.id} className="card hover:shadow-lg transition-shadow">
               {/* Thumbnail */}
               {bookmark.thumbnail && bookmark.thumbnail.trim() !== '' ? (
-                <div className={`${bookmark.type === 'soundcloud_user' ? 'aspect-square' : 'aspect-video'} bg-gray-200 rounded-lg mb-3 overflow-hidden relative`}>
+                <div className={`${bookmark.type === 'soundcloud_user' ? 'aspect-square' : 'aspect-video'} bg-gray-700 rounded-lg mb-3 overflow-hidden relative`}>
                   <img
                     src={bookmark.thumbnail}
                     alt={bookmark.title}
@@ -501,7 +513,7 @@ export function Favorites() {
                       const parent = target.parentElement;
                       if (parent) {
                         parent.innerHTML = `
-                          <div class="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
+                          <div class="w-full h-full flex items-center justify-center text-gray-400 bg-gray-700">
                             <svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                             </svg>
@@ -521,7 +533,7 @@ export function Favorites() {
                   )}
                 </div>
               ) : (
-                <div className={`${bookmark.type === 'soundcloud_user' ? 'aspect-square' : 'aspect-video'} bg-gray-100 rounded-lg mb-3 flex items-center justify-center text-gray-400 relative`}>
+                <div className={`${bookmark.type === 'soundcloud_user' ? 'aspect-square' : 'aspect-video'} bg-gray-700 rounded-lg mb-3 flex items-center justify-center text-gray-400 relative`}>
                   <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                   </svg>
@@ -538,7 +550,7 @@ export function Favorites() {
               )}
 
               {/* Title */}
-              <h3 className="font-medium text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]" title={bookmark.title}>
+              <h3 className="font-medium text-gray-100 mb-2 line-clamp-2 min-h-[2.5rem]" title={bookmark.title}>
                 {bookmark.title}
               </h3>
 
@@ -546,10 +558,10 @@ export function Favorites() {
               <div className="mb-2">
                 <span className={`inline-block px-2 py-1 text-xs rounded ${
                   bookmark.type === 'youtube_channel' || bookmark.type === 'youtube_playlist'
-                    ? 'bg-red-100 text-red-700'
+                    ? 'bg-red-900/50 text-red-300'
                     : bookmark.type === 'soundcloud_user'
-                    ? 'bg-orange-100 text-orange-700'
-                    : 'bg-gray-100 text-gray-700'
+                    ? 'bg-orange-900/50 text-orange-300'
+                    : 'bg-gray-700 text-gray-300'
                 }`}>
                   {bookmark.type.replace(/_/g, ' ')}
                 </span>

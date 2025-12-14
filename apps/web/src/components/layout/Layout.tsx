@@ -83,12 +83,12 @@ export function Layout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-x-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 fixed h-screen overflow-y-auto flex-shrink-0">
+      <aside className="w-64 bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 fixed h-screen overflow-y-auto flex-shrink-0">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-brand-600">MediaVault</h1>
-          <p className="text-sm text-gray-500">Your Personal Media Hub</p>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">MediaVault</h1>
+          <p className="text-sm text-gray-400">Your Personal Media Hub</p>
         </div>
 
         <nav className="px-4 space-y-1 pb-8">
@@ -155,11 +155,11 @@ export function Layout() {
 
           {/* VPN Status Toggle */}
           {vpnStatus && (
-            <div className="mt-6 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="mt-6 px-3 py-2 bg-gray-800/50 rounded-lg border border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${vpnStatus.connected ? 'bg-green-500' : 'bg-red-500'} ${vpnLoading ? 'animate-pulse' : ''}`} />
-                  <span className="text-xs font-medium text-gray-700">
+                  <span className="text-xs font-medium text-gray-300">
                     VPN
                   </span>
                 </div>
@@ -168,8 +168,8 @@ export function Layout() {
                 <button
                   onClick={toggleVPN}
                   disabled={vpnLoading}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    vpnStatus.connected ? 'bg-green-600' : 'bg-gray-300'
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    vpnStatus.connected ? 'bg-green-600' : 'bg-gray-600'
                   }`}
                   title={vpnLoading ? 'Switching...' : (vpnStatus.connected ? 'Disconnect VPN' : 'Connect VPN')}
                 >
@@ -183,12 +183,12 @@ export function Layout() {
 
               {/* Server info or loading state */}
               {vpnLoading ? (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-400 mt-1">
                   {vpnStatus.connected ? 'Connecting...' : 'Disconnecting...'}
                 </p>
               ) : (
                 vpnStatus.connected && vpnStatus.server && (
-                  <p className="text-xs text-gray-500 mt-1 truncate" title={vpnStatus.server}>
+                  <p className="text-xs text-gray-400 mt-1 truncate" title={vpnStatus.server}>
                     {vpnStatus.server}
                   </p>
                 )

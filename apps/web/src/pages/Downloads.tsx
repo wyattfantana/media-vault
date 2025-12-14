@@ -248,23 +248,23 @@ export function Downloads() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-900/50 text-green-300';
       case 'downloading':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-900/50 text-blue-300';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-900/50 text-yellow-300';
       case 'failed':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-900/50 text-red-300';
       case 'cancelled':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-700 text-gray-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-700 text-gray-300';
     }
   };
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">
-      <div className="text-gray-500">Loading downloads...</div>
+      <div className="text-gray-400">Loading downloads...</div>
     </div>;
   }
 
@@ -272,14 +272,14 @@ export function Downloads() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Queue Management</h1>
-          <p className="text-gray-600 mt-1">Monitor and manage all downloads</p>
+          <h1 className="text-3xl font-bold text-gray-100">Queue Management</h1>
+          <p className="text-gray-400 mt-1">Monitor and manage all downloads</p>
         </div>
         <div className="flex gap-3">
           {stats.completed > 0 && (
             <button
               onClick={handleClearCompleted}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600"
             >
               Clear Completed
             </button>
@@ -299,28 +299,28 @@ export function Downloads() {
       {/* Statistics Dashboard */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <div className="card">
-          <div className="text-sm text-gray-600 mb-1">Total</div>
-          <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+          <div className="text-sm text-gray-400 mb-1">Total</div>
+          <div className="text-2xl font-bold text-gray-100">{stats.total}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-yellow-600 mb-1">Pending</div>
-          <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
+          <div className="text-sm text-yellow-400 mb-1">Pending</div>
+          <div className="text-2xl font-bold text-yellow-300">{stats.pending}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-blue-600 mb-1">Downloading</div>
-          <div className="text-2xl font-bold text-blue-700">{stats.downloading}</div>
+          <div className="text-sm text-blue-400 mb-1">Downloading</div>
+          <div className="text-2xl font-bold text-blue-300">{stats.downloading}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-green-600 mb-1">Completed</div>
-          <div className="text-2xl font-bold text-green-700">{stats.completed}</div>
+          <div className="text-sm text-green-400 mb-1">Completed</div>
+          <div className="text-2xl font-bold text-green-300">{stats.completed}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-red-600 mb-1">Failed</div>
-          <div className="text-2xl font-bold text-red-700">{stats.failed}</div>
+          <div className="text-sm text-red-400 mb-1">Failed</div>
+          <div className="text-2xl font-bold text-red-300">{stats.failed}</div>
         </div>
         <div className="card">
-          <div className="text-sm text-gray-600 mb-1">Cancelled</div>
-          <div className="text-2xl font-bold text-gray-700">{stats.cancelled}</div>
+          <div className="text-sm text-gray-400 mb-1">Cancelled</div>
+          <div className="text-2xl font-bold text-gray-300">{stats.cancelled}</div>
         </div>
       </div>
 
@@ -328,35 +328,35 @@ export function Downloads() {
       <div className="card mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Status</label>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               >
                 All ({stats.total})
               </button>
               <button
                 onClick={() => setStatusFilter('pending')}
-                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'pending' ? 'bg-yellow-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'pending' ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               >
                 Pending ({stats.pending})
               </button>
               <button
                 onClick={() => setStatusFilter('downloading')}
-                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'downloading' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'downloading' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               >
                 Active ({stats.downloading})
               </button>
               <button
                 onClick={() => setStatusFilter('completed')}
-                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'completed' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'completed' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               >
                 Completed ({stats.completed})
               </button>
               <button
                 onClick={() => setStatusFilter('failed')}
-                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'failed' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg text-sm ${statusFilter === 'failed' ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               >
                 Failed ({stats.failed})
               </button>
@@ -364,17 +364,17 @@ export function Downloads() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">View Mode</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">View Mode</label>
             <div className="flex gap-2">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`px-4 py-2 rounded-lg text-sm ${viewMode === 'grid' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg text-sm ${viewMode === 'grid' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               >
                 Grid
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-4 py-2 rounded-lg text-sm ${viewMode === 'table' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg text-sm ${viewMode === 'table' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               >
                 Table
               </button>
@@ -385,10 +385,10 @@ export function Downloads() {
 
       {showNewDownload && (
         <div className="card mb-6">
-          <h2 className="text-lg font-semibold mb-4">New Download</h2>
+          <h2 className="text-lg font-semibold text-gray-100 mb-4">New Download</h2>
           <form onSubmit={handleNewDownload} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 URL
               </label>
               <input
@@ -396,19 +396,19 @@ export function Downloads() {
                 value={newDownloadUrl}
                 onChange={(e) => setNewDownloadUrl(e.target.value)}
                 placeholder="https://www.youtube.com/watch?v=..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                className="input"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Downloader
               </label>
               <select
                 value={downloader}
                 onChange={(e) => setDownloader(e.target.value as 'yt-dlp' | 'get_iplayer')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                className="input"
               >
                 <option value="yt-dlp">yt-dlp (YouTube, ITVX, etc.)</option>
                 <option value="get_iplayer">get_iplayer (BBC iPlayer)</option>
@@ -416,13 +416,13 @@ export function Downloads() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                className="input"
               >
                 <option value="movies">Movies</option>
                 <option value="tv">TV Shows</option>
@@ -435,7 +435,7 @@ export function Downloads() {
 
             {category === 'custom' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Custom Folder Name
                 </label>
                 <input
@@ -443,7 +443,7 @@ export function Downloads() {
                   value={customFolder}
                   onChange={(e) => setCustomFolder(e.target.value)}
                   placeholder="e.g., DJ Mixes, Podcasts, etc."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="input"
                   required
                 />
               </div>
@@ -465,7 +465,7 @@ export function Downloads() {
                   setCategory('movies');
                   setCustomFolder('');
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600"
               >
                 Cancel
               </button>
@@ -480,7 +480,7 @@ export function Downloads() {
           <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
           </svg>
-          <p className="text-gray-500 text-lg font-medium">
+          <p className="text-gray-400 text-lg font-medium">
             {downloads.length === 0 ? 'No downloads yet' : 'No downloads match your filter'}
           </p>
           {downloads.length === 0 && (
@@ -498,7 +498,7 @@ export function Downloads() {
             <div key={download.id} className="card">
               {/* Thumbnail */}
               {download.thumbnail ? (
-                <div className="aspect-[2/3] bg-gray-200 rounded-lg mb-3 overflow-hidden">
+                <div className="aspect-[2/3] bg-gray-700 rounded-lg mb-3 overflow-hidden">
                   <img
                     src={download.thumbnail}
                     alt={download.title}
@@ -506,7 +506,7 @@ export function Downloads() {
                   />
                 </div>
               ) : (
-                <div className="aspect-[2/3] bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                <div className="aspect-[2/3] bg-gray-700 rounded-lg mb-3 flex items-center justify-center">
                   <svg className="w-16 h-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                   </svg>
@@ -515,23 +515,23 @@ export function Downloads() {
 
               {/* Title and Status */}
               <div className="mb-3">
-                <h3 className="font-medium text-gray-900 mb-2 line-clamp-2 min-h-[3rem]" title={download.title}>
+                <h3 className="font-medium text-gray-100 mb-2 line-clamp-2 min-h-[3rem]" title={download.title}>
                   {download.title || 'Untitled'}
                 </h3>
                 <span className={`inline-block px-2 py-1 text-xs rounded ${getStatusColor(download.status)}`}>
                   {download.status}
                 </span>
-                <span className="ml-2 text-xs text-gray-500">{download.downloader}</span>
+                <span className="ml-2 text-xs text-gray-400">{download.downloader}</span>
               </div>
 
               {/* Progress Bar */}
               {download.status === 'downloading' && (
                 <div className="mb-3">
-                  <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                  <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
                     <span>Downloading...</span>
                     <span>{download.progress}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-700 rounded-full h-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full transition-all"
                       style={{ width: `${download.progress}%` }}
@@ -544,29 +544,29 @@ export function Downloads() {
               {download.downloader === 'qbittorrent' && download.torrentInfo && (
                 <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
                   <div className="flex items-center gap-1">
-                    <span className="text-gray-500">↓</span>
-                    <span className="text-green-600 font-medium">{formatSpeed(download.torrentInfo.dlspeed)}</span>
+                    <span className="text-gray-400">↓</span>
+                    <span className="text-green-400 font-medium">{formatSpeed(download.torrentInfo.dlspeed)}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-gray-500">↑</span>
-                    <span className="text-blue-600 font-medium">{formatSpeed(download.torrentInfo.upspeed)}</span>
+                    <span className="text-gray-400">↑</span>
+                    <span className="text-blue-400 font-medium">{formatSpeed(download.torrentInfo.upspeed)}</span>
                   </div>
-                  <div className="text-gray-600">
-                    <span className="text-gray-500">ETA:</span> {formatETA(download.torrentInfo.eta)}
+                  <div className="text-gray-300">
+                    <span className="text-gray-400">ETA:</span> {formatETA(download.torrentInfo.eta)}
                   </div>
-                  <div className="text-gray-600">
-                    <span className="text-gray-500">Seeds:</span> {download.torrentInfo.num_seeds} / {download.torrentInfo.num_leechs}
+                  <div className="text-gray-300">
+                    <span className="text-gray-400">Seeds:</span> {download.torrentInfo.num_seeds} / {download.torrentInfo.num_leechs}
                   </div>
-                  <div className="col-span-2 text-gray-600">
-                    <span className="text-gray-500">Size:</span> {formatBytes(download.torrentInfo.size)}
-                    <span className="ml-2 text-gray-500">Ratio:</span> {download.torrentInfo.ratio.toFixed(2)}
+                  <div className="col-span-2 text-gray-300">
+                    <span className="text-gray-400">Size:</span> {formatBytes(download.torrentInfo.size)}
+                    <span className="ml-2 text-gray-400">Ratio:</span> {download.torrentInfo.ratio.toFixed(2)}
                   </div>
                 </div>
               )}
 
               {/* Error Message */}
               {download.error_message && (
-                <div className="mb-3 p-2 bg-red-50 rounded text-xs text-red-700">
+                <div className="mb-3 p-2 bg-red-900/50 rounded text-xs text-red-300">
                   {download.error_message}
                 </div>
               )}
@@ -583,7 +583,7 @@ export function Downloads() {
                     {(download.status === 'downloading' || download.torrentInfo?.state === 'downloading') && (
                       <button
                         onClick={() => handlePauseTorrent(download)}
-                        className="flex-1 px-3 py-1.5 bg-yellow-100 text-yellow-700 text-sm rounded hover:bg-yellow-200"
+                        className="flex-1 px-3 py-1.5 bg-yellow-900/50 text-yellow-300 text-sm rounded hover:bg-yellow-900/70"
                       >
                         Pause
                       </button>
@@ -591,21 +591,21 @@ export function Downloads() {
                     {download.torrentInfo?.state?.includes('paused') && (
                       <button
                         onClick={() => handleResumeTorrent(download)}
-                        className="flex-1 px-3 py-1.5 bg-green-100 text-green-700 text-sm rounded hover:bg-green-200"
+                        className="flex-1 px-3 py-1.5 bg-green-900/50 text-green-300 text-sm rounded hover:bg-green-900/70"
                       >
                         Resume
                       </button>
                     )}
                     <button
                       onClick={() => handleDeleteTorrent(download, false)}
-                      className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
+                      className="flex-1 px-3 py-1.5 bg-gray-700 text-gray-300 text-sm rounded hover:bg-gray-600"
                       title="Delete torrent, keep files"
                     >
                       Remove
                     </button>
                     <button
                       onClick={() => handleDeleteTorrent(download, true)}
-                      className="flex-1 px-3 py-1.5 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200"
+                      className="flex-1 px-3 py-1.5 bg-red-900/50 text-red-300 text-sm rounded hover:bg-red-900/70"
                       title="Delete torrent and files"
                     >
                       Delete All
@@ -623,7 +623,7 @@ export function Downloads() {
                     )}
                     <button
                       onClick={() => handleDelete(download.id)}
-                      className="flex-1 px-3 py-1.5 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200"
+                      className="flex-1 px-3 py-1.5 bg-red-900/50 text-red-300 text-sm rounded hover:bg-red-900/70"
                     >
                       {download.status === 'downloading' ? 'Cancel' : 'Delete'}
                     </button>
@@ -636,46 +636,46 @@ export function Downloads() {
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-900/50 border-b border-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Title
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Progress
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Downloader
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-700">
               {filteredDownloads.map((download) => (
-                <tr key={download.id} className="hover:bg-gray-50">
+                <tr key={download.id} className="hover:bg-gray-800/50">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3 max-w-md">
                       {download.thumbnail && (
                         <img
                           src={download.thumbnail}
                           alt={download.title}
-                          className="w-12 h-18 object-contain rounded bg-gray-100"
+                          className="w-12 h-18 object-contain rounded bg-gray-700"
                         />
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm font-medium text-gray-100 truncate">
                           {download.title || 'Untitled'}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-gray-400 truncate">
                           {download.url}
                         </p>
                         {download.error_message && (
-                          <p className="text-xs text-red-600 mt-1 line-clamp-1">
+                          <p className="text-xs text-red-400 mt-1 line-clamp-1">
                             {download.error_message}
                           </p>
                         )}
@@ -690,10 +690,10 @@ export function Downloads() {
                   <td className="px-6 py-4">
                     {download.status === 'downloading' ? (
                       <div className="w-32">
-                        <div className="flex items-center justify-between text-xs mb-1">
+                        <div className="flex items-center justify-between text-xs text-gray-300 mb-1">
                           <span>{download.progress}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-gray-700 rounded-full h-2">
                           <div
                             className="bg-blue-600 h-2 rounded-full transition-all"
                             style={{ width: `${download.progress}%` }}
@@ -701,10 +701,10 @@ export function Downloads() {
                         </div>
                       </div>
                     ) : (
-                      <span className="text-sm text-gray-500">-</span>
+                      <span className="text-sm text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm text-gray-300 whitespace-nowrap">
                     {download.downloader}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -712,14 +712,14 @@ export function Downloads() {
                       {download.status === 'failed' && (
                         <button
                           onClick={() => handleRetry(download)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
+                          className="text-blue-400 hover:text-blue-300 text-sm"
                         >
                           Retry
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(download.id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
+                        className="text-red-400 hover:text-red-300 text-sm"
                       >
                         {download.status === 'downloading' ? 'Cancel' : 'Delete'}
                       </button>

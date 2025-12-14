@@ -128,22 +128,22 @@ export function Dashboard() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-900/50 text-green-300';
       case 'downloading':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-900/50 text-blue-300';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-900/50 text-yellow-300';
       case 'failed':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-900/50 text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-700 text-gray-300';
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading dashboard...</div>
+        <div className="text-gray-400">Loading dashboard...</div>
       </div>
     );
   }
@@ -151,7 +151,7 @@ export function Dashboard() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Media Dashboard</h1>
+        <h1 className="text-3xl font-bold text-gray-100">Media Dashboard</h1>
         <button
           onClick={fetchDashboardData}
           className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700"
@@ -164,22 +164,22 @@ export function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Downloads</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm text-gray-400">Total Downloads</p>
+              <p className="text-2xl font-bold text-gray-100 mt-1">
                 {stats?.downloads.total || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-brand-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-12 h-12 bg-brand-900/50 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
               </svg>
             </div>
           </div>
           <div className="mt-4 flex gap-2 text-xs">
-            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+            <span className="px-2 py-1 bg-yellow-900/50 text-yellow-300 rounded">
               {stats?.downloads.pending || 0} pending
             </span>
-            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+            <span className="px-2 py-1 bg-blue-900/50 text-blue-300 rounded">
               {stats?.downloads.downloading || 0} active
             </span>
           </div>
@@ -188,13 +188,13 @@ export function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Completed</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm text-gray-400">Completed</p>
+              <p className="text-2xl font-bold text-gray-100 mt-1">
                 {stats?.downloads.completed || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-12 h-12 bg-green-900/50 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -204,13 +204,13 @@ export function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Media Files</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm text-gray-400">Media Files</p>
+              <p className="text-2xl font-bold text-gray-100 mt-1">
                 {stats?.media.total_items || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-12 h-12 bg-purple-900/50 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </div>
@@ -220,13 +220,13 @@ export function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Storage Used</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm text-gray-400">Storage Used</p>
+              <p className="text-2xl font-bold text-gray-100 mt-1">
                 {formatBytes(stats?.media.total_size || 0)}
               </p>
             </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-12 h-12 bg-orange-900/50 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
               </svg>
             </div>
@@ -236,26 +236,26 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Recent Downloads</h2>
+          <h2 className="text-lg font-semibold text-gray-100 mb-4">Recent Downloads</h2>
           {recentDownloads.length === 0 ? (
-            <p className="text-gray-500 text-sm">No downloads yet</p>
+            <p className="text-gray-400 text-sm">No downloads yet</p>
           ) : (
             <div className="space-y-3">
               {recentDownloads.map((download) => (
-                <div key={download.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={download.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-gray-100 truncate">
                       {download.title || download.url}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`px-2 py-1 text-xs rounded ${getStatusColor(download.status)}`}>
                         {download.status}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-400">
                         {download.downloader}
                       </span>
                       {download.status === 'downloading' && (
-                        <span className="text-xs text-blue-600">
+                        <span className="text-xs text-blue-400">
                           {download.progress}%
                         </span>
                       )}
@@ -268,11 +268,11 @@ export function Dashboard() {
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+          <h2 className="text-lg font-semibold text-gray-100 mb-4">Quick Actions</h2>
           <div className="space-y-3">
             <a
               href="/downloads"
-              className="block p-4 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+              className="block p-4 bg-brand-900/30 hover:bg-brand-900/50 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center">
@@ -281,8 +281,8 @@ export function Dashboard() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">New Download</p>
-                  <p className="text-sm text-gray-600">Add a new video or audio download</p>
+                  <p className="font-medium text-gray-100">New Download</p>
+                  <p className="text-sm text-gray-400">Add a new video or audio download</p>
                 </div>
               </div>
             </a>
@@ -291,7 +291,7 @@ export function Dashboard() {
               href="http://localhost:8096"
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+              className="block p-4 bg-green-900/30 hover:bg-green-900/50 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
@@ -301,8 +301,8 @@ export function Dashboard() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">Open Jellyfin</p>
-                  <p className="text-sm text-gray-600">Stream your media</p>
+                  <p className="font-medium text-gray-100">Open Jellyfin</p>
+                  <p className="text-sm text-gray-400">Stream your media</p>
                 </div>
               </div>
             </a>
@@ -311,7 +311,7 @@ export function Dashboard() {
               href="http://localhost:8080"
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              className="block p-4 bg-blue-900/30 hover:bg-blue-900/50 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -320,8 +320,8 @@ export function Dashboard() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">Open qBittorrent</p>
-                  <p className="text-sm text-gray-600">Manage torrent downloads</p>
+                  <p className="font-medium text-gray-100">Open qBittorrent</p>
+                  <p className="text-sm text-gray-400">Manage torrent downloads</p>
                 </div>
               </div>
             </a>
@@ -333,9 +333,9 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {/* Platform Distribution */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Downloads by Platform</h2>
+          <h2 className="text-lg font-semibold text-gray-100 mb-4">Downloads by Platform</h2>
           {platformData.length === 0 ? (
-            <p className="text-gray-500 text-sm">No platform data yet</p>
+            <p className="text-gray-400 text-sm">No platform data yet</p>
           ) : (
             <div className="space-y-3">
               {platformData.slice(0, 6).map((platform) => {
@@ -348,13 +348,13 @@ export function Dashboard() {
                 return (
                   <div key={platform.platform}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700">{platform.platform}</span>
+                      <span className="text-sm font-medium text-gray-300">{platform.platform}</span>
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-600">{platform.total} total</span>
-                        <span className="text-green-600">{successRate}% success</span>
+                        <span className="text-gray-400">{platform.total} total</span>
+                        <span className="text-green-400">{successRate}% success</span>
                       </div>
                     </div>
-                    <div className="relative h-6 bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="relative h-6 bg-gray-700 rounded-lg overflow-hidden">
                       <div
                         className="absolute h-full bg-gradient-to-r from-brand-500 to-brand-600 flex items-center justify-end pr-2"
                         style={{ width: `${widthPercent}%` }}
@@ -373,9 +373,9 @@ export function Dashboard() {
 
         {/* Storage Breakdown */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Storage by Category</h2>
+          <h2 className="text-lg font-semibold text-gray-100 mb-4">Storage by Category</h2>
           {storageData.length === 0 ? (
-            <p className="text-gray-500 text-sm">No storage data yet</p>
+            <p className="text-gray-400 text-sm">No storage data yet</p>
           ) : (
             <div className="space-y-3">
               {storageData.slice(0, 6).map((category) => {
@@ -385,13 +385,13 @@ export function Dashboard() {
                 return (
                   <div key={category.category}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700">{category.category}</span>
+                      <span className="text-sm font-medium text-gray-300">{category.category}</span>
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-600">{category.count} files</span>
-                        <span className="text-purple-600">{formatBytes(category.size)}</span>
+                        <span className="text-gray-400">{category.count} files</span>
+                        <span className="text-purple-400">{formatBytes(category.size)}</span>
                       </div>
                     </div>
-                    <div className="relative h-6 bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="relative h-6 bg-gray-700 rounded-lg overflow-hidden">
                       <div
                         className="absolute h-full bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-end pr-2"
                         style={{ width: `${widthPercent}%` }}

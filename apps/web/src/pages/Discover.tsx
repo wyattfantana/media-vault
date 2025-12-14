@@ -47,7 +47,7 @@ export function Discover() {
     <div>
       {/* Tab Navigation */}
       <div className="mb-6">
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-700">
           <nav className="flex space-x-8" aria-label="Tabs">
             {tabs.map((tab, index) => (
               <React.Fragment key={tab.id}>
@@ -56,8 +56,8 @@ export function Discover() {
                   className={`
                     py-4 px-1 border-b-2 font-medium text-sm transition-colors
                     ${activeTab === tab.id
-                      ? 'border-brand-600 text-brand-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-brand-500 text-brand-400'
+                      : 'border-transparent text-gray-300 hover:text-gray-100 hover:border-gray-500'
                     }
                   `}
                 >
@@ -71,7 +71,7 @@ export function Discover() {
                 </button>
                 {/* Separator after Documentaries (index 2) and SoundCloud (index 5) */}
                 {(index === 2 || index === 5) && (
-                  <div className="w-px bg-gray-300 self-stretch my-2" />
+                  <div className="w-px bg-gray-700 self-stretch my-2" />
                 )}
               </React.Fragment>
             ))}

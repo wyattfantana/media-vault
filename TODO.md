@@ -255,7 +255,60 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-14 (Session 15) ✅ COMPLETED
+### Current Session: 2025-12-14 (Session 16) ✅ COMPLETED
+**Focus:** Dark Theme Completion & Favorites Enhancements
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Completed dark theme conversion** - Dashboard, Downloads, and remaining pages
+  - Updated Dashboard.tsx with full dark theme (stats, charts, quick actions, analytics)
+  - Updated Downloads.tsx with dark theme (stats, filters, grid view, table view, forms)
+  - All status badges updated to dark variants (bg-X-900/50 text-X-300)
+  - Progress bars changed from bg-gray-200 to bg-gray-700
+  - Table headers and rows fully themed
+  - Empty states and loading text updated
+- [x] **Enhanced Favorites page stats** - Added TMDB content types
+  - Added Movies, TV Shows, Documentaries stat cards to Favorites
+  - Updated subtitle to include "movies, shows, and documentaries"
+  - Expanded grid to 8 columns to accommodate all content types
+  - Color-coded stats: Movies (purple), TV Shows (blue), Documentaries (green)
+- [x] **Reordered Favorites to match Discover tabs** - Consistent navigation
+  - Stats order: Total → Movies → TV Shows → Docs → YT Channels → YT Playlists → SoundCloud → Other
+  - Filter buttons reordered to match stats
+  - Now consistent with Discover page tab order
+- [x] **Brightened Discover tab navigation** - Improved visibility
+  - Inactive tabs: text-gray-500 → text-gray-300 (much lighter)
+  - Hover state: text-gray-700 → text-gray-100 (bright white)
+  - Active tabs: text-brand-600 → text-brand-400 (brighter)
+  - Border updates: border-gray-200 → border-gray-700
+  - Separators: bg-gray-300 → bg-gray-700
+  - Tabs now "pop" against dark background
+
+**Implementation Details:**
+- Used Settings page as dark theme benchmark (no white backgrounds, perfect text colors)
+- Systematic color replacement: gray-900/600/500 → gray-100/400/300
+- All bg-gray-50/100 backgrounds → bg-gray-800/50 or bg-gray-700
+- Badge colors: bg-X-100 text-X-800 → bg-X-900/50 text-X-300
+- Form inputs updated to use global `.input` class for consistency
+- Table styling: thead bg-gray-50 → bg-gray-900/50, tbody bg-white → transparent
+
+**Files Modified:**
+- `apps/web/src/pages/Dashboard.tsx` - Complete dark theme conversion
+- `apps/web/src/pages/Downloads.tsx` - Complete dark theme conversion
+- `apps/web/src/pages/Favorites.tsx` - Added TMDB stats, reordered to match Discover
+- `apps/web/src/pages/Discover.tsx` - Brightened tab text colors
+
+**User Feedback:**
+- "ok yeah looks good tho we still have some rogue white backgrounds" - Identified remaining issues
+- "ok good" - After Favorites stats added
+- "ok good" - After reordering to match Discover tabs
+- Requested lighter tab text to make it "pop"
+
+**Next Session Start Point:**
+→ Dark theme complete across all pages! Ready for new features or Phase 4 enhancements.
+
+---
+
+### Session: 2025-12-14 (Session 15) ✅ COMPLETED
 **Focus:** UX Improvements - Auto-Scroll, Card Layout, React Hooks Fix
 **Status:** ✅ COMPLETED
 **Completed:**

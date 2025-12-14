@@ -90,6 +90,36 @@ export class OMDbService {
   }
 
   /**
+   * Get all ratings (IMDb, Rotten Tomatoes, Metacritic) by IMDB ID
+   */
+  async getAllRatings(imdbId: string): Promise<{
+    imdb_rating: string | null;
+    imdb_votes: string | null;
+    rotten_tomatoes: string | null;
+    metacritic: string | null;
+  }> {
+    const movie = await this.getMovieByImdbId(imdbId);
+    if (!movie) {
+      return {
+        imdb_rating: null,
+        imdb_votes: null,
+        rotten_tomatoes: null,
+        metacritic: null
+      };
+    }
+
+    // Extract Rotten Tomatoes rating from Ratings array
+    const rtRating = movie.Ratings?.find(r => r.Source === 'Rotten Tomatoes');
+
+    return {
+      imdb_rating: movie.imdbRating !== 'N/A' ? movie.imdbRating : null,
+      imdb_votes: movie.imdbVotes !== 'N/A' ? movie.imdbVotes : null,
+      rotten_tomatoes: rtRating?.Value || null,
+      metacritic: movie.Metascore !== 'N/A' ? movie.Metascore : null
+    };
+  }
+
+  /**
    * Batch fetch IMDB ratings for multiple movies
    */
   async batchGetImdbRatings(imdbIds: (string | null | undefined)[]): Promise<Map<string, { rating: string; votes: string }>> {
