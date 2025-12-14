@@ -1290,28 +1290,13 @@ export default function Documentaries() {
           {showAllDocumentariesFilters && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {/* Sort By */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Sort By</label>
-                  <select
-                    value={allDocumentariesFilters.sortBy}
-                    onChange={(e) => setAllDocumentariesFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
-                    className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
-                  >
-                    <option value="vote_average.desc">⭐ Top Rated</option>
-                    <option value="popularity.desc">🔥 Most Popular</option>
-                    <option value="release_date.desc">📅 Newest First</option>
-                  </select>
-                </div>
-
                 {/* Quick Filters */}
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-gray-400 mb-3">Quick Filters (click to toggle on/off)</label>
-                  <div className="flex flex-wrap gap-2">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Quick Filters</label>
+                  <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() => {
                         if (activePreset === 'worth-watching') {
-                          // Deselect - reset to no filters
                           setAllDocumentariesFilters({
                             minRating: 0,
                             minVotes: 0,
@@ -1323,10 +1308,9 @@ export default function Documentaries() {
                           });
                           setActivePreset(null);
                         } else {
-                          // Select - apply preset
                           setAllDocumentariesFilters({
-                            minRating: 6.0,
-                            minVotes: 50,
+                            minRating: 5.5,
+                            minVotes: 25,
                             excludeGenres: [],
                             selectedGenres: [],
                             yearFrom: null,
@@ -1336,18 +1320,17 @@ export default function Documentaries() {
                           setActivePreset('worth-watching');
                         }
                       }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      className={`px-6 py-3 rounded-lg font-medium transition-all ${
                         activePreset === 'worth-watching'
                           ? 'bg-blue-600 text-white ring-2 ring-blue-300 shadow-lg scale-105'
-                          : 'bg-blue-700 text-gray-300 hover:bg-blue-600'
+                          : 'bg-gray-700 text-gray-300 hover:bg-blue-600'
                       }`}
                     >
-                      👍 Worth Watching (6.0+)
+                      👍 Worth Watching (5.5+)
                     </button>
                     <button
                       onClick={() => {
                         if (activePreset === 'quality') {
-                          // Deselect - reset to no filters
                           setAllDocumentariesFilters({
                             minRating: 0,
                             minVotes: 0,
@@ -1359,10 +1342,9 @@ export default function Documentaries() {
                           });
                           setActivePreset(null);
                         } else {
-                          // Select - apply preset
                           setAllDocumentariesFilters({
-                            minRating: 7.0,
-                            minVotes: 200,
+                            minRating: 6.5,
+                            minVotes: 50,
                             excludeGenres: [],
                             selectedGenres: [],
                             yearFrom: null,
@@ -1372,18 +1354,17 @@ export default function Documentaries() {
                           setActivePreset('quality');
                         }
                       }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      className={`px-6 py-3 rounded-lg font-medium transition-all ${
                         activePreset === 'quality'
                           ? 'bg-purple-600 text-white ring-2 ring-purple-300 shadow-lg scale-105'
-                          : 'bg-purple-700 text-gray-300 hover:bg-purple-600'
+                          : 'bg-gray-700 text-gray-300 hover:bg-purple-600'
                       }`}
                     >
-                      ⭐ Quality Docs (7.0+)
+                      ⭐ Quality Docs (6.5+)
                     </button>
                     <button
                       onClick={() => {
                         if (activePreset === 'elite') {
-                          // Deselect - reset to no filters
                           setAllDocumentariesFilters({
                             minRating: 0,
                             minVotes: 0,
@@ -1395,10 +1376,9 @@ export default function Documentaries() {
                           });
                           setActivePreset(null);
                         } else {
-                          // Select - apply preset
                           setAllDocumentariesFilters({
-                            minRating: 8.0,
-                            minVotes: 500,
+                            minRating: 7.5,
+                            minVotes: 100,
                             excludeGenres: [],
                             selectedGenres: [],
                             yearFrom: null,
@@ -1408,47 +1388,14 @@ export default function Documentaries() {
                           setActivePreset('elite');
                         }
                       }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      className={`px-6 py-3 rounded-lg font-medium transition-all ${
                         activePreset === 'elite'
                           ? 'bg-yellow-600 text-white ring-2 ring-yellow-300 shadow-lg scale-105'
-                          : 'bg-yellow-700 text-gray-300 hover:bg-yellow-600'
+                          : 'bg-gray-700 text-gray-300 hover:bg-yellow-600'
                       }`}
                     >
-                      🏆 Elite Only (8.0+)
+                      🏆 Elite Only (7.5+)
                     </button>
-                    {localStorage.getItem('documentariesFilters') && (
-                      <button
-                        onClick={() => {
-                          if (activePreset === 'saved') {
-                            // Deselect - reset to no filters
-                            setAllDocumentariesFilters({
-                              minRating: 0,
-                              minVotes: 0,
-                              excludeGenres: [],
-                              selectedGenres: [],
-                              yearFrom: null,
-                              yearTo: null,
-                              sortBy: 'popularity.desc'
-                            });
-                            setActivePreset(null);
-                          } else {
-                            // Select - load saved filters
-                            const savedFilters = localStorage.getItem('documentariesFilters');
-                            if (savedFilters) {
-                              setAllDocumentariesFilters(JSON.parse(savedFilters));
-                              setActivePreset('saved');
-                            }
-                          }
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          activePreset === 'saved'
-                            ? 'bg-green-600 text-white ring-2 ring-green-300 shadow-lg scale-105'
-                            : 'bg-green-700 text-gray-300 hover:bg-green-600'
-                        }`}
-                      >
-                        💾 My Saved Filters
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -1509,51 +1456,52 @@ export default function Documentaries() {
                   </div>
                 </div>
 
-                {/* Genre Multi-Select (Click to toggle include/exclude) */}
+                {/* Genre Multi-Select Dropdown */}
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Additional Genres (click to toggle • <span className="text-green-400">included</span> / <span className="text-red-400">excluded</span>)
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    {genres.map(genre => {
-                      const isExcluded = allDocumentariesFilters.excludeGenres.includes(genre.id);
-                      return (
-                        <button
-                          key={genre.id}
-                          onClick={() => {
-                            setAllDocumentariesFilters(prev => ({
-                              ...prev,
-                              excludeGenres: isExcluded
-                                ? prev.excludeGenres.filter(id => id !== genre.id)
-                                : [...prev.excludeGenres, genre.id]
-                            }));
-                          }}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
-                            isExcluded
-                              ? 'bg-red-900/30 text-red-400 border border-red-500/30 hover:bg-red-900/50'
-                              : 'bg-green-900/30 text-green-400 border border-green-500/30 hover:bg-green-900/50'
-                          }`}
-                        >
-                          {isExcluded && <span className="absolute top-1 right-1 text-xs">✕</span>}
-                          {genre.name}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <details className="group">
+                    <summary className="cursor-pointer list-none">
+                      <div className="flex items-center justify-between bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors">
+                        <span className="text-sm font-medium text-gray-300">
+                          Additional Genres (click to toggle • <span className="text-green-400">included</span> / <span className="text-red-400">excluded</span>)
+                        </span>
+                        <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </summary>
+                    <div className="mt-3 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        {genres.map(genre => {
+                          const isExcluded = allDocumentariesFilters.excludeGenres.includes(genre.id);
+                          return (
+                            <button
+                              key={genre.id}
+                              onClick={() => {
+                                setAllDocumentariesFilters(prev => ({
+                                  ...prev,
+                                  excludeGenres: isExcluded
+                                    ? prev.excludeGenres.filter(id => id !== genre.id)
+                                    : [...prev.excludeGenres, genre.id]
+                                }));
+                              }}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
+                                isExcluded
+                                  ? 'bg-red-900/30 text-red-400 border border-red-500/30 hover:bg-red-900/50'
+                                  : 'bg-green-900/30 text-green-400 border border-green-500/30 hover:bg-green-900/50'
+                              }`}
+                            >
+                              {isExcluded && <span className="absolute top-1 right-1 text-xs">✕</span>}
+                              {genre.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </details>
                 </div>
 
-                {/* Save & Reset Buttons */}
-                <div className="col-span-full flex gap-3">
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('documentariesFilters', JSON.stringify(allDocumentariesFilters));
-                      setActivePreset('saved');
-                      alert('✓ Filters saved! Use "My Saved Filters" button to load them anytime.');
-                    }}
-                    className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-lg"
-                  >
-                    💾 Save These Filters
-                  </button>
+                {/* Reset Button */}
+                <div className="col-span-full">
                   <button
                     onClick={() => {
                       setAllDocumentariesFilters({
@@ -1567,9 +1515,9 @@ export default function Documentaries() {
                       });
                       setActivePreset(null);
                     }}
-                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                    className="w-full px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
                   >
-                    Reset All
+                    Reset All Filters
                   </button>
                 </div>
               </div>
@@ -1578,24 +1526,48 @@ export default function Documentaries() {
 
           {/* Results header */}
           <div className="bg-gray-800/50 p-4 rounded-lg border-l-4 border-blue-500">
-            <div className="space-y-1">
-              <div className="text-sm text-gray-300">
-                <span className="text-gray-400">Loaded:</span>{' '}
-                <span className="font-bold text-white">{allDocumentaries.length.toLocaleString()}</span> of{' '}
-                <span className="font-bold text-blue-400">{allDocumentariesTotalResults.toLocaleString()}</span>{' '}
-                {allDocumentariesFilters.minRating > 0 || allDocumentariesFilters.minVotes > 0 || allDocumentariesFilters.selectedGenres.length > 0 || allDocumentariesFilters.excludeGenres.length > 0 || allDocumentariesFilters.yearFrom || allDocumentariesFilters.yearTo ? (
-                  <span className="text-yellow-400">matching documentaries</span>
-                ) : (
-                  <span className="text-gray-400">documentaries</span>
-                )}
+            {loadingMultiplePages ? (
+              <div className="flex items-center gap-3 py-2">
+                <Loader className="w-6 h-6 animate-spin text-blue-400" />
+                <div className="space-y-1">
+                  <div className="text-base font-semibold text-blue-400 animate-pulse">
+                    Loading documentaries...
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Please wait while we fetch more results
+                  </div>
+                </div>
               </div>
-              <div className="text-xs text-gray-500">
-                Total catalog: <span className="font-semibold text-gray-400">{allDocumentariesTotalResults.toLocaleString()}+ documentaries</span>
-                {(allDocumentariesFilters.minRating > 0 || allDocumentariesFilters.minVotes > 0 || allDocumentariesFilters.selectedGenres.length > 0 || allDocumentariesFilters.excludeGenres.length > 0 || allDocumentariesFilters.yearFrom || allDocumentariesFilters.yearTo) && (
-                  <span className="ml-2 text-yellow-400">• Filters active</span>
-                )}
+            ) : (
+              <div className="space-y-1">
+                <div className="text-sm text-gray-300">
+                  <span className="text-gray-400">Loaded:</span>{' '}
+                  <span className="font-bold text-white">{allDocumentaries.length.toLocaleString()}</span> of{' '}
+                  <span className="font-bold text-blue-400">{allDocumentariesTotalResults.toLocaleString()}</span>{' '}
+                  {allDocumentariesFilters.minRating > 0 || allDocumentariesFilters.minVotes > 0 || allDocumentariesFilters.selectedGenres.length > 0 || allDocumentariesFilters.excludeGenres.length > 0 || allDocumentariesFilters.yearFrom || allDocumentariesFilters.yearTo ? (
+                    <span className="text-yellow-400">matching documentaries</span>
+                  ) : (
+                    <span className="text-gray-400">documentaries</span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 space-y-1">
+                  {(allDocumentariesFilters.minRating > 0 || allDocumentariesFilters.minVotes > 0 || allDocumentariesFilters.selectedGenres.length > 0 || allDocumentariesFilters.excludeGenres.length > 0 || allDocumentariesFilters.yearFrom || allDocumentariesFilters.yearTo) ? (
+                    <>
+                      <div>
+                        <span className="text-yellow-400">Filtered:</span> <span className="font-semibold text-yellow-300">{allDocumentariesTotalResults.toLocaleString()}+ matching documentaries</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Total catalog:</span> <span className="font-semibold text-gray-400">205,482+ documentaries</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      Total catalog: <span className="font-semibold text-gray-400">{allDocumentariesTotalResults.toLocaleString()}+ documentaries</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {allDocumentariesLoading && allDocumentariesPage === 1 ? (
