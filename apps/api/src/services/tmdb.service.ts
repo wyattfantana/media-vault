@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { createFilterBuilder } from './filter-builder.js';
+import { getDefaultMinVotes } from '../schemas/filters.schema.js';
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY || '';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
@@ -527,16 +529,19 @@ export class TMDBService {
     min_votes?: number;
   } = {}): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
-      // Only apply minimum vote requirements if not explicitly set to 0
-      const minVotes = filters.min_votes !== undefined ? filters.min_votes : (filters.sort_by === 'vote_average.desc' ? 1000 : 500);
+      // Apply consistent min_votes defaults based on sort type
+      const sortBy = filters.sort_by || 'popularity.desc';
+      const minVotes = filters.min_votes !== undefined
+        ? filters.min_votes
+        : getDefaultMinVotes(sortBy, 'movie');
       const minRating = filters.min_rating !== undefined ? filters.min_rating : 0;
 
       const response = await axios.get(`${TMDB_BASE_URL}/discover/movie`, {
         params: {
           api_key: this.apiKey,
           with_genres: filters.genre,
-          primary_release_year: filters.year,
-          sort_by: filters.sort_by || 'vote_average.desc',
+          primary_release_year: filters.year, // Movies use single year
+          sort_by: sortBy,
           page: filters.page || 1,
           'vote_average.gte': minRating > 0 ? minRating : undefined,
           'vote_count.gte': minVotes > 0 ? minVotes : undefined,
@@ -569,21 +574,24 @@ export class TMDBService {
     min_votes?: number;
   } = {}): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
     try {
-      // Only apply minimum requirements if explicitly provided (not undefined)
-      const minVotes = filters.min_votes !== undefined ? filters.min_votes : undefined;
-      const minRating = filters.min_rating !== undefined ? filters.min_rating : undefined;
+      // Apply consistent min_votes defaults based on sort type (NOW MATCHES MOVIES)
+      const sortBy = filters.sort_by || 'popularity.desc';
+      const minVotes = filters.min_votes !== undefined
+        ? filters.min_votes
+        : getDefaultMinVotes(sortBy, 'tv');
+      const minRating = filters.min_rating !== undefined ? filters.min_rating : 0;
 
       const response = await axios.get(`${TMDB_BASE_URL}/discover/tv`, {
         params: {
           api_key: this.apiKey,
           with_genres: filters.genre,
           without_genres: filters.exclude_genres,
-          'first_air_date.gte': filters.year_from ? `${filters.year_from}-01-01` : undefined,
+          'first_air_date.gte': filters.year_from ? `${filters.year_from}-01-01` : undefined, // TV supports year ranges
           'first_air_date.lte': filters.year_to ? `${filters.year_to}-12-31` : undefined,
-          sort_by: filters.sort_by || 'popularity.desc',
+          sort_by: sortBy,
           page: filters.page || 1,
-          'vote_average.gte': minRating,
-          'vote_count.gte': minVotes,
+          'vote_average.gte': minRating > 0 ? minRating : undefined,
+          'vote_count.gte': minVotes > 0 ? minVotes : undefined,
           include_adult: false
         }
       });

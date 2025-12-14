@@ -3,6 +3,7 @@ import { auth } from '../auth.js';
 import { AppDataSource } from '../data-source.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { MediaFilterSchema } from '../schemas/filters.schema.js';
 
 export const mediaRouter = express.Router();
 
@@ -91,14 +92,18 @@ mediaRouter.get('/downloaded-tmdb-ids', requireAuth, async (req, res) => {
 mediaRouter.get('/', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const {
-      type,
-      limit = 50,
-      offset = 0,
-      search,
-      sortBy = 'created_at',
-      sortOrder = 'DESC'
-    } = req.query;
+
+    // Validate and parse query parameters using Zod schema
+    const validationResult = MediaFilterSchema.safeParse(req.query);
+
+    if (!validationResult.success) {
+      return res.status(400).json({
+        error: 'Invalid filter parameters',
+        details: validationResult.error.issues
+      });
+    }
+
+    const { type, limit, offset, search, sortBy, sortOrder } = validationResult.data;
 
     const queryBuilder = AppDataSource
       .createQueryBuilder()
@@ -118,9 +123,9 @@ mediaRouter.get('/', requireAuth, async (req, res) => {
     }
 
     queryBuilder
-      .orderBy(`m.${sortBy}`, sortOrder as 'ASC' | 'DESC')
-      .limit(Number(limit))
-      .offset(Number(offset));
+      .orderBy(`m.${sortBy}`, sortOrder)
+      .limit(limit)
+      .offset(offset);
 
     const media = await queryBuilder.getRawMany();
 
@@ -134,8 +139,8 @@ mediaRouter.get('/', requireAuth, async (req, res) => {
     res.json({
       media,
       total: parseInt(countResult.count),
-      limit: Number(limit),
-      offset: Number(offset)
+      limit,
+      offset
     });
   } catch (err) {
     console.error('Failed to get media:', err);
