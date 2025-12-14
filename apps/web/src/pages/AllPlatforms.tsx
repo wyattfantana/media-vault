@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE } from '@/lib/config';
 
 interface Video {
   id: string;
@@ -87,7 +88,7 @@ export function AllPlatforms() {
           if (source.platform === 'YouTube') {
             try {
               const res = await fetch(
-                `http://localhost:3001/api/v1/search/unified?q=trending&sources=youtube&limit=4`,
+                `${API_BASE}/search/unified?q=trending&sources=youtube&limit=4`,
                 { credentials: 'include' }
               );
 
@@ -114,7 +115,7 @@ export function AllPlatforms() {
           } else if (source.platform === 'BBC iPlayer') {
             try {
               const res = await fetch(
-                `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(source.url)}&sources=bbc&limit=4`,
+                `${API_BASE}/search/unified?q=${encodeURIComponent(source.url)}&sources=bbc&limit=4`,
                 { credentials: 'include' }
               );
 
@@ -141,7 +142,7 @@ export function AllPlatforms() {
           } else if (source.platform === 'SoundCloud') {
             try {
               const res = await fetch(
-                `http://localhost:3001/api/v1/search/unified?q=trending&sources=soundcloud&limit=4`,
+                `${API_BASE}/search/unified?q=trending&sources=soundcloud&limit=4`,
                 { credentials: 'include' }
               );
 
@@ -168,7 +169,7 @@ export function AllPlatforms() {
           } else {
             // Use yt-dlp extract for slower platforms (Rumble, TikTok, Twitch)
             const res = await fetch(
-              `http://localhost:3001/api/v1/search/extract?url=${encodeURIComponent(source.url)}&limit=4`,
+              `${API_BASE}/search/extract?url=${encodeURIComponent(source.url)}&limit=4`,
               { credentials: 'include' }
             );
 
@@ -245,7 +246,7 @@ export function AllPlatforms() {
 
         try {
           const res = await fetch(
-            `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(searchQuery)}&sources=${sources}&limit=100`,
+            `${API_BASE}/search/unified?q=${encodeURIComponent(searchQuery)}&sources=${sources}&limit=100`,
             { credentials: 'include' }
           );
 
@@ -383,18 +384,18 @@ export function AllPlatforms() {
             'SoundCloud': 'soundcloud'
           };
           res = await fetch(
-            `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(section.sourceUrl)}&sources=${sourcesMap[platformName]}&limit=${newLimit}`,
+            `${API_BASE}/search/unified?q=${encodeURIComponent(section.sourceUrl)}&sources=${sourcesMap[platformName]}&limit=${newLimit}`,
             { credentials: 'include' }
           );
         } else if (platformName === 'BBC iPlayer') {
           res = await fetch(
-            `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(section.sourceUrl)}&sources=bbc&limit=${newLimit}`,
+            `${API_BASE}/search/unified?q=${encodeURIComponent(section.sourceUrl)}&sources=bbc&limit=${newLimit}`,
             { credentials: 'include' }
           );
         } else {
           // Use extract endpoint for slower platforms
           res = await fetch(
-            `http://localhost:3001/api/v1/search/extract?url=${encodeURIComponent(section.sourceUrl)}&limit=${newLimit}`,
+            `${API_BASE}/search/extract?url=${encodeURIComponent(section.sourceUrl)}&limit=${newLimit}`,
             { credentials: 'include' }
           );
         }
@@ -484,7 +485,7 @@ export function AllPlatforms() {
 
       for (const video of videosToDownload) {
         try {
-          const res = await fetch('http://localhost:3001/api/v1/downloads', {
+          const res = await fetch('${API_BASE}/downloads', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -525,7 +526,7 @@ export function AllPlatforms() {
 
     setDownloading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+      const res = await fetch('${API_BASE}/downloads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

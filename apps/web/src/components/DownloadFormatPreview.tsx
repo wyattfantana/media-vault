@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE } from '@/lib/config';
 
 interface FormattedPath {
   contentType: 'tv' | 'movie' | 'music' | 'documentary' | 'other';
@@ -50,7 +51,7 @@ export function DownloadFormatPreview({
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/v1/downloads/format-preview', {
+      const response = await fetch(`${API_BASE}/downloads/format-preview`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

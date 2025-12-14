@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Film, Tv, FileText, Star, Calendar, Flame } from 'lucide-react';
+import { API_BASE } from '@/lib/config';
 
 interface TrendingItem {
   id: number;
@@ -24,8 +25,6 @@ export default function Trending() {
   const [loading, setLoading] = useState(true);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('week');
   const [contentFilter, setContentFilter] = useState<ContentType>('all');
-
-  const API_BASE = 'http://localhost:3001/api/v1';
 
   useEffect(() => {
     fetchTrendingContent();

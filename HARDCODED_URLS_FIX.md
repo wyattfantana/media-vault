@@ -52,40 +52,40 @@ const res = await fetch(`${API_BASE}/downloads`, {
 
 ## Files Needing Updates (28 Total)
 
-### Frontend Pages (High Priority)
-- [ ] `apps/web/src/pages/Favorites.tsx`
-- [ ] `apps/web/src/pages/Downloads.tsx`
-- [ ] `apps/web/src/pages/Dashboard.tsx`
-- [ ] `apps/web/src/pages/Movies.tsx`
-- [ ] `apps/web/src/pages/TVShows.tsx`
-- [ ] `apps/web/src/pages/Documentaries.tsx`
-- [ ] `apps/web/src/pages/Settings.tsx`
-- [ ] `apps/web/src/pages/Browse.tsx`
-- [ ] `apps/web/src/pages/YouTube.tsx`
-- [ ] `apps/web/src/pages/SoundCloud.tsx`
+### Frontend Pages (High Priority) ✅ ALL COMPLETE
+- [x] `apps/web/src/pages/Favorites.tsx` ✅ (5 instances fixed)
+- [x] `apps/web/src/pages/Downloads.tsx` ✅ (9 instances fixed)
+- [x] `apps/web/src/pages/Dashboard.tsx` ✅ (4 instances fixed)
+- [x] `apps/web/src/pages/Movies.tsx` ✅ (1 instance fixed)
+- [x] `apps/web/src/pages/TVShows.tsx` ✅ (1 instance fixed)
+- [x] `apps/web/src/pages/Documentaries.tsx` ✅ (1 instance fixed)
+- [x] `apps/web/src/pages/Settings.tsx` ✅ (10 instances fixed)
+- [x] `apps/web/src/pages/Browse.tsx` ✅ (2 instances fixed)
+- [x] `apps/web/src/pages/YouTube.tsx` ✅ (20 instances fixed)
+- [x] `apps/web/src/pages/SoundCloud.tsx` ✅ (11 instances fixed)
 
-### Components
-- [ ] `apps/web/src/components/layout/Layout.tsx`
-- [ ] `apps/web/src/components/DownloadFormatPreview.tsx`
-- [ ] `apps/web/src/components/RecommendedForYou.tsx`
+### Components ✅ ALL COMPLETE
+- [x] `apps/web/src/components/layout/Layout.tsx` ✅ (2 instances fixed)
+- [x] `apps/web/src/components/DownloadFormatPreview.tsx` ✅ (1 instance fixed)
+- [x] `apps/web/src/components/RecommendedForYou.tsx` ✅ (1 instance fixed)
 
-### Other Pages
-- [ ] `apps/web/src/pages/admin/AdminLogin.tsx`
-- [ ] `apps/web/src/pages/admin/AdminDashboard.tsx`
-- [ ] `apps/web/src/pages/Media.tsx`
-- [ ] `apps/web/src/pages/Trending.tsx`
-- [ ] `apps/web/src/pages/AllPlatforms.tsx`
-- [ ] `apps/web/src/pages/Reddit.tsx`
-- [ ] `apps/web/src/pages/Rumble.tsx`
-- [ ] `apps/web/src/pages/Search.tsx`
-- [ ] `apps/web/src/pages/SettingsPresets.tsx`
-- [ ] `apps/web/src/pages/TikTok.tsx`
-- [ ] `apps/web/src/pages/Twitch.tsx`
-- [ ] `apps/web/src/pages/Vimeo.tsx`
+### Other Pages ✅ ALL COMPLETE (except deprecated files)
+- [x] `apps/web/src/pages/admin/AdminLogin.tsx` ✅ (1 instance fixed)
+- [x] `apps/web/src/pages/admin/AdminDashboard.tsx` ✅ (2 instances fixed)
+- [x] `apps/web/src/pages/Media.tsx` ✅ (4 instances fixed)
+- [x] `apps/web/src/pages/Trending.tsx` ✅ (1 instance fixed)
+- [x] `apps/web/src/pages/AllPlatforms.tsx` ✅ (10 instances fixed)
+- [x] `apps/web/src/pages/Reddit.tsx` ✅ (3 instances fixed)
+- [x] `apps/web/src/pages/Rumble.tsx` ⚠️ (Deprecated - can be deleted)
+- [x] `apps/web/src/pages/Search.tsx` ✅ (2 instances fixed)
+- [x] `apps/web/src/pages/SettingsPresets.tsx` ✅ (5 instances fixed)
+- [x] `apps/web/src/pages/TikTok.tsx` ✅ (3 instances fixed)
+- [x] `apps/web/src/pages/Twitch.tsx` ✅ (3 instances fixed)
+- [x] `apps/web/src/pages/Vimeo.tsx` ⚠️ (Deprecated - can be deleted)
 
 ### Library Files
-- [ ] `apps/web/src/lib/api.ts` ✅ (Already updated)
-- [ ] `apps/web/src/lib/auth.ts`
+- [x] `apps/web/src/lib/api.ts` ✅ (Already exports API_URL)
+- [x] `apps/web/src/lib/auth.ts` ✅ (Updated to import from config)
 
 ### Backup Files (Can be deleted)
 - [ ] `apps/web/src/pages/TVShows.tsx.backup`

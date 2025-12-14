@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
+import { API_BASE } from '@/lib/config';
 
 interface VPNStatus {
   connected: boolean;
@@ -19,7 +20,7 @@ export function Layout() {
 
   const fetchVPNStatus = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/vpn/status', {
+      const res = await fetch(`${API_BASE}/vpn/status`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -45,7 +46,7 @@ export function Layout() {
 
     try {
       const endpoint = wasConnected ? 'disconnect' : 'connect';
-      const res = await fetch(`http://localhost:3001/api/v1/vpn/${endpoint}`, {
+      const res = await fetch(`${API_BASE}/vpn/${endpoint}`, {
         method: 'POST',
         credentials: 'include'
       });

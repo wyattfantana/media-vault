@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE } from '@/lib/config';
 
 interface SearchResult {
   source: 'bbc_iplayer' | 'youtube' | 'soundcloud';
@@ -36,7 +37,7 @@ export function Search() {
     try {
       const sources = selectedSources.join(',');
       const res = await fetch(
-        `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(searchQuery)}&sources=${sources}&limit=100`,
+        `${API_BASE}/search/unified?q=${encodeURIComponent(searchQuery)}&sources=${sources}&limit=100`,
         { credentials: 'include' }
       );
 
@@ -69,7 +70,7 @@ export function Search() {
         ? `https://www.bbc.co.uk/iplayer/episode/${selectedResult.id}`
         : selectedResult.url;
 
-      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+      const res = await fetch('${API_BASE}/downloads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, ChevronLeft, ChevronRight, Film, Tv, FileText, Star } from 'lucide-react';
+import { API_BASE } from '@/lib/config';
 
 interface RecommendedItem {
   id: number;
@@ -28,8 +29,6 @@ export const RecommendedForYou: React.FC = () => {
   const [preferredCategory, setPreferredCategory] = useState<string>('movies');
   const [downloadCount, setDownloadCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const API_BASE = 'http://localhost:3001/api/v1';
 
   useEffect(() => {
     fetchRecommendations();

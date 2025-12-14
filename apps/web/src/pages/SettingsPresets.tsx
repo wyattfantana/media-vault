@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE } from '@/lib/config';
 
 interface Preset {
   id: string;
@@ -67,7 +68,7 @@ export function Settings() {
 
   const fetchPresets = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/presets', {
+      const res = await fetch('${API_BASE}/presets', {
         credentials: 'include'
       });
       if (res.ok) {
@@ -139,7 +140,7 @@ export function Settings() {
     try {
       if (editingPreset) {
         // Update existing preset
-        await fetch(`http://localhost:3001/api/v1/presets/${editingPreset.id}`, {
+        await fetch(`${API_BASE}/presets/${editingPreset.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -147,7 +148,7 @@ export function Settings() {
         });
       } else {
         // Create new preset
-        await fetch('http://localhost:3001/api/v1/presets', {
+        await fetch('${API_BASE}/presets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -166,7 +167,7 @@ export function Settings() {
     if (!confirm('Delete this preset?')) return;
 
     try {
-      await fetch(`http://localhost:3001/api/v1/presets/${id}`, {
+      await fetch(`${API_BASE}/presets/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -178,7 +179,7 @@ export function Settings() {
 
   const handleSetDefault = async (id: string) => {
     try {
-      await fetch(`http://localhost:3001/api/v1/presets/${id}/set-default`, {
+      await fetch(`${API_BASE}/presets/${id}/set-default`, {
         method: 'POST',
         credentials: 'include'
       });

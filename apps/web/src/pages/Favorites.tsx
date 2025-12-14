@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, Trash2, ExternalLink, Star, Calendar, Search, Loader, HardDrive, Play } from 'lucide-react';
+import { API_BASE } from '@/lib/config';
 
 interface Bookmark {
   id: string;
@@ -49,7 +50,7 @@ export function Favorites() {
 
   const fetchBookmarks = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/bookmarks?enrichWithDownloadStatus=true', {
+      const res = await fetch(`${API_BASE}/bookmarks?enrichWithDownloadStatus=true`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -67,7 +68,7 @@ export function Favorites() {
     if (!confirm('Remove this bookmark?')) return;
 
     try {
-      await fetch(`http://localhost:3001/api/v1/bookmarks/${id}`, {
+      await fetch(`${API_BASE}/bookmarks/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -149,7 +150,7 @@ export function Favorites() {
       }
 
       const searchQuery = `${cleanTitle} ${bookmark.release_year || ''}`.trim();
-      const res = await fetch('http://localhost:3001/api/v1/torrents/search', {
+      const res = await fetch(`${API_BASE}/torrents/search`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -201,7 +202,7 @@ export function Favorites() {
       const category = selectedBookmark.media_type === 'movie' ? 'Movies' :
                       selectedBookmark.media_type === 'tv' ? 'TV Shows' : 'Documentaries';
 
-      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+      const res = await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -234,7 +235,7 @@ export function Favorites() {
   const openInJellyfin = async (bookmark: Bookmark) => {
     try {
       // Get Jellyfin preferences
-      const res = await fetch('http://localhost:3001/api/v1/preferences', { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/preferences`, { credentials: 'include' });
       const prefs = await res.json();
 
       if (prefs.jellyfin_server_url) {

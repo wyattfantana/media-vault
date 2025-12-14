@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { BBCDownloadOptions } from '../components/BBCDownloadOptions';
+import { API_BASE } from '@/lib/config';
 
 interface Programme {
   pid: string;
@@ -66,7 +67,7 @@ export function Browse() {
         offset: append ? String(offset + 200) : '0'
       });
 
-      const res = await fetch(`http://localhost:3001/api/v1/search/iplayer?${params}`, {
+      const res = await fetch(`${API_BASE}/search/iplayer?${params}`, {
         credentials: 'include'
       });
 
@@ -137,7 +138,7 @@ export function Browse() {
     try {
       const url = `https://www.bbc.co.uk/iplayer/episode/${programme.pid}`;
 
-      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+      const res = await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

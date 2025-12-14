@@ -10,6 +10,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
+import { API_BASE } from '@/lib/config';
 
 interface UserPreferences {
   // Download Preferences
@@ -128,7 +129,7 @@ export function Settings() {
 
   const fetchPreferences = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/preferences', {
+      const res = await fetch(`${API_BASE}/preferences`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -144,7 +145,7 @@ export function Settings() {
 
   const fetchStorageInfo = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/preferences/storage', {
+      const res = await fetch(`${API_BASE}/preferences/storage`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -163,7 +164,7 @@ export function Settings() {
     setSaveMessage('');
 
     try {
-      const res = await fetch('http://localhost:3001/api/v1/preferences', {
+      const res = await fetch(`${API_BASE}/preferences`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -189,7 +190,7 @@ export function Settings() {
     if (!confirm(`Delete all files older than ${preferences.auto_cleanup_days} days?`)) return;
 
     try {
-      const res = await fetch('http://localhost:3001/api/v1/preferences/cleanup', {
+      const res = await fetch(`${API_BASE}/preferences/cleanup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -210,7 +211,7 @@ export function Settings() {
   const fetchVPNStatus = async () => {
     try {
       // Try enhanced status first
-      const enhancedRes = await fetch('http://localhost:3001/api/v1/vpn/enhanced-status', {
+      const enhancedRes = await fetch(`${API_BASE}/vpn/enhanced-status`, {
         credentials: 'include'
       });
 
@@ -234,7 +235,7 @@ export function Settings() {
       }
 
       // Fallback to regular status
-      const res = await fetch('http://localhost:3001/api/v1/vpn/status', {
+      const res = await fetch(`${API_BASE}/vpn/status`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -249,7 +250,7 @@ export function Settings() {
   const connectVPN = async () => {
     setVpnMessage('Connecting to VPN...');
     try {
-      const res = await fetch('http://localhost:3001/api/v1/vpn/connect', {
+      const res = await fetch(`${API_BASE}/vpn/connect`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -270,7 +271,7 @@ export function Settings() {
   const disconnectVPN = async () => {
     setVpnMessage('Disconnecting from VPN...');
     try {
-      const res = await fetch('http://localhost:3001/api/v1/vpn/disconnect', {
+      const res = await fetch(`${API_BASE}/vpn/disconnect`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -290,7 +291,7 @@ export function Settings() {
   const bindQBittorrent = async () => {
     setVpnMessage('Binding qBittorrent to VPN...');
     try {
-      const res = await fetch('http://localhost:3001/api/v1/vpn/bind-qbittorrent', {
+      const res = await fetch(`${API_BASE}/vpn/bind-qbittorrent`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -311,7 +312,7 @@ export function Settings() {
   const unbindQBittorrent = async () => {
     setVpnMessage('Unbinding qBittorrent from VPN...');
     try {
-      const res = await fetch('http://localhost:3001/api/v1/vpn/unbind-qbittorrent', {
+      const res = await fetch(`${API_BASE}/vpn/unbind-qbittorrent`, {
         method: 'POST',
         credentials: 'include'
       });

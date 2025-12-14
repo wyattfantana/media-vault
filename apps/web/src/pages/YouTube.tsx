@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { VideoCardSkeleton } from '../components/VideoCardSkeleton';
 import { DownloadFormatPreview } from '../components/DownloadFormatPreview';
+import { API_BASE } from '@/lib/config';
 
 interface Video {
   id: string;
@@ -152,7 +153,7 @@ export function YouTube() {
 
   const fetchPresets = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/presets?platform=youtube', {
+      const res = await fetch(`${API_BASE}/presets?platform=youtube`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -188,7 +189,7 @@ export function YouTube() {
   const checkBookmark = async (url: string) => {
     try {
       console.log('[Bookmark Check] Checking URL:', url);
-      const res = await fetch(`http://localhost:3001/api/v1/bookmarks/check/${encodeURIComponent(url)}`, {
+      const res = await fetch(`${API_BASE}/bookmarks/check/${encodeURIComponent(url)}`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -208,7 +209,7 @@ export function YouTube() {
     try {
       if (isBookmarked) {
         // Remove bookmark
-        await fetch(`http://localhost:3001/api/v1/bookmarks/by-url/${encodeURIComponent(currentUrl)}`, {
+        await fetch(`${API_BASE}/bookmarks/by-url/${encodeURIComponent(currentUrl)}`, {
           method: 'DELETE',
           credentials: 'include'
         });
@@ -227,7 +228,7 @@ export function YouTube() {
         const videoCount = Math.max(channelInfo.videoCount || 0, videos.length);
 
         console.log('[Bookmark Save] Saving bookmark with URL:', currentUrl);
-        await fetch('http://localhost:3001/api/v1/bookmarks', {
+        await fetch(`${API_BASE}/bookmarks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -266,7 +267,7 @@ export function YouTube() {
 
       try {
         const res = await fetch(
-          `http://localhost:3001/api/v1/search/youtube?q=${encodeURIComponent(searchQuery)}&limit=50`,
+          `${API_BASE}/search/youtube?q=${encodeURIComponent(searchQuery)}&limit=50`,
           { credentials: 'include' }
         );
 
@@ -310,7 +311,7 @@ export function YouTube() {
       if (type === 'channel') {
         // Get channel videos first (this is more reliable)
         const videosRes = await fetch(
-          `http://localhost:3001/api/v1/search/youtube/channel/videos?url=${encodeURIComponent(videosUrl)}&limit=100`,
+          `${API_BASE}/search/youtube/channel/videos?url=${encodeURIComponent(videosUrl)}&limit=100`,
           { credentials: 'include' }
         );
 
@@ -326,7 +327,7 @@ export function YouTube() {
         let channelInfoFetched = false;
         try {
           const infoRes = await fetch(
-            `http://localhost:3001/api/v1/search/youtube/channel?url=${encodeURIComponent(cleanUrl)}`,
+            `${API_BASE}/search/youtube/channel?url=${encodeURIComponent(cleanUrl)}`,
             { credentials: 'include' }
           );
 
@@ -342,7 +343,7 @@ export function YouTube() {
 
             // Fetch video count in background (don't await)
             fetch(
-              `http://localhost:3001/api/v1/search/youtube/channel/count?url=${encodeURIComponent(cleanUrl)}`,
+              `${API_BASE}/search/youtube/channel/count?url=${encodeURIComponent(cleanUrl)}`,
               { credentials: 'include' }
             )
               .then(res => res.json())
@@ -353,7 +354,7 @@ export function YouTube() {
                 // If this channel is bookmarked, update the bookmark's video count
                 try {
                   const bookmarkCheckRes = await fetch(
-                    `http://localhost:3001/api/v1/bookmarks/check/${encodeURIComponent(videosUrl)}`,
+                    `${API_BASE}/bookmarks/check/${encodeURIComponent(videosUrl)}`,
                     { credentials: 'include' }
                   );
                   if (bookmarkCheckRes.ok) {
@@ -361,7 +362,7 @@ export function YouTube() {
                     if (bookmarkData.isBookmarked && bookmarkData.bookmark) {
                       // Update the bookmark with the accurate video count
                       await fetch(
-                        `http://localhost:3001/api/v1/bookmarks/${bookmarkData.bookmark.id}`,
+                        `${API_BASE}/bookmarks/${bookmarkData.bookmark.id}`,
                         {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
@@ -426,7 +427,7 @@ export function YouTube() {
 
             // Fetch accurate video count in background (same as non-fallback)
             fetch(
-              `http://localhost:3001/api/v1/search/youtube/channel/count?url=${encodeURIComponent(cleanUrl)}`,
+              `${API_BASE}/search/youtube/channel/count?url=${encodeURIComponent(cleanUrl)}`,
               { credentials: 'include' }
             )
               .then(res => res.json())
@@ -437,14 +438,14 @@ export function YouTube() {
                 // If this channel is bookmarked, update the bookmark's video count
                 try {
                   const bookmarkCheckRes = await fetch(
-                    `http://localhost:3001/api/v1/bookmarks/check/${encodeURIComponent(videosUrl)}`,
+                    `${API_BASE}/bookmarks/check/${encodeURIComponent(videosUrl)}`,
                     { credentials: 'include' }
                   );
                   if (bookmarkCheckRes.ok) {
                     const bookmarkData = await bookmarkCheckRes.json();
                     if (bookmarkData.isBookmarked && bookmarkData.bookmark) {
                       await fetch(
-                        `http://localhost:3001/api/v1/bookmarks/${bookmarkData.bookmark.id}`,
+                        `${API_BASE}/bookmarks/${bookmarkData.bookmark.id}`,
                         {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
@@ -466,7 +467,7 @@ export function YouTube() {
       } else {
         // Get playlist info first
         const infoRes = await fetch(
-          `http://localhost:3001/api/v1/search/youtube/playlist/info?url=${encodeURIComponent(cleanUrl)}`,
+          `${API_BASE}/search/youtube/playlist/info?url=${encodeURIComponent(cleanUrl)}`,
           { credentials: 'include' }
         );
 
@@ -478,7 +479,7 @@ export function YouTube() {
 
         // Get playlist videos (use clean URL for playlists)
         const res = await fetch(
-          `http://localhost:3001/api/v1/search/youtube/playlist?url=${encodeURIComponent(cleanUrl)}&limit=100`,
+          `${API_BASE}/search/youtube/playlist?url=${encodeURIComponent(cleanUrl)}&limit=100`,
           { credentials: 'include' }
         );
 
@@ -507,7 +508,7 @@ export function YouTube() {
 
       if (currentType === 'channel') {
         const res = await fetch(
-          `http://localhost:3001/api/v1/search/youtube/channel/videos?url=${encodeURIComponent(currentUrl)}&limit=100&offset=${currentOffset}`,
+          `${API_BASE}/search/youtube/channel/videos?url=${encodeURIComponent(currentUrl)}&limit=100&offset=${currentOffset}`,
           { credentials: 'include' }
         );
 
@@ -519,7 +520,7 @@ export function YouTube() {
         }
       } else {
         const res = await fetch(
-          `http://localhost:3001/api/v1/search/youtube/playlist?url=${encodeURIComponent(currentUrl)}&limit=100&offset=${currentOffset}`,
+          `${API_BASE}/search/youtube/playlist?url=${encodeURIComponent(currentUrl)}&limit=100&offset=${currentOffset}`,
           { credentials: 'include' }
         );
 
@@ -562,11 +563,11 @@ export function YouTube() {
 
       while (true) {
         const endpoint = currentType === 'channel'
-          ? `/api/v1/search/youtube/channel/videos`
-          : `/api/v1/search/youtube/playlist`;
+          ? `/search/youtube/channel/videos`
+          : `/search/youtube/playlist`;
 
         const res = await fetch(
-          `http://localhost:3001${endpoint}?url=${encodeURIComponent(currentUrl)}&limit=${batchSize}&offset=${currentOffset}`,
+          `${API_BASE}${endpoint}?url=${encodeURIComponent(currentUrl)}&limit=${batchSize}&offset=${currentOffset}`,
           { credentials: 'include' }
         );
 
@@ -628,7 +629,7 @@ export function YouTube() {
 
     for (const video of selectedVideosList) {
       try {
-        const res = await fetch('http://localhost:3001/api/v1/downloads', {
+        const res = await fetch(`${API_BASE}/downloads`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -673,7 +674,7 @@ export function YouTube() {
 
     setDownloading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+      const res = await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

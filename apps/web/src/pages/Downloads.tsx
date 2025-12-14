@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE } from '@/lib/config';
 
 interface Download {
   id: string;
@@ -56,7 +57,7 @@ export function Downloads() {
 
   const fetchDownloads = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/downloads?limit=100', {
+      const res = await fetch(`${API_BASE}/downloads?limit=100`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -90,7 +91,7 @@ export function Downloads() {
       const completedIds = downloads.filter(d => d.status === 'completed').map(d => d.id);
       await Promise.all(
         completedIds.map(id =>
-          fetch(`http://localhost:3001/api/v1/downloads/${id}`, {
+          fetch(`${API_BASE}/downloads/${id}`, {
             method: 'DELETE',
             credentials: 'include'
           })
@@ -105,12 +106,12 @@ export function Downloads() {
   const handleRetry = async (download: Download) => {
     try {
       // Delete the old download and create a new one
-      await fetch(`http://localhost:3001/api/v1/downloads/${download.id}`, {
+      await fetch(`${API_BASE}/downloads/${download.id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
 
-      await fetch('http://localhost:3001/api/v1/downloads', {
+      await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -128,7 +129,7 @@ export function Downloads() {
 
   const handlePauseTorrent = async (download: Download) => {
     try {
-      await fetch(`http://localhost:3001/api/v1/downloads/${download.id}/pause`, {
+      await fetch(`${API_BASE}/downloads/${download.id}/pause`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -140,7 +141,7 @@ export function Downloads() {
 
   const handleResumeTorrent = async (download: Download) => {
     try {
-      await fetch(`http://localhost:3001/api/v1/downloads/${download.id}/resume`, {
+      await fetch(`${API_BASE}/downloads/${download.id}/resume`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -158,7 +159,7 @@ export function Downloads() {
     if (!confirm(confirmMsg)) return;
 
     try {
-      await fetch(`http://localhost:3001/api/v1/downloads/${download.id}?deleteFiles=${deleteFiles}`, {
+      await fetch(`${API_BASE}/downloads/${download.id}?deleteFiles=${deleteFiles}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -201,7 +202,7 @@ export function Downloads() {
     setSubmitting(true);
 
     try {
-      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+      const res = await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -235,7 +236,7 @@ export function Downloads() {
     if (!confirm('Are you sure you want to delete this download?')) return;
 
     try {
-      await fetch(`http://localhost:3001/api/v1/downloads/${id}`, {
+      await fetch(`${API_BASE}/downloads/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });

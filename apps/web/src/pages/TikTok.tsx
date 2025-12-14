@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TikTokCardSkeleton } from '../components/VideoCardSkeleton';
+import { API_BASE } from '@/lib/config';
 
 interface Video {
   id: string;
@@ -61,7 +62,7 @@ export function TikTok() {
 
     try {
       const res = await fetch(
-        `http://localhost:3001/api/v1/search/extract?url=${encodeURIComponent(inputUrl)}&limit=50`,
+        `${API_BASE}/search/extract?url=${encodeURIComponent(inputUrl)}&limit=50`,
         { credentials: 'include' }
       );
 
@@ -86,7 +87,7 @@ export function TikTok() {
     setLoadingMore(true);
     try {
       const res = await fetch(
-        `http://localhost:3001/api/v1/search/extract?url=${encodeURIComponent(currentUrl)}&limit=50&offset=${videos.length}`,
+        `${API_BASE}/search/extract?url=${encodeURIComponent(currentUrl)}&limit=50&offset=${videos.length}`,
         { credentials: 'include' }
       );
       if (res.ok) {
@@ -112,7 +113,7 @@ export function TikTok() {
 
     setDownloading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+      const res = await fetch('${API_BASE}/downloads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

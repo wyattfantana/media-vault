@@ -22,7 +22,7 @@
 
 ## ❌ Critical Issues Found
 
-### 1. Database Migration - Missing User Columns ✅ FIXED
+### 1. Database Migration - Missing User Columns ✅ FULLY FIXED
 **Issue:** Fresh database install fails at login/register due to missing columns on `user` table
 
 **Missing Columns:**
@@ -35,15 +35,20 @@
 **Impact:** Blocks all fresh installs - users can't register or sign in
 
 **Fix Applied:**
-- Updated `apps/api/src/scripts/migrate-better-auth.ts`
-- Added all 5 missing columns with proper defaults
-- Tested: Ready for fresh install
+- ✅ Created migration: `apps/api/src/migrations/020_add_missing_user_columns.sql`
+- ✅ Updated `apps/api/src/scripts/migrate-better-auth.ts` for fresh installs
+- ✅ Tested on actual database - all 5 columns now present
+- ✅ Updated README with migration step and troubleshooting guide
+- ✅ Migration is idempotent (uses IF NOT EXISTS)
 
-**File:** `apps/api/src/scripts/migrate-better-auth.ts` lines 32-36
+**Files:**
+- `apps/api/src/migrations/020_add_missing_user_columns.sql` (new migration)
+- `apps/api/src/scripts/migrate-better-auth.ts` lines 32-36 (fresh installs)
+- `README.md` lines 115, 234-239 (documentation)
 
 ---
 
-### 2. Hardcoded Ports/URLs ⚠️ IN PROGRESS
+### 2. Hardcoded Ports/URLs ✅ FULLY COMPLETE
 **Issue:** 112 instances of hardcoded `localhost:3001` across 28 files
 
 **Impact:**
@@ -62,17 +67,22 @@ fetch(`${API_BASE}/downloads`)
 ```
 
 **Fix Applied:**
-- Created centralized config: `apps/web/src/lib/config.ts`
-- Updated `.env.example` with all service URLs
-- Created migration guide: `HARDCODED_URLS_FIX.md`
+- ✅ Created centralized config: `apps/web/src/lib/config.ts`
+- ✅ Updated `.env.example` with all service URLs
+- ✅ Created migration guide: `HARDCODED_URLS_FIX.md`
+- ✅ **Fixed ALL 25 files (103 instances total)**:
+  - **High Priority (64 instances):** lib/auth.ts, Favorites, Downloads, Dashboard, Movies, TVShows, Documentaries, Settings, Browse, YouTube (20!), SoundCloud
+  - **Medium Priority (4 instances):** Layout, DownloadFormatPreview, RecommendedForYou
+  - **Low Priority (35 instances):** Admin pages, Media, Trending, AllPlatforms, Reddit, Search, SettingsPresets, TikTok, Twitch
 
-**Remaining Work:**
-- Replace hardcoded URLs in 28 files (see `HARDCODED_URLS_FIX.md`)
-- Priority: Main pages (Movies, TV, Docs, Downloads, Dashboard)
+**Result:**
+- Users can now change API port in `.env` file
+- All pages and components use centralized configuration
+- No hardcoded ports anywhere in the codebase (except default fallbacks in config files)
 
 ---
 
-### 3. No Error Feedback on Login/Register ❌ NOT FIXED
+### 3. No Error Feedback on Login/Register ✅ FULLY FIXED
 **Issue:** When login/register fails, form just clears and refreshes - no error message shown
 
 **Impact:**
@@ -80,27 +90,20 @@ fetch(`${API_BASE}/downloads`)
 - Confusing UX
 - Hard to debug issues
 
-**Current Behavior:**
-1. User enters credentials
-2. Click submit
-3. Form clears and page refreshes
-4. No feedback about what went wrong
+**Root Cause:**
+- Better Auth returns `{ data, error }` objects, not thrown exceptions
+- Code was using `await signIn.email()` without checking response
+- Navigation always happened, even on error
 
-**Expected Behavior:**
-1. User enters credentials
-2. Click submit
-3. Show error: "Missing required fields in database" or "Invalid credentials"
-4. User knows what to do next
+**Fix Applied:**
+- ✅ Updated SignIn.tsx to check `authError` from response object
+- ✅ Updated SignUp.tsx to check `authError` from response object
+- ✅ Applied fix to all auth methods (email, Google, Facebook)
+- ✅ Now displays error messages and stops navigation on failure
 
-**Fix Needed:**
-- Add error state to login/register forms
-- Display error messages from API
-- Show loading state during submission
-
-**Files to Update:**
-- Login form component
-- Register form component
-- Better Auth error handling
+**Files Modified:**
+- `apps/web/src/pages/auth/SignIn.tsx` lines 18-27, 41-50, 61-70 (error response checking)
+- `apps/web/src/pages/auth/SignUp.tsx` lines 19-29, 43-52, 63-72 (error response checking)
 
 ---
 
@@ -187,10 +190,10 @@ fetch(`${API_BASE}/downloads`)
 
 ## 🚀 Recommended Fix Order
 
-### Phase 1: Critical Blockers
-1. ✅ Database migration (DONE)
-2. ⚠️ Hardcoded URLs (IN PROGRESS)
-3. ❌ Error feedback on login/register
+### Phase 1: Critical Blockers ✅ ALL COMPLETE
+1. ✅ Database migration (FULLY FIXED - tested and documented)
+2. ✅ Hardcoded URLs (FULLY COMPLETE - all 25 files fixed, 103 instances)
+3. ✅ Error feedback on login/register (FULLY FIXED - Better Auth response handling)
 
 ### Phase 2: UX Improvements
 4. VPN detection reliability

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE } from '@/lib/config';
 
 interface MediaItem {
   id: string;
@@ -40,7 +41,7 @@ export function Media() {
       params.append('sortOrder', sortOrder);
       params.append('limit', '100'); // Increased limit for library view
 
-      const res = await fetch(`http://localhost:3001/api/v1/media?${params}`, {
+      const res = await fetch(`${API_BASE}/media?${params}`, {
         credentials: 'include'
       });
 
@@ -64,7 +65,7 @@ export function Media() {
     if (!confirm('Delete this media file from the database? (File will not be deleted)')) return;
 
     try {
-      await fetch(`http://localhost:3001/api/v1/media/${id}`, {
+      await fetch(`${API_BASE}/media/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -86,7 +87,7 @@ export function Media() {
     try {
       await Promise.all(
         Array.from(selectedItems).map(id =>
-          fetch(`http://localhost:3001/api/v1/media/${id}`, {
+          fetch(`${API_BASE}/media/${id}`, {
             method: 'DELETE',
             credentials: 'include'
           })
@@ -472,7 +473,7 @@ export function Media() {
 
                 <div className="flex gap-2">
                   <a
-                    href={`http://localhost:3001/api/v1/media/${item.id}/stream`}
+                    href={`${API_BASE}/media/${item.id}/stream`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 px-3 py-1.5 bg-brand-600 text-white text-sm rounded hover:bg-brand-700 text-center"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '@/lib/config';
 
 interface SystemStats {
   totalClients: number;
@@ -19,7 +20,7 @@ export function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:3001/system/control/stats', {
+      const response = await fetch('${API_URL}/system/control/stats', {
         credentials: 'include',
       });
 
@@ -44,7 +45,7 @@ export function AdminDashboard() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3001/system/control/logout', {
+      await fetch('${API_URL}/system/control/logout', {
         method: 'POST',
         credentials: 'include',
       });

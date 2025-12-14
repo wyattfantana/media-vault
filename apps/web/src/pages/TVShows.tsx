@@ -3,6 +3,7 @@ import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, Chev
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
 import { searchCache } from '../utils/searchCache';
+import { API_BASE } from '@/lib/config';
 
 interface TVShow {
   id: number;
@@ -109,8 +110,6 @@ export default function TVShows() {
     sortBy: 'vote_average.desc' as 'vote_average.desc' | 'popularity.desc' | 'release_date.desc' | 'vote_count.desc'
   });
   const [showGenreFilters, setShowGenreFilters] = useState(false);
-
-  const API_BASE = 'http://localhost:3001/api/v1';
 
   const restoringScroll = React.useRef(false);
   const scrollPositionSaved = React.useRef(false);

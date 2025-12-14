@@ -16,16 +16,22 @@ export function SignUp() {
     setLoading(true);
 
     try {
-      await signUp.email({
+      const { data, error: authError } = await signUp.email({
         name,
         email,
         password,
       });
+
+      if (authError) {
+        setError(authError.message || 'Failed to sign up');
+        setLoading(false);
+        return;
+      }
+
       // Redirect to dashboard after successful sign-up
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up');
-    } finally {
       setLoading(false);
     }
   };
@@ -34,10 +40,16 @@ export function SignUp() {
     setError('');
     setLoading(true);
     try {
-      await signUp.social({
+      const { data, error: authError } = await signUp.social({
         provider: 'google',
         callbackURL: '/dashboard',
       });
+
+      if (authError) {
+        setError(authError.message || 'Failed to sign up with Google');
+        setLoading(false);
+        return;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up with Google');
       setLoading(false);
@@ -48,10 +60,16 @@ export function SignUp() {
     setError('');
     setLoading(true);
     try {
-      await signUp.social({
+      const { data, error: authError } = await signUp.social({
         provider: 'facebook',
         callbackURL: '/dashboard',
       });
+
+      if (authError) {
+        setError(authError.message || 'Failed to sign up with Facebook');
+        setLoading(false);
+        return;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up with Facebook');
       setLoading(false);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { API_BASE } from '@/lib/config';
 
 interface Stats {
   downloads: {
@@ -58,7 +59,7 @@ export function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch download stats
-      const downloadsRes = await fetch('http://localhost:3001/api/v1/downloads?limit=5', {
+      const downloadsRes = await fetch(`${API_BASE}/downloads?limit=5`, {
         credentials: 'include'
       });
 
@@ -76,7 +77,7 @@ export function Dashboard() {
         };
 
         // Fetch media stats
-        const mediaRes = await fetch('http://localhost:3001/api/v1/media/stats', {
+        const mediaRes = await fetch(`${API_BASE}/media/stats`, {
           credentials: 'include'
         });
 
@@ -91,8 +92,8 @@ export function Dashboard() {
 
       // Fetch analytics data
       const [platformRes, storageRes] = await Promise.all([
-        fetch('http://localhost:3001/api/v1/analytics/platform-distribution', { credentials: 'include' }),
-        fetch('http://localhost:3001/api/v1/analytics/storage-breakdown', { credentials: 'include' })
+        fetch(`${API_BASE}/analytics/platform-distribution`, { credentials: 'include' }),
+        fetch(`${API_BASE}/analytics/storage-breakdown`, { credentials: 'include' })
       ]);
 
       if (platformRes.ok) {

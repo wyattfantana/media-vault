@@ -106,6 +106,16 @@ PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault
 PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/008_add_quality_format_columns.sql
 PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/009_create_user_preferences.sql
 PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/010_add_vpn_preferences.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/014_add_iplayer_to_jellyfin_paths.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/015_convert_jellyfin_paths_to_array.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/016_add_api_keys_and_paths.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/017_add_tmdb_watchlist_support.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/018_add_tmdb_id_to_downloads.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/019_add_tmdb_id_to_media.sql
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/020_add_missing_user_columns.sql
+
+# Run Better Auth migration (creates user and session tables)
+npm run migration:run
 ```
 
 **4. Configure your settings:**
@@ -220,6 +230,13 @@ tmux kill-session -t qbittorrent
 ---
 
 ## ❓ Troubleshooting
+
+**Login/Register not working? (Error about missing columns)**
+If you see errors about missing `twoFactorEnabled`, `banReason`, or `banExpires` columns, your database needs migration 020:
+```bash
+cd apps/api
+PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/020_add_missing_user_columns.sql
+```
 
 **Downloads not starting?**
 The worker might not be running. Restart with `~/start-mediavault.sh`

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TrackCardSkeleton } from '../components/VideoCardSkeleton';
+import { API_BASE } from '@/lib/config';
 
 interface Track {
   id: string;
@@ -123,7 +124,7 @@ export function SoundCloud() {
 
   const fetchPresets = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/v1/presets?platform=soundcloud', {
+      const res = await fetch(`${API_BASE}/presets?platform=soundcloud`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -151,7 +152,7 @@ export function SoundCloud() {
   const checkBookmark = async (url: string) => {
     try {
       const res = await fetch(
-        `http://localhost:3001/api/v1/bookmarks/check/${encodeURIComponent(url)}`,
+        `${API_BASE}/bookmarks/check/${encodeURIComponent(url)}`,
         { credentials: 'include' }
       );
       if (res.ok) {
@@ -190,7 +191,7 @@ export function SoundCloud() {
     try {
       // Search for tracks (100 to match YouTube initial load)
       const res = await fetch(
-        `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(searchQuery)}&sources=soundcloud&limit=100`,
+        `${API_BASE}/search/unified?q=${encodeURIComponent(searchQuery)}&sources=soundcloud&limit=100`,
         { credentials: 'include' }
       );
 
@@ -274,7 +275,7 @@ export function SoundCloud() {
 
       if (isSearch) {
         const res = await fetch(
-          `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(currentUrl)}&sources=soundcloud&limit=50&offset=${currentOffset}`,
+          `${API_BASE}/search/unified?q=${encodeURIComponent(currentUrl)}&sources=soundcloud&limit=50&offset=${currentOffset}`,
           { credentials: 'include' }
         );
 
@@ -296,7 +297,7 @@ export function SoundCloud() {
         }
       } else {
         const res = await fetch(
-          `http://localhost:3001/api/v1/search/extract?url=${encodeURIComponent(currentUrl)}&limit=50&offset=${currentOffset}`,
+          `${API_BASE}/search/extract?url=${encodeURIComponent(currentUrl)}&limit=50&offset=${currentOffset}`,
           { credentials: 'include' }
         );
 
@@ -334,7 +335,7 @@ export function SoundCloud() {
         // Remove bookmark
         console.log('[Bookmark] Removing bookmark for URL:', artistInfo.url);
         const res = await fetch(
-          `http://localhost:3001/api/v1/bookmarks?url=${encodeURIComponent(artistInfo.url)}`,
+          `${API_BASE}/bookmarks?url=${encodeURIComponent(artistInfo.url)}`,
           {
             method: 'DELETE',
             credentials: 'include'
@@ -352,7 +353,7 @@ export function SoundCloud() {
         }
       } else {
         // Add bookmark
-        const res = await fetch('http://localhost:3001/api/v1/bookmarks', {
+        const res = await fetch(`${API_BASE}/bookmarks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -403,7 +404,7 @@ export function SoundCloud() {
       // So just search with maximum limit to get as many results as possible
       console.log(`[Load All] Searching for all tracks matching: ${currentUrl}`);
       const res = await fetch(
-        `http://localhost:3001/api/v1/search/unified?q=${encodeURIComponent(currentUrl)}&sources=soundcloud&limit=500`,
+        `${API_BASE}/search/unified?q=${encodeURIComponent(currentUrl)}&sources=soundcloud&limit=500`,
         { credentials: 'include' }
       );
 
@@ -433,14 +434,14 @@ export function SoundCloud() {
           if (isBookmarked && artistInfo.url) {
             try {
               const bookmarkRes = await fetch(
-                `http://localhost:3001/api/v1/bookmarks/check/${encodeURIComponent(artistInfo.url)}`,
+                `${API_BASE}/bookmarks/check/${encodeURIComponent(artistInfo.url)}`,
                 { credentials: 'include' }
               );
               if (bookmarkRes.ok) {
                 const bookmarkData = await bookmarkRes.json();
                 if (bookmarkData.isBookmarked && bookmarkData.bookmark) {
                   await fetch(
-                    `http://localhost:3001/api/v1/bookmarks/${bookmarkData.bookmark.id}`,
+                    `${API_BASE}/bookmarks/${bookmarkData.bookmark.id}`,
                     {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
@@ -477,7 +478,7 @@ export function SoundCloud() {
 
     setDownloading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+      const res = await fetch(`${API_BASE}/downloads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
