@@ -29,6 +29,11 @@ async function migrate() {
       .addColumn('image', 'text')
       .addColumn('createdAt', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
       .addColumn('updatedAt', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
+      .addColumn('twoFactorEnabled', 'boolean', (col) => col.defaultTo(false))
+      .addColumn('role', 'text', (col) => col.defaultTo('user'))
+      .addColumn('banned', 'boolean', (col) => col.defaultTo(false))
+      .addColumn('banReason', 'text')
+      .addColumn('banExpires', 'timestamp')
       .execute();
     console.log('✓ Created user table');
 

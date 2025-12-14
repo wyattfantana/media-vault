@@ -1,5 +1,6 @@
 // Simple API client for REST endpoints
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Centralized API URL configuration - reads from environment variable
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 class APIClient {
   private baseURL: string;
