@@ -10,6 +10,7 @@ export const MovieFilterSchema = z.object({
   year: z.number().min(1900).max(2100).optional(),
   minRating: z.number().min(0).max(10).default(0),
   minVotes: z.number().min(0).default(0),
+  originCountries: z.array(z.string()).optional(),
   sortBy: z.enum([
     'popularity.desc',
     'popularity.asc',
@@ -33,6 +34,7 @@ export const TVFilterSchema = z.object({
   yearTo: z.number().min(1900).max(2100).optional(),
   minRating: z.number().min(0).max(10).default(0),
   minVotes: z.number().min(0).default(0),
+  originCountries: z.array(z.string()).optional(),
   sortBy: z.enum([
     'popularity.desc',
     'popularity.asc',
@@ -55,6 +57,7 @@ export const DocumentaryFilterSchema = z.object({
   year: z.number().min(1900).max(2100).optional(),
   minRating: z.number().min(0).max(10).default(0),
   minVotes: z.number().min(0).default(0),
+  originCountries: z.array(z.string()).optional(),
   sortBy: z.enum([
     'popularity.desc',
     'popularity.asc',

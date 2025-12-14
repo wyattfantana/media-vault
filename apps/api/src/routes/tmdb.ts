@@ -443,6 +443,15 @@ router.get('/upcoming/movies', async (req, res) => {
  */
 router.get('/popular/tv', async (req, res) => {
   try {
+    // Parse origin_countries (can be comma-separated string or array)
+    let origin_countries: string[] | undefined;
+    if (req.query.origin_countries) {
+      const param = req.query.origin_countries;
+      origin_countries = Array.isArray(param)
+        ? param.map(p => String(p))
+        : String(param).split(',');
+    }
+
     const filters = {
       genre: req.query.genre as string | undefined,
       exclude_genres: req.query.exclude_genres as string | undefined,
@@ -451,7 +460,8 @@ router.get('/popular/tv', async (req, res) => {
       min_votes: req.query.min_votes !== undefined ? parseInt(req.query.min_votes as string) : undefined,
       year_from: req.query.year_from ? parseInt(req.query.year_from as string) : undefined,
       year_to: req.query.year_to ? parseInt(req.query.year_to as string) : undefined,
-      sort_by: (req.query.sort_by as any) || 'popularity.desc'
+      sort_by: (req.query.sort_by as any) || 'popularity.desc',
+      origin_countries
     };
 
     const enrich = req.query.enrich === 'true';
@@ -462,7 +472,7 @@ router.get('/popular/tv', async (req, res) => {
 
     // Check if any filters (other than sortBy) are applied
     const hasActualFilters = filters.genre || filters.exclude_genres || filters.min_rating || filters.min_votes ||
-                             filters.year_from || filters.year_to;
+                             filters.year_from || filters.year_to || filters.origin_countries;
 
     let results;
     if (hasActualFilters || filters.sort_by !== 'popularity.desc') {
@@ -474,7 +484,8 @@ router.get('/popular/tv', async (req, res) => {
         year_from: filters.year_from,
         year_to: filters.year_to,
         sort_by: filters.sort_by,
-        page: filters.page
+        page: filters.page,
+        origin_countries: filters.origin_countries
       };
 
       // Only add min_rating if it's greater than 0
@@ -567,13 +578,24 @@ router.get('/trending/:mediaType/:timeWindow', async (req, res) => {
  */
 router.get('/discover/movies', async (req, res) => {
   try {
+    // Parse origin_countries (can be comma-separated string or array)
+    let origin_countries: string[] | undefined;
+    if (req.query.origin_countries) {
+      const param = req.query.origin_countries;
+      origin_countries = Array.isArray(param)
+        ? param.map(p => String(p))
+        : String(param).split(',');
+    }
+
     const filters = {
       genre: req.query.genre as string | undefined,
+      exclude_genres: req.query.exclude_genres as string | undefined,
       year: req.query.year ? parseInt(req.query.year as string) : undefined,
       sort_by: (req.query.sort_by as any) || 'vote_average.desc',
       page: req.query.page ? parseInt(req.query.page as string) : 1,
       min_rating: req.query.min_rating !== undefined ? parseFloat(req.query.min_rating as string) : undefined,
-      min_votes: req.query.min_votes !== undefined ? parseInt(req.query.min_votes as string) : undefined
+      min_votes: req.query.min_votes !== undefined ? parseInt(req.query.min_votes as string) : undefined,
+      origin_countries
     };
 
     const enrich = req.query.enrich === 'true';

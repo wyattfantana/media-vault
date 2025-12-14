@@ -97,7 +97,8 @@ export default function TVShows() {
     yearTo: null as number | null,
     sortBy: 'popularity.desc' as 'vote_average.desc' | 'popularity.desc' | 'first_air_date.desc',
     selectedGenres: [] as number[],
-    excludeGenres: [] as number[]
+    excludeGenres: [] as number[],
+    originCountries: [] as string[]
   });
   const [showAllShowsFilters, setShowAllShowsFilters] = useState(false);
   const [activePreset, setActivePreset] = useState<string | null>(null);
@@ -536,7 +537,7 @@ export default function TVShows() {
       }, 500); // Debounce for 500ms
       return () => clearTimeout(timeoutId);
     }
-  }, [allShowsFilters.minRating, allShowsFilters.minVotes, allShowsFilters.sortBy, allShowsFilters.yearFrom, allShowsFilters.yearTo, allShowsFilters.selectedGenres, allShowsFilters.excludeGenres]);
+  }, [allShowsFilters.minRating, allShowsFilters.minVotes, allShowsFilters.sortBy, allShowsFilters.yearFrom, allShowsFilters.yearTo, allShowsFilters.selectedGenres, allShowsFilters.excludeGenres, allShowsFilters.originCountries]);
 
   const fetchAllShows = async (page: number, mode: 'all-shows' | 'top-rated', append = false) => {
     setAllShowsLoading(true);
@@ -595,6 +596,9 @@ export default function TVShows() {
       }
       if (allShowsFilters.excludeGenres && allShowsFilters.excludeGenres.length > 0) {
         baseUrl += `&exclude_genres=${allShowsFilters.excludeGenres.join(',')}`;
+      }
+      if (allShowsFilters.originCountries && allShowsFilters.originCountries.length > 0) {
+        baseUrl += `&origin_countries=${allShowsFilters.originCountries.join(',')}`;
       }
 
       console.log('Loading with URL:', baseUrl);
@@ -1348,7 +1352,8 @@ export default function TVShows() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1360,7 +1365,8 @@ export default function TVShows() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('worth-watching');
                         }
@@ -1384,7 +1390,8 @@ export default function TVShows() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1396,7 +1403,8 @@ export default function TVShows() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('quality');
                         }
@@ -1420,7 +1428,8 @@ export default function TVShows() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1432,7 +1441,8 @@ export default function TVShows() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('elite');
                         }
@@ -1444,6 +1454,74 @@ export default function TVShows() {
                       }`}
                     >
                       🏆 Elite Only (7.5+)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Additional Filters */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Additional Filters</label>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => {
+                        setAllShowsFilters(prev => {
+                          const currentExclusions = [16, 10762, 10764, 10767];
+                          const hasAllExclusions = currentExclusions.every(id => prev.excludeGenres.includes(id));
+                          if (hasAllExclusions) {
+                            // Remove kids/anime exclusions (keep reality/talk)
+                            return {
+                              ...prev,
+                              excludeGenres: prev.excludeGenres.filter(id => id !== 16 && id !== 10762)
+                            };
+                          } else {
+                            // Add kids/anime exclusions
+                            const newExclusions = [...prev.excludeGenres];
+                            currentExclusions.forEach(id => {
+                              if (!newExclusions.includes(id)) newExclusions.push(id);
+                            });
+                            return {
+                              ...prev,
+                              excludeGenres: newExclusions
+                            };
+                          }
+                        });
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allShowsFilters.excludeGenres.includes(16) && allShowsFilters.excludeGenres.includes(10762)
+                          ? 'bg-red-600 text-white ring-2 ring-red-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                    >
+                      🚫 No Kids/Anime
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setAllShowsFilters(prev => {
+                          const isActive = prev.originCountries.length > 0;
+                          if (isActive) {
+                            // Remove English-speaking filter
+                            return {
+                              ...prev,
+                              originCountries: []
+                            };
+                          } else {
+                            // Add English-speaking countries (US, UK, Canada, Australia, New Zealand, Ireland)
+                            return {
+                              ...prev,
+                              originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
+                            };
+                          }
+                        });
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allShowsFilters.originCountries.length > 0
+                          ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-blue-600'
+                      }`}
+                      title="Filter to English-speaking countries: US, UK, Canada, Australia, New Zealand, Ireland"
+                    >
+                      🇺🇸🇬🇧 English Only
                     </button>
                   </div>
                 </div>

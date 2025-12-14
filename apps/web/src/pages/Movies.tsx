@@ -94,7 +94,8 @@ export default function Movies() {
     yearTo: null as number | null,
     sortBy: 'popularity.desc' as 'vote_average.desc' | 'popularity.desc' | 'release_date.desc',
     selectedGenres: [] as number[],
-    excludeGenres: [] as number[]
+    excludeGenres: [] as number[],
+    originCountries: [] as string[]
   });
   const [showAllMoviesFilters, setShowAllMoviesFilters] = useState(false);
   const [activePreset, setActivePreset] = useState<string | null>(null);
@@ -211,7 +212,7 @@ export default function Movies() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [allMoviesFilters.minRating, allMoviesFilters.minVotes, allMoviesFilters.sortBy, allMoviesFilters.yearFrom, allMoviesFilters.yearTo, allMoviesFilters.selectedGenres, allMoviesFilters.excludeGenres]);
+  }, [allMoviesFilters.minRating, allMoviesFilters.minVotes, allMoviesFilters.sortBy, allMoviesFilters.yearFrom, allMoviesFilters.yearTo, allMoviesFilters.selectedGenres, allMoviesFilters.excludeGenres, allMoviesFilters.originCountries]);
 
   // Save browse state to sessionStorage when it changes
   useEffect(() => {
@@ -375,8 +376,9 @@ export default function Movies() {
   const fetchGenreSection = async (genreId: number, genreName: string, emoji: string) => {
     try {
       // Browse mode: Show ONLY the best of the best (7.5+, 2000+ votes)
+      // Always exclude documentaries (99), music (10402), and TV movies (10770)
       const res = await fetch(
-        `${API_BASE}/tmdb/discover/movies?genre=${genreId}&sort_by=vote_average.desc&page=1&min_rating=7.5&min_votes=2000`,
+        `${API_BASE}/tmdb/discover/movies?genre=${genreId}&sort_by=vote_average.desc&page=1&min_rating=7.5&min_votes=2000&exclude_genres=99,10402,10770`,
         { credentials: 'include' }
       );
       if (res.ok) {
@@ -426,7 +428,8 @@ export default function Movies() {
   ) => {
     setGenreLoading(true);
     try {
-      let url = `${API_BASE}/tmdb/discover/movies?genre=${genreId}&sort_by=${filters.sortBy}&page=${page}&enrich=true`;
+      // Always exclude documentaries (99), music (10402), and TV movies (10770)
+      let url = `${API_BASE}/tmdb/discover/movies?genre=${genreId}&sort_by=${filters.sortBy}&page=${page}&enrich=true&exclude_genres=99,10402,10770`;
       if (filters.minRating > 0) url += `&min_rating=${filters.minRating}`;
       if (filters.minVotes > 0) url += `&min_votes=${filters.minVotes}`;
       if (filters.year) url += `&year=${filters.year}`;
@@ -546,8 +549,13 @@ export default function Movies() {
       if (allMoviesFilters.selectedGenres.length > 0) {
         url += `&genre=${allMoviesFilters.selectedGenres.join(',')}`;
       }
-      if (allMoviesFilters.excludeGenres && allMoviesFilters.excludeGenres.length > 0) {
-        url += `&exclude_genres=${allMoviesFilters.excludeGenres.join(',')}`;
+
+      // Always exclude documentaries (99), music (10402), and TV movies (10770), plus any user exclusions
+      const autoExclude = [99, 10402, 10770]; // Documentary, Music, and TV Movie genres
+      const userExclude = allMoviesFilters.excludeGenres || [];
+      const allExclusions = [...new Set([...autoExclude, ...userExclude])]; // Merge and deduplicate
+      if (allExclusions.length > 0) {
+        url += `&exclude_genres=${allExclusions.join(',')}`;
       }
 
       const res = await fetch(url, { credentials: 'include' });
@@ -583,8 +591,17 @@ export default function Movies() {
       if (allMoviesFilters.selectedGenres.length > 0) {
         baseUrl += `&genre=${allMoviesFilters.selectedGenres.join(',')}`;
       }
-      if (allMoviesFilters.excludeGenres && allMoviesFilters.excludeGenres.length > 0) {
-        baseUrl += `&exclude_genres=${allMoviesFilters.excludeGenres.join(',')}`;
+
+      // Always exclude documentaries (99), music (10402), and TV movies (10770), plus any user exclusions
+      const autoExclude = [99, 10402, 10770]; // Documentary, Music, and TV Movie genres
+      const userExclude = allMoviesFilters.excludeGenres || [];
+      const allExclusions = [...new Set([...autoExclude, ...userExclude])]; // Merge and deduplicate
+      if (allExclusions.length > 0) {
+        baseUrl += `&exclude_genres=${allExclusions.join(',')}`;
+      }
+
+      if (allMoviesFilters.originCountries && allMoviesFilters.originCountries.length > 0) {
+        baseUrl += `&origin_countries=${allMoviesFilters.originCountries.join(',')}`;
       }
 
       // Fetch pages in parallel
@@ -1339,7 +1356,8 @@ export default function Movies() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1351,7 +1369,8 @@ export default function Movies() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('worth-watching');
                         }
@@ -1375,7 +1394,8 @@ export default function Movies() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1387,7 +1407,8 @@ export default function Movies() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('quality');
                         }
@@ -1411,7 +1432,8 @@ export default function Movies() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1423,7 +1445,8 @@ export default function Movies() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('elite');
                         }
@@ -1435,6 +1458,72 @@ export default function Movies() {
                       }`}
                     >
                       🏆 Elite Only (7.5+)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Additional Filters */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Additional Filters</label>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => {
+                        setAllMoviesFilters(prev => {
+                          const hasExclusions = prev.excludeGenres.includes(16) && prev.excludeGenres.includes(10751);
+                          if (hasExclusions) {
+                            // Remove exclusions
+                            return {
+                              ...prev,
+                              excludeGenres: prev.excludeGenres.filter(id => id !== 16 && id !== 10751)
+                            };
+                          } else {
+                            // Add exclusions
+                            const newExclusions = [...prev.excludeGenres];
+                            if (!newExclusions.includes(16)) newExclusions.push(16);
+                            if (!newExclusions.includes(10751)) newExclusions.push(10751);
+                            return {
+                              ...prev,
+                              excludeGenres: newExclusions
+                            };
+                          }
+                        });
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allMoviesFilters.excludeGenres.includes(16) && allMoviesFilters.excludeGenres.includes(10751)
+                          ? 'bg-red-600 text-white ring-2 ring-red-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                    >
+                      🚫 No Kids/Anime
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setAllMoviesFilters(prev => {
+                          const isActive = prev.originCountries.length > 0;
+                          if (isActive) {
+                            // Remove English-speaking filter
+                            return {
+                              ...prev,
+                              originCountries: []
+                            };
+                          } else {
+                            // Add English-speaking countries (US, UK, Canada, Australia, New Zealand, Ireland)
+                            return {
+                              ...prev,
+                              originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
+                            };
+                          }
+                        });
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allMoviesFilters.originCountries.length > 0
+                          ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-blue-600'
+                      }`}
+                      title="Filter to English-speaking countries: US, UK, Canada, Australia, New Zealand, Ireland"
+                    >
+                      🇺🇸🇬🇧 English Only
                     </button>
                   </div>
                 </div>

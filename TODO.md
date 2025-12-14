@@ -255,7 +255,81 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-14 (Session 16) ✅ COMPLETED
+### Current Session: 2025-12-14 (Session 17) ⚠️ IN PROGRESS
+**Focus:** Filter System Improvements & Genre Exclusions
+**Status:** ⚠️ IN PROGRESS (Good progress, still WIP)
+**Completed:**
+- [x] **Simplified filter UI** - Reduced to 3 rating preset buttons
+  - Removed extra presets (Modern Classics, Hidden Gems, IMDB Top 250, Saved Filters)
+  - Kept only: Worth Watching (5.5+), Quality (6.5+), Elite (7.5+)
+  - Applied to Movies, TV Shows, and Documentaries pages
+- [x] **Lowered filter thresholds** - Get more quality results
+  - Worth Watching: 5.5+ rating, 25+ votes
+  - Quality: 6.5+ rating, 50+ votes
+  - Elite: 7.5+ rating, 100+ votes
+  - Elite now shows 2,128+ movies, 1,388+ shows, 201+ docs (much better than before)
+- [x] **Made genre filters collapsible** - Save space with dropdown
+  - Used HTML `<details>` element for clean UI
+  - Shows "included" (green) vs "excluded" (red) genres
+  - Much cleaner filter panel
+- [x] **Added loading indicators** - Show when filters change
+  - Prominent loading message: "Loading movies/shows/documentaries... Please wait while we fetch more results"
+  - Moved to results header for better visibility
+  - Added originCountries to useEffect dependency arrays to trigger reload
+- [x] **Show filtered + total catalog counts** - Better context
+  - When filters active: Shows "Filtered: 2,128+ matching movies" AND "Total catalog: 1,082,951+ movies"
+  - Users can see how many results match filters vs full catalog
+- [x] **Added "No Kids/Anime" filter** - Exclude family content
+  - Movies: Excludes Animation (16) and Family (10751)
+  - TV Shows: Excludes Animation (16), Kids (10762), Reality (10764), Talk (10767)
+  - Documentaries: Excludes Animation (16) and Family (10751)
+- [x] **Added "English Only" filter** - Western countries content
+  - Button renamed from "Western Only" to "🇺🇸🇬🇧 English Only" for clarity
+  - Filters to: US, GB, CA, AU, NZ, IE (English-speaking countries)
+  - Tooltip shows full country list to avoid confusion with Western genre
+  - Backend fully wired: originCountries → with_origin_country TMDB API param
+- [x] **Fixed Movies tab genre exclusions** - Only narrative movies
+  - Always excludes Documentary (99), Music/Concert films (10402), TV Movies (10770)
+  - Removes: Concert films (BTS, Michael Jackson, Queen), stand-up specials (Franco Escamilla), documentaries
+  - Movies tab now shows ONLY theatrical narrative movies
+  - Updated all 4 API call locations in Movies.tsx
+  - Backend route fixed to accept and pass exclude_genres parameter
+  - TMDB service updated to use without_genres parameter
+
+**Implementation Details:**
+- Frontend: Movies.tsx, TVShows.tsx, Documentaries.tsx - Filter UI changes
+- Backend: tmdb.ts routes - Added exclude_genres parameter extraction
+- Backend: tmdb.service.ts - Added exclude_genres to discoverMovies function, uses without_genres for TMDB API
+- Schemas: filters.schema.ts - Added originCountries field
+- SessionStorage: Auto-clears old cached movies to force fresh API calls with new exclusions
+
+**Files Modified:**
+- `apps/web/src/pages/Movies.tsx` - All filter changes, genre exclusions (99, 10402, 10770)
+- `apps/web/src/pages/TVShows.tsx` - Same filter pattern as Movies
+- `apps/web/src/pages/Documentaries.tsx` - Same filter pattern as Movies
+- `apps/api/src/routes/tmdb.ts` - Accept exclude_genres, origin_countries from query
+- `apps/api/src/services/tmdb.service.ts` - Pass exclude_genres, origin_countries to TMDB API
+- `apps/api/src/schemas/filters.schema.ts` - Added originCountries field
+
+**User Feedback:**
+- "ok good, this will do for now" - After fixing Movies to exclude docs/concerts/TV movies
+- Noted documentaries, concerts, and stand-up specials still available in Documentaries and TV Shows tabs (as expected)
+
+**Next Session Start Point:**
+→ Filter improvements in progress. Still TODO from FILTERS-ARCHITECTURE-IMPROVEMENTS.md:
+  - Phase 2: Performance optimizations (caching, debouncing)
+  - Phase 3: Advanced filters (runtime, keywords, cast/crew)
+  - Consider: Quick filter sidebar, make sort options more visible
+
+**Notes:**
+- Movies tab now properly separates narrative films from documentaries/concerts/TV movies
+- All excluded content still available in appropriate tabs (Docs tab for documentaries, etc.)
+- Filter thresholds balanced for quality vs quantity
+- English Only filter helps users avoid non-English content while allowing high-quality exceptions
+
+---
+
+### Session: 2025-12-14 (Session 16) ✅ COMPLETED
 **Focus:** Dark Theme Completion & Favorites Enhancements
 **Status:** ✅ COMPLETED
 **Completed:**

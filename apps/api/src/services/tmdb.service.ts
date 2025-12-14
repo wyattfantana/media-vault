@@ -522,11 +522,13 @@ export class TMDBService {
    */
   async discoverMovies(filters: {
     genre?: string | number;
+    exclude_genres?: string | number;
     year?: number;
     sort_by?: 'popularity.desc' | 'vote_average.desc' | 'release_date.desc' | 'vote_count.desc';
     page?: number;
     min_rating?: number;
     min_votes?: number;
+    origin_countries?: string[];
   } = {}): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       // Apply consistent min_votes defaults based on sort type
@@ -540,7 +542,9 @@ export class TMDBService {
         params: {
           api_key: this.apiKey,
           with_genres: filters.genre,
+          without_genres: filters.exclude_genres, // Exclude documentaries, music, etc.
           primary_release_year: filters.year, // Movies use single year
+          with_origin_country: filters.origin_countries?.join('|'), // Western filter (US|GB|CA|AU|NZ|IE)
           sort_by: sortBy,
           page: filters.page || 1,
           'vote_average.gte': minRating > 0 ? minRating : undefined,
@@ -572,6 +576,7 @@ export class TMDBService {
     page?: number;
     min_rating?: number;
     min_votes?: number;
+    origin_countries?: string[];
   } = {}): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
     try {
       // Apply consistent min_votes defaults based on sort type (NOW MATCHES MOVIES)
@@ -588,6 +593,7 @@ export class TMDBService {
           without_genres: filters.exclude_genres,
           'first_air_date.gte': filters.year_from ? `${filters.year_from}-01-01` : undefined, // TV supports year ranges
           'first_air_date.lte': filters.year_to ? `${filters.year_to}-12-31` : undefined,
+          with_origin_country: filters.origin_countries?.join('|'), // Western filter (US|GB|CA|AU|NZ|IE)
           sort_by: sortBy,
           page: filters.page || 1,
           'vote_average.gte': minRating > 0 ? minRating : undefined,

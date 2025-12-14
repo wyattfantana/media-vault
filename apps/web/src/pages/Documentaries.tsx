@@ -88,7 +88,8 @@ export default function Documentaries() {
     yearTo: null as number | null,
     sortBy: 'popularity.desc' as 'vote_average.desc' | 'popularity.desc' | 'release_date.desc',
     selectedGenres: [] as number[],
-    excludeGenres: [] as number[]
+    excludeGenres: [] as number[],
+    originCountries: [] as string[]
   });
   const [showAllDocumentariesFilters, setShowAllDocumentariesFilters] = useState(false);
   const [activePreset, setActivePreset] = useState<string | null>(null);
@@ -172,7 +173,7 @@ export default function Documentaries() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [allDocumentariesFilters.minRating, allDocumentariesFilters.minVotes, allDocumentariesFilters.sortBy, allDocumentariesFilters.yearFrom, allDocumentariesFilters.yearTo, allDocumentariesFilters.selectedGenres, allDocumentariesFilters.excludeGenres]);
+  }, [allDocumentariesFilters.minRating, allDocumentariesFilters.minVotes, allDocumentariesFilters.sortBy, allDocumentariesFilters.yearFrom, allDocumentariesFilters.yearTo, allDocumentariesFilters.selectedGenres, allDocumentariesFilters.excludeGenres, allDocumentariesFilters.originCountries]);
 
   // Save browse state to sessionStorage when it changes
   useEffect(() => {
@@ -566,6 +567,9 @@ export default function Documentaries() {
       }
       if (allDocumentariesFilters.excludeGenres && allDocumentariesFilters.excludeGenres.length > 0) {
         baseUrl += `&exclude_genres=${allDocumentariesFilters.excludeGenres.join(',')}`;
+      }
+      if (allDocumentariesFilters.originCountries && allDocumentariesFilters.originCountries.length > 0) {
+        baseUrl += `&origin_countries=${allDocumentariesFilters.originCountries.join(',')}`;
       }
 
       // Fetch pages in parallel
@@ -1304,7 +1308,8 @@ export default function Documentaries() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1315,7 +1320,8 @@ export default function Documentaries() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('worth-watching');
                         }
@@ -1338,7 +1344,8 @@ export default function Documentaries() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1349,7 +1356,8 @@ export default function Documentaries() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('quality');
                         }
@@ -1372,7 +1380,8 @@ export default function Documentaries() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'popularity.desc'
+                            sortBy: 'popularity.desc',
+                            originCountries: []
                           });
                           setActivePreset(null);
                         } else {
@@ -1383,7 +1392,8 @@ export default function Documentaries() {
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            originCountries: []
                           });
                           setActivePreset('elite');
                         }
@@ -1395,6 +1405,72 @@ export default function Documentaries() {
                       }`}
                     >
                       🏆 Elite Only (7.5+)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Additional Filters */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Additional Filters</label>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => {
+                        setAllDocumentariesFilters(prev => {
+                          const hasExclusions = prev.excludeGenres.includes(16) && prev.excludeGenres.includes(10751);
+                          if (hasExclusions) {
+                            // Remove exclusions
+                            return {
+                              ...prev,
+                              excludeGenres: prev.excludeGenres.filter(id => id !== 16 && id !== 10751)
+                            };
+                          } else {
+                            // Add exclusions
+                            const newExclusions = [...prev.excludeGenres];
+                            if (!newExclusions.includes(16)) newExclusions.push(16);
+                            if (!newExclusions.includes(10751)) newExclusions.push(10751);
+                            return {
+                              ...prev,
+                              excludeGenres: newExclusions
+                            };
+                          }
+                        });
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allDocumentariesFilters.excludeGenres.includes(16) && allDocumentariesFilters.excludeGenres.includes(10751)
+                          ? 'bg-red-600 text-white ring-2 ring-red-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                    >
+                      🚫 No Kids/Anime
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setAllDocumentariesFilters(prev => {
+                          const isActive = prev.originCountries.length > 0;
+                          if (isActive) {
+                            // Remove English-speaking filter
+                            return {
+                              ...prev,
+                              originCountries: []
+                            };
+                          } else {
+                            // Add English-speaking countries (US, UK, Canada, Australia, New Zealand, Ireland)
+                            return {
+                              ...prev,
+                              originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
+                            };
+                          }
+                        });
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allDocumentariesFilters.originCountries.length > 0
+                          ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-blue-600'
+                      }`}
+                      title="Filter to English-speaking countries: US, UK, Canada, Australia, New Zealand, Ireland"
+                    >
+                      🇺🇸🇬🇧 English Only
                     </button>
                   </div>
                 </div>
