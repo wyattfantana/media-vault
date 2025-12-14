@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Download, Trash2, ExternalLink, Star, Calendar, Search, Loader, HardDrive, Play } from 'lucide-react';
 
 interface Bookmark {
   id: string;
@@ -33,6 +34,14 @@ export function Favorites() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+
+  // Download modal state
+  const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null);
+  const [torrentResults, setTorrentResults] = useState<any[]>([]);
+  const [searchingTorrents, setSearchingTorrents] = useState(false);
+  const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState('');
+  const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     fetchBookmarks();
@@ -113,10 +122,113 @@ export function Favorites() {
   };
 
   const handleQuickDownload = (bookmark: Bookmark) => {
-    // Redirect to browse page with pre-selected item
-    const page = bookmark.media_type === 'movie' ? 'movies' :
-                 bookmark.media_type === 'tv' ? 'tv' : 'documentaries';
-    window.location.href = `/${page}?tmdbId=${bookmark.tmdb_id}`;
+    setSelectedBookmark(bookmark);
+    // Auto-search torrents
+    searchTorrents(bookmark);
+  };
+
+  const searchTorrents = async (bookmark: Bookmark) => {
+    setSearchingTorrents(true);
+    setTorrentSearchError(null);
+    setTorrentResults([]);
+
+    try {
+      // Clean up title for better torrent search results
+      // Remove colons, parentheses, and other special chars that cause issues
+      let cleanTitle = bookmark.title
+        .replace(/:/g, '')  // Remove colons
+        .replace(/\([^)]*\)/g, '')  // Remove anything in parentheses
+        .replace(/[^\w\s]/g, ' ')  // Remove special characters except spaces
+        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+        .trim();
+
+      // Limit to first 4-5 words to avoid overly long queries
+      const words = cleanTitle.split(' ');
+      if (words.length > 5) {
+        cleanTitle = words.slice(0, 5).join(' ');
+      }
+
+      const searchQuery = `${cleanTitle} ${bookmark.release_year || ''}`.trim();
+      const res = await fetch('http://localhost:3001/api/v1/torrents/search', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: searchQuery })
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to search torrents');
+      }
+
+      const data = await res.json();
+      console.log('[Favorites] Torrent search results:', data);
+      setTorrentResults(data.results || []);
+
+      if (data.results.length === 0) {
+        setTorrentSearchError('No torrents found. Try manual download below.');
+      }
+    } catch (err) {
+      console.error('Torrent search error:', err);
+      setTorrentSearchError('Failed to search torrents. Try manual download below.');
+    } finally {
+      setSearchingTorrents(false);
+    }
+  };
+
+  const selectTorrent = (magnetUrl: string) => {
+    setDownloadUrl(magnetUrl);
+    // Auto-scroll to very bottom of modal
+    setTimeout(() => {
+      const button = downloadButtonRef.current;
+      if (button) {
+        // Find the scrollable modal container
+        const modal = button.closest('.overflow-y-auto, .overflow-auto');
+        if (modal) {
+          // Scroll to very bottom
+          modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' });
+        }
+      }
+    }, 100);
+  };
+
+  const submitDownload = async () => {
+    if (!selectedBookmark || !downloadUrl) {
+      alert('Please select a torrent first');
+      return;
+    }
+
+    try {
+      const category = selectedBookmark.media_type === 'movie' ? 'Movies' :
+                      selectedBookmark.media_type === 'tv' ? 'TV Shows' : 'Documentaries';
+
+      const res = await fetch('http://localhost:3001/api/v1/downloads', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: downloadUrl,
+          downloader: 'qbittorrent',
+          category,
+          tmdb_id: selectedBookmark.tmdb_id,
+          tmdb_media_type: selectedBookmark.media_type
+        })
+      });
+
+      if (res.ok) {
+        alert('Download started! Check the Downloads page for progress.');
+        setSelectedBookmark(null);
+        setDownloadUrl('');
+        setTorrentResults([]);
+        // Refresh bookmarks to update download status
+        fetchBookmarks();
+      } else {
+        const error = await res.json();
+        alert(`Download failed: ${error.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Download failed. Please try again.');
+    }
   };
 
   const openInJellyfin = async (bookmark: Bookmark) => {
@@ -143,9 +255,9 @@ export function Favorites() {
     const isDownloading = bookmark.download_status?.status === 'downloading';
 
     return (
-      <div key={bookmark.id} className="card hover:shadow-xl transition-shadow">
+      <div key={bookmark.id} className="card hover:shadow-xl transition-shadow flex flex-col h-full">
         {/* Poster */}
-        <div className="aspect-[2/3] relative overflow-hidden rounded-lg mb-3">
+        <div className="aspect-[2/3] relative overflow-hidden rounded-lg mb-3 flex-shrink-0">
           {bookmark.thumbnail ? (
             <img
               src={bookmark.thumbnail}
@@ -180,45 +292,50 @@ export function Favorites() {
           )}
         </div>
 
-        {/* Title */}
-        <h3 className="font-semibold text-lg line-clamp-2 min-h-[2.5rem] mb-2">
-          {bookmark.title}
-          {bookmark.release_year && (
-            <span className="text-gray-500 ml-2">({bookmark.release_year})</span>
-          )}
-        </h3>
-
-        {/* Type badge */}
-        <div className="mb-2">
-          <span className={`inline-block px-2 py-1 text-xs rounded ${
-            bookmark.media_type === 'movie' ? 'bg-purple-100 text-purple-700' :
-            bookmark.media_type === 'tv' ? 'bg-blue-100 text-blue-700' :
-            'bg-green-100 text-green-700'
-          }`}>
-            {bookmark.media_type === 'movie' ? 'Movie' :
-             bookmark.media_type === 'tv' ? 'TV Show' : 'Documentary'}
-          </span>
-        </div>
-
-        {/* File info if downloaded */}
-        {isDownloaded && bookmark.download_status?.file_size && (
-          <div className="mb-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-              </svg>
-              <span>{formatFileSize(bookmark.download_status.file_size)}</span>
-            </div>
-            {bookmark.download_status.file_path && (
-              <div className="mt-1 text-gray-500 truncate" title={bookmark.download_status.file_path}>
-                {bookmark.download_status.file_path.split('/').pop()}
-              </div>
+        {/* Content wrapper - grows to push buttons to bottom */}
+        <div className="flex flex-col flex-grow">
+          {/* Title */}
+          <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem] mb-2">
+            {bookmark.title}
+            {bookmark.release_year && (
+              <span className="text-gray-500 ml-2">({bookmark.release_year})</span>
             )}
-          </div>
-        )}
+          </h3>
 
-        {/* Actions */}
-        <div className="flex gap-2">
+          {/* Type badge */}
+          <div className="mb-2">
+            <span className={`inline-block px-2 py-1 text-xs rounded ${
+              bookmark.media_type === 'movie' ? 'bg-purple-100 text-purple-700' :
+              bookmark.media_type === 'tv' ? 'bg-blue-100 text-blue-700' :
+              'bg-green-100 text-green-700'
+            }`}>
+              {bookmark.media_type === 'movie' ? 'Movie' :
+               bookmark.media_type === 'tv' ? 'TV Show' : 'Documentary'}
+            </span>
+          </div>
+
+          {/* File info if downloaded */}
+          {isDownloaded && bookmark.download_status?.file_size && (
+            <div className="mb-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+                <span>{formatFileSize(bookmark.download_status.file_size)}</span>
+              </div>
+              {bookmark.download_status.file_path && (
+                <div className="mt-1 text-gray-500 truncate" title={bookmark.download_status.file_path}>
+                  {bookmark.download_status.file_path.split('/').pop()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Spacer to push buttons to bottom */}
+          <div className="flex-grow"></div>
+
+          {/* Actions */}
+          <div className="flex gap-2 mt-auto">
           {!isDownloaded && !isDownloading && (
             <button
               onClick={() => handleQuickDownload(bookmark)}
@@ -252,6 +369,7 @@ export function Favorites() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
+          </div>
         </div>
       </div>
     );
@@ -468,6 +586,132 @@ export function Favorites() {
             </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Download Modal */}
+      {selectedBookmark && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => {
+            setSelectedBookmark(null);
+            setTorrentResults([]);
+            setTorrentSearchError(null);
+            setDownloadUrl('');
+          }}
+        >
+          <div
+            className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedBookmark.backdrop_url && (
+              <img
+                src={selectedBookmark.backdrop_url}
+                alt={selectedBookmark.title}
+                className="w-full h-64 object-cover rounded-t-lg"
+              />
+            )}
+
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-2">{selectedBookmark.title}</h2>
+
+              <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
+                {selectedBookmark.release_year && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    <span>{selectedBookmark.release_year}</span>
+                  </div>
+                )}
+                {selectedBookmark.vote_average && typeof selectedBookmark.vote_average === 'number' && (
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span>{selectedBookmark.vote_average.toFixed(1)}/10</span>
+                  </div>
+                )}
+                <span className={`px-2 py-1 text-xs rounded ${
+                  selectedBookmark.media_type === 'movie' ? 'bg-purple-100 text-purple-700' :
+                  selectedBookmark.media_type === 'tv' ? 'bg-blue-100 text-blue-700' :
+                  'bg-green-100 text-green-700'
+                }`}>
+                  {selectedBookmark.media_type === 'movie' ? 'Movie' :
+                   selectedBookmark.media_type === 'tv' ? 'TV Show' : 'Documentary'}
+                </span>
+              </div>
+
+              {selectedBookmark.description && (
+                <p className="text-gray-300 mb-6">{selectedBookmark.description}</p>
+              )}
+
+              <div className="space-y-4">
+                {/* Torrent Search Results */}
+                {searchingTorrents && (
+                  <div className="bg-gray-900/50 border border-blue-500/30 rounded-lg p-6 text-center">
+                    <Loader className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-400" />
+                    <p className="text-blue-400">Searching torrents...</p>
+                  </div>
+                )}
+
+                {torrentSearchError && (
+                  <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
+                    {torrentSearchError}
+                  </div>
+                )}
+
+                {torrentResults.length > 0 && (
+                  <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <h3 className="text-lg font-semibold text-green-400 mb-3">
+                      Found {torrentResults.length} Torrents (sorted by seeds)
+                    </h3>
+                    <div className="space-y-2">
+                      {torrentResults.map((torrent: any, index: number) => (
+                        <div
+                          key={index}
+                          onClick={() => selectTorrent(torrent.magnet)}
+                          className={`bg-gray-800 hover:bg-gray-700 border rounded-lg p-3 cursor-pointer transition-colors ${
+                            downloadUrl === torrent.magnet ? 'border-green-500' : 'border-gray-700 hover:border-green-500'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-white truncate mb-1">{torrent.title}</p>
+                              <div className="flex items-center gap-3 text-xs text-gray-400">
+                                <span className={`px-2 py-1 rounded ${
+                                  torrent.source === '1337x' ? 'bg-orange-600/20 text-orange-400' :
+                                  torrent.source === 'piratebay' ? 'bg-purple-600/20 text-purple-400' :
+                                  'bg-indigo-600/20 text-indigo-400'
+                                }`}>
+                                  {torrent.source}
+                                </span>
+                                {torrent.size && <span>{torrent.size}</span>}
+                                {torrent.seeds !== undefined && (
+                                  <span className="text-green-400">↑ {torrent.seeds}</span>
+                                )}
+                                {torrent.peers !== undefined && (
+                                  <span className="text-red-400">↓ {torrent.peers}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Download Button */}
+                {downloadUrl && (
+                  <button
+                    ref={downloadButtonRef}
+                    onClick={submitDownload}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
+                  >
+                    <Download className="w-6 h-6" />
+                    Download Selected Torrent
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

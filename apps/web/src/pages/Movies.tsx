@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
@@ -58,6 +58,7 @@ export default function Movies() {
   const [torrentResults, setTorrentResults] = useState<any[]>([]);
   const [searchingTorrents, setSearchingTorrents] = useState(false);
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
+  const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -735,7 +736,22 @@ export default function Movies() {
   };
 
   const searchTorrents = async (movie: Movie) => {
-    const query = `${movie.title} ${movie.year || ''}`;
+    // Clean up title for better torrent search results
+    // Remove colons, parentheses, and other special chars that cause issues
+    let cleanTitle = movie.title
+      .replace(/:/g, '')  // Remove colons
+      .replace(/\([^)]*\)/g, '')  // Remove anything in parentheses
+      .replace(/[^\w\s]/g, ' ')  // Remove special characters except spaces
+      .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+      .trim();
+
+    // Limit to first 4-5 words to avoid overly long queries
+    const words = cleanTitle.split(' ');
+    if (words.length > 5) {
+      cleanTitle = words.slice(0, 5).join(' ');
+    }
+
+    const query = `${cleanTitle} ${movie.year || ''}`.trim();
     setSearchingTorrents(true);
     setTorrentSearchError(null);
     setTorrentResults([]);
@@ -755,6 +771,8 @@ export default function Movies() {
       }
 
       const data = await response.json();
+      console.log('[Movies] Torrent search query:', query);
+      console.log('[Movies] Torrent search results:', data);
       setTorrentResults(data.results || []);
 
       if (data.results.length === 0) {
@@ -771,6 +789,18 @@ export default function Movies() {
   const selectTorrent = (magnet: string) => {
     setDownloadUrl(magnet);
     setTorrentResults([]);
+    // Auto-scroll to very bottom of modal
+    setTimeout(() => {
+      const button = downloadButtonRef.current;
+      if (button) {
+        // Find the scrollable modal container
+        const modal = button.closest('.overflow-y-auto, .overflow-auto');
+        if (modal) {
+          // Scroll to very bottom
+          modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' });
+        }
+      }
+    }, 100);
   };
 
   const handleDownload = async (movie: Movie) => {
@@ -1931,6 +1961,7 @@ export default function Movies() {
                     className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none mb-3"
                   />
                   <button
+                    ref={downloadButtonRef}
                     onClick={() => handleDownload(selectedMovie)}
                     disabled={!downloadUrl.trim() || loadingFormat}
                     className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
@@ -59,6 +59,7 @@ export default function TVShows() {
   const [torrentResults, setTorrentResults] = useState<any[]>([]);
   const [searchingTorrents, setSearchingTorrents] = useState(false);
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
+  const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   const isInitialMount = React.useRef(true);
 
@@ -798,6 +799,18 @@ export default function TVShows() {
   const selectTorrent = (magnet: string) => {
     setDownloadUrl(magnet);
     setTorrentResults([]);
+    // Auto-scroll to very bottom of modal
+    setTimeout(() => {
+      const button = downloadButtonRef.current;
+      if (button) {
+        // Find the scrollable modal container
+        const modal = button.closest('.overflow-y-auto, .overflow-auto');
+        if (modal) {
+          // Scroll to very bottom
+          modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' });
+        }
+      }
+    }, 100);
   };
 
   const handleDownload = async (show: TVShow) => {
@@ -1915,6 +1928,7 @@ export default function TVShows() {
                     className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none mb-3"
                   />
                   <button
+                    ref={downloadButtonRef}
                     onClick={() => handleDownload(selectedShow)}
                     disabled={!downloadUrl.trim() || loadingFormat}
                     className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"

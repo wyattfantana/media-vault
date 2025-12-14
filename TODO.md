@@ -1,6 +1,6 @@
 # MediaVault - Development Roadmap & Session Tracker
 
-**Last Updated:** 2025-12-13
+**Last Updated:** 2025-12-14
 **Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete | ✅ Settings Simplified | ✅ Jellyfin Auto-Scan
 **Next Session:** Favorites/Watchlist feature, IMDB Top 250 completion, or Phase 4 (advanced features)
 
@@ -255,7 +255,52 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-13 (Session 14) ✅ COMPLETED
+### Current Session: 2025-12-14 (Session 15) ✅ COMPLETED
+**Focus:** UX Improvements - Auto-Scroll, Card Layout, React Hooks Fix
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Fixed Movies page not loading** - React hooks placement issue
+  - Root cause: `useRef` hook declared after function definitions (violates React rules)
+  - Moved `downloadButtonRef = useRef<HTMLButtonElement>(null)` to top of component
+  - Applied fix to Movies.tsx and Favorites.tsx
+  - Added missing `useRef` import
+  - Cleared stale sessionStorage causing search mode on Movies page
+- [x] **Implemented auto-scroll to bottom when selecting torrent**
+  - User feedback: "it's not obvious you have to scroll down to confirm download"
+  - Scrolls modal to very bottom when user clicks a torrent
+  - Uses modal container's scrollHeight for smooth animation
+  - Applied to Movies, Favorites, TVShows, and Documentaries pages
+  - Improved UX: Download button now immediately visible after torrent selection
+- [x] **Fixed Favorites card layout alignment**
+  - Issue: Buttons at different heights when titles vary in length
+  - Solution: Flexbox layout with `flex flex-col h-full` on card container
+  - Title min-height increased to 3.5rem (accommodates 2-line titles)
+  - Added flex-grow wrapper to push buttons to bottom
+  - All cards now have equal heights with aligned buttons
+
+**Implementation Details:**
+- React hooks must be declared at component top level (before any logic or function definitions)
+- Auto-scroll: Finds scrollable modal container via `closest('.overflow-y-auto, .overflow-auto')`
+- Card layout: Poster is flex-shrink-0, content wrapper is flex-grow, buttons use mt-auto
+- sessionStorage cleanup resolved Movies page showing empty search results
+
+**Files Modified:**
+- `apps/web/src/pages/Movies.tsx` - Hook placement, auto-scroll, useRef import
+- `apps/web/src/pages/Favorites.tsx` - Hook placement, auto-scroll, card layout with flexbox
+- `apps/web/src/pages/TVShows.tsx` - Auto-scroll, useRef import
+- `apps/web/src/pages/Documentaries.tsx` - Auto-scroll, useRef import
+
+**User Feedback:**
+- "perfecto" - After auto-scroll refinement
+- "splendid" - After card layout fix
+- "nice yes it worls and scrolls down" - Initial auto-scroll test
+
+**Next Session Start Point:**
+→ UX polish complete! Consider: TMDB/IMDb list integration, per-platform preferences, or Phase 3 browsing enhancements
+
+---
+
+### Session: 2025-12-13 (Session 14) ✅ COMPLETED
 **Focus:** VPN Status Detection, iPlayer Jellyfin Formatting, Auto-Scan & Network Troubleshooting
 **Status:** ✅ COMPLETED
 **Completed:**
