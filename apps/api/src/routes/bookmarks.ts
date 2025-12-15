@@ -1,6 +1,7 @@
 import express from 'express';
 import { auth } from '../auth.js';
 import { AppDataSource } from '../data-source.js';
+import { jellyfinService } from '../services/jellyfin.service.js';
 
 export const bookmarksRouter = express.Router();
 
@@ -25,22 +26,28 @@ bookmarksRouter.get('/', requireAuth, async (req, res) => {
     const userId = (req as any).user.id;
     const { type, enrichWithDownloadStatus } = req.query;
 
-    // If enrichment requested, use LEFT JOIN to get download/media status
+    // If enrichment requested, use LEFT JOIN to get download status from download_history
+    // download_history is the permanent record that's never cleared
     if (enrichWithDownloadStatus === 'true') {
       let query = `
         SELECT
           b.*,
-          m.id AS media_id,
-          m.file_path AS media_file_path,
-          m.file_size AS media_file_size,
+          dh.id AS history_id,
+          dh.file_path AS media_file_path,
+          dh.file_size AS media_file_size,
+          dh.downloaded_at,
           d.id AS download_id,
           d.status AS download_status,
           d.progress AS download_progress
         FROM bookmarks b
-        LEFT JOIN media m ON (
-          b.tmdb_id = m.tmdb_id
-          AND b.user_id = m.user_id
-          AND b.media_type = m.tmdb_media_type
+        LEFT JOIN download_history dh ON (
+          b.user_id = dh.user_id
+          AND (
+            -- Match TMDB content by tmdb_id
+            (b.tmdb_id IS NOT NULL AND b.tmdb_id = dh.tmdb_id AND b.media_type = dh.tmdb_media_type)
+            -- Match URL-based content by source_url
+            OR (b.url IS NOT NULL AND b.url = dh.source_url)
+          )
         )
         LEFT JOIN downloads d ON (
           b.tmdb_id = d.tmdb_id
@@ -62,23 +69,72 @@ bookmarksRouter.get('/', requireAuth, async (req, res) => {
       const rawBookmarks = await AppDataSource.query(query, params);
 
       // Transform to nest download_status object
-      const bookmarks = rawBookmarks.map((b: any) => {
-        const { media_id, media_file_path, media_file_size, download_id, download_status, download_progress, ...bookmark } = b;
+      // Also check Jellyfin for TMDB items not in download_history
+      const bookmarks = await Promise.all(rawBookmarks.map(async (b: any) => {
+        const { history_id, media_file_path, media_file_size, downloaded_at, download_id, download_status, download_progress, ...bookmark } = b;
 
+        // If found in download_history, mark as downloaded
+        if (history_id) {
+          return {
+            ...bookmark,
+            download_status: {
+              is_downloaded: true,
+              history_id,
+              file_path: media_file_path,
+              file_size: media_file_size,
+              downloaded_at,
+              source: 'download_history'
+            }
+          };
+        }
+
+        // If currently downloading, show progress
+        if (download_id) {
+          return {
+            ...bookmark,
+            download_status: {
+              is_downloaded: false,
+              status: download_status,
+              progress: download_progress
+            }
+          };
+        }
+
+        // For TMDB items, check Jellyfin as fallback (TEMPORARILY DISABLED - debugging)
+        // TODO: Re-enable after fixing Jellyfin query
+        /*
+        if (bookmark.tmdb_id && jellyfinService.isConfigured()) {
+          try {
+            console.log(`[Bookmarks] Checking Jellyfin for: ${bookmark.title} (TMDB: ${bookmark.tmdb_id})`);
+            const existsInJellyfin = await jellyfinService.hasItemWithTmdbId(
+              bookmark.tmdb_id,
+              bookmark.media_type
+            );
+
+            console.log(`[Bookmarks] ${bookmark.title} exists in Jellyfin: ${existsInJellyfin}`);
+
+            if (existsInJellyfin) {
+              return {
+                ...bookmark,
+                download_status: {
+                  is_downloaded: true,
+                  source: 'jellyfin',
+                  tmdb_id: bookmark.tmdb_id
+                }
+              };
+            }
+          } catch (err) {
+            console.error(`[Bookmarks] Failed to check Jellyfin for ${bookmark.title}:`, err);
+          }
+        }
+        */
+
+        // Not found anywhere
         return {
           ...bookmark,
-          download_status: media_id ? {
-            is_downloaded: true,
-            media_id,
-            file_path: media_file_path,
-            file_size: media_file_size
-          } : download_id ? {
-            is_downloaded: false,
-            status: download_status,
-            progress: download_progress
-          } : null
+          download_status: null
         };
-      });
+      }));
 
       return res.json({
         bookmarks,

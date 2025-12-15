@@ -165,6 +165,47 @@ export class JellyfinService {
   }
 
   /**
+   * Search for items by TMDB ID
+   * Returns items that match the given TMDB ID
+   */
+  async searchByTmdbId(tmdbId: number, mediaType?: 'movie' | 'tv' | 'documentary'): Promise<any[]> {
+    if (!this.client) {
+      console.log('[Jellyfin] searchByTmdbId called but client not configured');
+      return [];
+    }
+
+    try {
+      console.log(`[Jellyfin] Searching for TMDB ID ${tmdbId}, type: ${mediaType}`);
+
+      // Query Jellyfin items API with TMDB provider ID filter
+      const response = await this.client.get('/Items', {
+        params: {
+          Recursive: true,
+          AnyProviderIdEquals: `Tmdb.${tmdbId}`,  // Note: Capital T in Tmdb
+          IncludeItemTypes: mediaType === 'tv' ? 'Series' : 'Movie',
+          Fields: 'Path,ProviderIds,Overview',
+        },
+      });
+
+      const items = response.data.Items || [];
+      console.log(`[Jellyfin] Found ${items.length} items for TMDB ID ${tmdbId}`);
+
+      return items;
+    } catch (error: any) {
+      console.error(`[Jellyfin] Failed to search TMDB ID ${tmdbId}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Check if an item with given TMDB ID exists in Jellyfin
+   */
+  async hasItemWithTmdbId(tmdbId: number, mediaType?: 'movie' | 'tv' | 'documentary'): Promise<boolean> {
+    const items = await this.searchByTmdbId(tmdbId, mediaType);
+    return items.length > 0;
+  }
+
+  /**
    * Get Jellyfin server status
    */
   async getServerStatus(): Promise<{

@@ -255,77 +255,84 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-14 (Session 17) ⚠️ IN PROGRESS
-**Focus:** Filter System Improvements & Genre Exclusions
-**Status:** ⚠️ IN PROGRESS (Good progress, still WIP)
+### Current Session: 2025-12-15 (Session 18) ✅ COMPLETED
+**Focus:** Permanent Download History & Duplicate Prevention System
+**Status:** ✅ COMPLETED
 **Completed:**
-- [x] **Simplified filter UI** - Reduced to 3 rating preset buttons
-  - Removed extra presets (Modern Classics, Hidden Gems, IMDB Top 250, Saved Filters)
-  - Kept only: Worth Watching (5.5+), Quality (6.5+), Elite (7.5+)
-  - Applied to Movies, TV Shows, and Documentaries pages
-- [x] **Lowered filter thresholds** - Get more quality results
-  - Worth Watching: 5.5+ rating, 25+ votes
-  - Quality: 6.5+ rating, 50+ votes
-  - Elite: 7.5+ rating, 100+ votes
-  - Elite now shows 2,128+ movies, 1,388+ shows, 201+ docs (much better than before)
-- [x] **Made genre filters collapsible** - Save space with dropdown
-  - Used HTML `<details>` element for clean UI
-  - Shows "included" (green) vs "excluded" (red) genres
-  - Much cleaner filter panel
-- [x] **Added loading indicators** - Show when filters change
-  - Prominent loading message: "Loading movies/shows/documentaries... Please wait while we fetch more results"
-  - Moved to results header for better visibility
-  - Added originCountries to useEffect dependency arrays to trigger reload
-- [x] **Show filtered + total catalog counts** - Better context
-  - When filters active: Shows "Filtered: 2,128+ matching movies" AND "Total catalog: 1,082,951+ movies"
-  - Users can see how many results match filters vs full catalog
-- [x] **Added "No Kids/Anime" filter** - Exclude family content
-  - Movies: Excludes Animation (16) and Family (10751)
-  - TV Shows: Excludes Animation (16), Kids (10762), Reality (10764), Talk (10767)
-  - Documentaries: Excludes Animation (16) and Family (10751)
-- [x] **Added "English Only" filter** - Western countries content
-  - Button renamed from "Western Only" to "🇺🇸🇬🇧 English Only" for clarity
-  - Filters to: US, GB, CA, AU, NZ, IE (English-speaking countries)
-  - Tooltip shows full country list to avoid confusion with Western genre
-  - Backend fully wired: originCountries → with_origin_country TMDB API param
-- [x] **Fixed Movies tab genre exclusions** - Only narrative movies
-  - Always excludes Documentary (99), Music/Concert films (10402), TV Movies (10770)
-  - Removes: Concert films (BTS, Michael Jackson, Queen), stand-up specials (Franco Escamilla), documentaries
-  - Movies tab now shows ONLY theatrical narrative movies
-  - Updated all 4 API call locations in Movies.tsx
-  - Backend route fixed to accept and pass exclude_genres parameter
-  - TMDB service updated to use without_genres parameter
+- [x] **Created permanent download_history table** - Never cleared, survives downloads tab cleanup
+  - Migration 022: Platform-specific ID columns (tmdb_id, youtube_video_id, iplayer_pid)
+  - Partial unique index on (user_id, source_url) WHERE source_url IS NOT NULL
+  - Indexes for fast lookups by TMDB ID, YouTube video ID, iPlayer PID
+  - Auto-populated by download worker on each completion
+  - Used by Favorites page to show download status
+- [x] **Created platform ID utilities** - Extract platform-specific identifiers
+  - apps/api/src/utils/platform-ids.ts
+  - extractYouTubeVideoId() - Handles youtube.com/watch, youtu.be/, youtube.com/embed/
+  - extractiPlayerPid() - Extracts BBC iPlayer PIDs from URLs
+  - getSourceType() - Identifies source platform (qbittorrent, iplayer, youtube, soundcloud, etc.)
+- [x] **Backfilled existing downloads** - Migrated 17 entries from media table
+  - Created apps/api/src/scripts/backfill-download-history.ts
+  - Extracts platform IDs from URLs and filenames
+  - Auto-detects categories from file paths
+  - Successfully populated all existing downloads
+- [x] **Automatic TMDB ID matching for torrents** - Parse filenames, search TMDB API
+  - Created apps/api/src/scripts/match-tmdb-ids.ts
+  - parseFilename() - Cleans torrent names (removes quality, codecs, release groups)
+  - Detects TV shows vs movies automatically (S01, Season, Episode markers)
+  - Extracts year from filename for better matching
+  - Successfully matched: Senna (58496), Law & Order SVU (2734)
+  - Rate limiting (250ms between requests) to respect TMDB API limits
+- [x] **Integrated auto-matching into download worker** - No manual script needed!
+  - Download worker now automatically matches TMDB IDs after torrent completion
+  - Runs for all qbittorrent downloads without existing tmdb_id
+  - Updates download_history with matched TMDB ID and media type
+  - All future torrent downloads will auto-match
+- [x] **Updated Favorites page** - Check download_history instead of media table
+  - LEFT JOIN download_history on tmdb_id or source_url
+  - Shows "Downloaded" badge with file path, size, date
+  - Shows "Downloading" status with progress for active downloads
+  - No longer loses data when downloads tab is cleared
+- [x] **Attempted Jellyfin integration** - Fallback check for TMDB items (DISABLED)
+  - Added searchByTmdbId() to jellyfin.service.ts
+  - Checks Jellyfin for items not in download_history
+  - Bug: Marked everything as downloaded incorrectly
+  - Temporarily disabled with comment block pending investigation
 
 **Implementation Details:**
-- Frontend: Movies.tsx, TVShows.tsx, Documentaries.tsx - Filter UI changes
-- Backend: tmdb.ts routes - Added exclude_genres parameter extraction
-- Backend: tmdb.service.ts - Added exclude_genres to discoverMovies function, uses without_genres for TMDB API
-- Schemas: filters.schema.ts - Added originCountries field
-- SessionStorage: Auto-clears old cached movies to force fresh API calls with new exclusions
+- PostgreSQL partial unique index requires WHERE clause in ON CONFLICT statement
+- Filename parsing removes quality indicators, codecs, release groups for clean TMDB search
+- Worker auto-population eliminates need for separate sync process
+- Jellyfin integration needs debugging (AnyProviderIdEquals format verification needed)
+
+**Files Created:**
+- `apps/api/src/migrations/022_create_download_history.sql`
+- `apps/api/src/utils/platform-ids.ts`
+- `apps/api/src/scripts/backfill-download-history.ts`
+- `apps/api/src/scripts/match-tmdb-ids.ts`
 
 **Files Modified:**
-- `apps/web/src/pages/Movies.tsx` - All filter changes, genre exclusions (99, 10402, 10770)
-- `apps/web/src/pages/TVShows.tsx` - Same filter pattern as Movies
-- `apps/web/src/pages/Documentaries.tsx` - Same filter pattern as Movies
-- `apps/api/src/routes/tmdb.ts` - Accept exclude_genres, origin_countries from query
-- `apps/api/src/services/tmdb.service.ts` - Pass exclude_genres, origin_countries to TMDB API
-- `apps/api/src/schemas/filters.schema.ts` - Added originCountries field
+- `apps/api/src/workers/download.worker.ts` - Auto-insert to download_history, auto-match TMDB IDs
+- `apps/api/src/routes/bookmarks.ts` - Query download_history for download status
+- `apps/api/src/services/jellyfin.service.ts` - Added searchByTmdbId() method
 
 **User Feedback:**
-- "ok good, this will do for now" - After fixing Movies to exclude docs/concerts/TV movies
-- Noted documentaries, concerts, and stand-up specials still available in Documentaries and TV Shows tabs (as expected)
+- "well i have senna the doc downloaded and that doesnt say it is in the faves tab" - Initial problem report
+- "what the hell, now its just saying watch on all faves" - After Jellyfin bug
+- "sure we can do option 1 but what about further titles that are missing tmdb" - Wanted automation
+- "this needs to be auto" - Explicit request for automatic TMDB matching
+- "yeah lets update todo.md commit and push" - Ready to commit
 
 **Next Session Start Point:**
-→ Filter improvements in progress. Still TODO from FILTERS-ARCHITECTURE-IMPROVEMENTS.md:
-  - Phase 2: Performance optimizations (caching, debouncing)
-  - Phase 3: Advanced filters (runtime, keywords, cast/crew)
-  - Consider: Quick filter sidebar, make sort options more visible
+→ Permanent download history system complete! Download status now persists forever. Future work:
+  - Debug Jellyfin integration (fix false positive issue)
+  - Consider Phase 3 browsing UX improvements
+  - Consider Phase 4 automation features
 
 **Notes:**
-- Movies tab now properly separates narrative films from documentaries/concerts/TV movies
-- All excluded content still available in appropriate tabs (Docs tab for documentaries, etc.)
-- Filter thresholds balanced for quality vs quantity
-- English Only filter helps users avoid non-English content while allowing high-quality exceptions
+- 17 existing downloads successfully backfilled to download_history
+- Senna and Law & Order SVU now show as downloaded in Favorites
+- All future downloads automatically tracked and TMDB-matched
+- Jellyfin fallback disabled until debugging complete (not a blocker)
 
 ---
 
