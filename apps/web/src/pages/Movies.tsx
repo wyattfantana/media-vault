@@ -4,6 +4,7 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
 import { searchCache } from '../utils/searchCache';
 import { API_BASE } from '@/lib/config';
+import { AdvancedFilters } from '../components/AdvancedFilters';
 
 interface Movie {
   id: number;
@@ -99,6 +100,15 @@ export default function Movies() {
   });
   const [showAllMoviesFilters, setShowAllMoviesFilters] = useState(false);
   const [activePreset, setActivePreset] = useState<string | null>(null);
+
+  // Advanced filters (collection, company, director, actor)
+  const [selectedCollection, setSelectedCollection] = useState<{ id: number; name: string } | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<{ id: number; name: string } | null>(null);
+  const [selectedDirector, setSelectedDirector] = useState<{ id: number; name: string } | null>(null);
+  const [selectedActor, setSelectedActor] = useState<{ id: number; name: string } | null>(null);
+  const [advancedFilterMovies, setAdvancedFilterMovies] = useState<Movie[]>([]);
+  const [advancedFilterLoading, setAdvancedFilterLoading] = useState(false);
+  const [advancedFilterPage, setAdvancedFilterPage] = useState(1);
 
   // Genre filters
   const [genreFilters, setGenreFilters] = useState({
@@ -658,6 +668,117 @@ export default function Movies() {
       // Load 3 pages at a time during scroll (60 movies) for smooth performance
       const nextPage = allMoviesPage + 1;
       loadManyPages(nextPage, 3, mode, true);
+    }
+  };
+
+  // Advanced Filter Handlers
+  const handleCollectionSelect = async (collectionId: number | null, name: string) => {
+    if (!collectionId) {
+      setSelectedCollection(null);
+      setAdvancedFilterMovies([]);
+      setViewMode('all-movies');
+      return;
+    }
+
+    setSelectedCollection({ id: collectionId, name });
+    setAdvancedFilterLoading(true);
+    setViewMode('all-movies'); // Switch to all-movies view to show collection results
+
+    try {
+      const res = await fetch(`${API_BASE}/tmdb/collection/${collectionId}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAllMovies(data.parts || []);
+        setAdvancedFilterMovies(data.parts || []);
+      }
+    } catch (error) {
+      console.error('Failed to load collection:', error);
+    } finally {
+      setAdvancedFilterLoading(false);
+    }
+  };
+
+  const handleCompanySelect = async (companyId: number | null, name: string) => {
+    if (!companyId) {
+      setSelectedCompany(null);
+      setAdvancedFilterMovies([]);
+      setViewMode('all-movies');
+      return;
+    }
+
+    setSelectedCompany({ id: companyId, name });
+    setAdvancedFilterLoading(true);
+    setAdvancedFilterPage(1);
+    setViewMode('all-movies');
+
+    try {
+      const res = await fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=1`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAllMovies(data.results || []);
+        setAdvancedFilterMovies(data.results || []);
+        setAllMoviesTotalPages(data.total_pages);
+      }
+    } catch (error) {
+      console.error('Failed to load company movies:', error);
+    } finally {
+      setAdvancedFilterLoading(false);
+    }
+  };
+
+  const handleDirectorSelect = async (personId: number | null, name: string) => {
+    if (!personId) {
+      setSelectedDirector(null);
+      setAdvancedFilterMovies([]);
+      setViewMode('all-movies');
+      return;
+    }
+
+    setSelectedDirector({ id: personId, name });
+    setAdvancedFilterLoading(true);
+    setAdvancedFilterPage(1);
+    setViewMode('all-movies');
+
+    try {
+      const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=crew&page=1`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAllMovies(data.results || []);
+        setAdvancedFilterMovies(data.results || []);
+        setAllMoviesTotalPages(data.total_pages);
+      }
+    } catch (error) {
+      console.error('Failed to load director movies:', error);
+    } finally {
+      setAdvancedFilterLoading(false);
+    }
+  };
+
+  const handleActorSelect = async (personId: number | null, name: string) => {
+    if (!personId) {
+      setSelectedActor(null);
+      setAdvancedFilterMovies([]);
+      setViewMode('all-movies');
+      return;
+    }
+
+    setSelectedActor({ id: personId, name });
+    setAdvancedFilterLoading(true);
+    setAdvancedFilterPage(1);
+    setViewMode('all-movies');
+
+    try {
+      const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=cast&page=1`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAllMovies(data.results || []);
+        setAdvancedFilterMovies(data.results || []);
+        setAllMoviesTotalPages(data.total_pages);
+      }
+    } catch (error) {
+      console.error('Failed to load actor movies:', error);
+    } finally {
+      setAdvancedFilterLoading(false);
     }
   };
 
@@ -1340,6 +1461,21 @@ export default function Movies() {
           {/* Filter Panel */}
           {showAllMoviesFilters && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              {/* Advanced Filters - Collections, Studios, Directors, Actors */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-200 mb-3">Advanced Discovery</h3>
+                <AdvancedFilters
+                  onCollectionSelect={handleCollectionSelect}
+                  onCompanySelect={handleCompanySelect}
+                  onDirectorSelect={handleDirectorSelect}
+                  onActorSelect={handleActorSelect}
+                  selectedCollection={selectedCollection}
+                  selectedCompany={selectedCompany}
+                  selectedDirector={selectedDirector}
+                  selectedActor={selectedActor}
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {/* Quick Filters */}
                 <div className="col-span-full">

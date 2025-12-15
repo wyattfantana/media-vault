@@ -117,6 +117,36 @@ export interface TMDBPersonTVCredits {
   crew: Array<TMDBTVShow & { job: string; department: string; credit_id: string; episode_count: number }>;
 }
 
+export interface TMDBCollection {
+  id: number;
+  name: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+}
+
+export interface TMDBCollectionDetails extends TMDBCollection {
+  parts: TMDBMovie[];
+}
+
+export interface TMDBCompany {
+  id: number;
+  name: string;
+  logo_path: string | null;
+  origin_country: string;
+}
+
+export interface TMDBMultiSearchResult {
+  page: number;
+  results: Array<
+    | (TMDBMovie & { media_type: 'movie' })
+    | (TMDBTVShow & { media_type: 'tv' })
+    | (TMDBPerson & { media_type: 'person' })
+  >;
+  total_pages: number;
+  total_results: number;
+}
+
 export class TMDBService {
   private apiKey: string;
 
@@ -710,6 +740,142 @@ export class TMDBService {
     } catch (error) {
       console.error('[TMDB] Person TV credits error:', error);
       throw new Error('Failed to get person TV credits');
+    }
+  }
+
+  /**
+   * Multi-search - Search movies, TV shows, and people all at once
+   */
+  async searchMulti(query: string, page: number = 1, userId?: string): Promise<TMDBMultiSearchResult> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/search/multi`, {
+        params: {
+          api_key: apiKey,
+          query,
+          page,
+          include_adult: false
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('[TMDB] Multi-search error:', error);
+      throw new Error('Failed to search TMDB');
+    }
+  }
+
+  /**
+   * Search for collections (e.g., "James Bond Collection", "Marvel Cinematic Universe")
+   */
+  async searchCollection(query: string, page: number = 1, userId?: string): Promise<{ results: TMDBCollection[]; total_pages: number; total_results: number }> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/search/collection`, {
+        params: {
+          api_key: apiKey,
+          query,
+          page
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('[TMDB] Collection search error:', error);
+      throw new Error('Failed to search collections');
+    }
+  }
+
+  /**
+   * Get details for a collection including all movies in it
+   */
+  async getCollectionDetails(collectionId: number, userId?: string): Promise<TMDBCollectionDetails> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/collection/${collectionId}`, {
+        params: {
+          api_key: apiKey
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('[TMDB] Collection details error:', error);
+      throw new Error('Failed to get collection details');
+    }
+  }
+
+  /**
+   * Search for companies/studios (e.g., "Disney", "Warner Bros", "A24")
+   */
+  async searchCompany(query: string, page: number = 1, userId?: string): Promise<{ results: TMDBCompany[]; total_pages: number; total_results: number }> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/search/company`, {
+        params: {
+          api_key: apiKey,
+          query,
+          page
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('[TMDB] Company search error:', error);
+      throw new Error('Failed to search companies');
+    }
+  }
+
+  /**
+   * Discover movies by company/studio
+   */
+  async discoverByCompany(companyId: number, page: number = 1, userId?: string): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const response = await axios.get(`${TMDB_BASE_URL}/discover/movie`, {
+        params: {
+          api_key: apiKey,
+          with_companies: companyId,
+          sort_by: 'popularity.desc',
+          page
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('[TMDB] Discover by company error:', error);
+      throw new Error('Failed to discover movies by company');
+    }
+  }
+
+  /**
+   * Discover movies by person (actor or director)
+   * @param personId TMDB person ID
+   * @param role 'cast' for actor, 'crew' for director/writer
+   */
+  async discoverByPerson(personId: number, role: 'cast' | 'crew' = 'cast', page: number = 1, userId?: string): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
+    try {
+      const apiKey = await this.getApiKey(userId);
+      const params: any = {
+        api_key: apiKey,
+        sort_by: 'popularity.desc',
+        page
+      };
+
+      if (role === 'cast') {
+        params.with_cast = personId;
+      } else {
+        params.with_crew = personId;
+      }
+
+      const response = await axios.get(`${TMDB_BASE_URL}/discover/movie`, {
+        params
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('[TMDB] Discover by person error:', error);
+      throw new Error('Failed to discover movies by person');
     }
   }
 

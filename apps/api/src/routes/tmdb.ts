@@ -662,4 +662,120 @@ router.get('/genres/tv', async (req, res) => {
   }
 });
 
+// Multi-search endpoint (search movies, TV, people all at once)
+router.get('/search/multi', async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { query, page } = req.query;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
+
+    const pageNum = page && typeof page === 'string' ? parseInt(page) : 1;
+    const results = await tmdbService.searchMulti(query, pageNum, userId);
+    res.json(results);
+  } catch (error) {
+    console.error('TMDB multi-search error:', error);
+    res.status(500).json({ error: 'Failed to search TMDB' });
+  }
+});
+
+// Collection search endpoint
+router.get('/search/collections', async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { query, page } = req.query;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
+
+    const pageNum = page && typeof page === 'string' ? parseInt(page) : 1;
+    const results = await tmdbService.searchCollection(query, pageNum, userId);
+    res.json(results);
+  } catch (error) {
+    console.error('TMDB collection search error:', error);
+    res.status(500).json({ error: 'Failed to search collections' });
+  }
+});
+
+// Collection details endpoint
+router.get('/collection/:id', async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const collectionId = parseInt(req.params.id);
+
+    if (isNaN(collectionId)) {
+      return res.status(400).json({ error: 'Invalid collection ID' });
+    }
+
+    const collection = await tmdbService.getCollectionDetails(collectionId, userId);
+    res.json(collection);
+  } catch (error) {
+    console.error('TMDB collection details error:', error);
+    res.status(500).json({ error: 'Failed to get collection details' });
+  }
+});
+
+// Company search endpoint
+router.get('/search/companies', async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { query, page } = req.query;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
+
+    const pageNum = page && typeof page === 'string' ? parseInt(page) : 1;
+    const results = await tmdbService.searchCompany(query, pageNum, userId);
+    res.json(results);
+  } catch (error) {
+    console.error('TMDB company search error:', error);
+    res.status(500).json({ error: 'Failed to search companies' });
+  }
+});
+
+// Discover movies by company endpoint
+router.get('/discover/company/:id', async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const companyId = parseInt(req.params.id);
+    const { page } = req.query;
+
+    if (isNaN(companyId)) {
+      return res.status(400).json({ error: 'Invalid company ID' });
+    }
+
+    const pageNum = page && typeof page === 'string' ? parseInt(page) : 1;
+    const results = await tmdbService.discoverByCompany(companyId, pageNum, userId);
+    res.json(results);
+  } catch (error) {
+    console.error('TMDB discover by company error:', error);
+    res.status(500).json({ error: 'Failed to discover movies by company' });
+  }
+});
+
+// Discover movies by person endpoint
+router.get('/discover/person/:id', async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const personId = parseInt(req.params.id);
+    const { role, page } = req.query;
+
+    if (isNaN(personId)) {
+      return res.status(400).json({ error: 'Invalid person ID' });
+    }
+
+    const personRole = role === 'crew' ? 'crew' : 'cast';
+    const pageNum = page && typeof page === 'string' ? parseInt(page) : 1;
+    const results = await tmdbService.discoverByPerson(personId, personRole, pageNum, userId);
+    res.json(results);
+  } catch (error) {
+    console.error('TMDB discover by person error:', error);
+    res.status(500).json({ error: 'Failed to discover movies by person' });
+  }
+});
+
 export default router;
