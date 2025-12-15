@@ -23,10 +23,12 @@ interface AdvancedFiltersProps {
   onCompanySelect: (companyId: number | null, name: string) => void;
   onDirectorSelect: (personId: number | null, name: string) => void;
   onActorSelect: (personId: number | null, name: string) => void;
+  onMovieSearch: (query: string) => void;
   selectedCollection: { id: number; name: string } | null;
   selectedCompany: { id: number; name: string } | null;
   selectedDirector: { id: number; name: string } | null;
   selectedActor: { id: number; name: string } | null;
+  movieSearchQuery: string;
 }
 
 export function AdvancedFilters({
@@ -34,12 +36,14 @@ export function AdvancedFilters({
   onCompanySelect,
   onDirectorSelect,
   onActorSelect,
+  onMovieSearch,
   selectedCollection,
   selectedCompany,
   selectedDirector,
-  selectedActor
+  selectedActor,
+  movieSearchQuery
 }: AdvancedFiltersProps) {
-  const [searchType, setSearchType] = useState<'collection' | 'company' | 'director' | 'actor'>('collection');
+  const [searchType, setSearchType] = useState<'search' | 'collection' | 'company' | 'director' | 'actor'>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
@@ -48,11 +52,20 @@ export function AdvancedFilters({
   useEffect(() => {
     if (!searchQuery.trim()) {
       setResults([]);
+      if (searchType === 'search') {
+        onMovieSearch(''); // Clear movie search
+      }
       return;
     }
 
     const timeoutId = setTimeout(() => {
-      performSearch();
+      if (searchType === 'search') {
+        // Direct movie title search - call parent handler
+        onMovieSearch(searchQuery);
+      } else {
+        // Other searches (collection, company, person)
+        performSearch();
+      }
     }, 500);
 
     return () => clearTimeout(timeoutId);
@@ -186,6 +199,17 @@ export function AdvancedFilters({
       {/* Search Type Tabs */}
       <div className="flex gap-2 border-b border-gray-700 pb-2">
         <button
+          onClick={() => setSearchType('search')}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
+            searchType === 'search'
+              ? 'bg-brand-900/50 text-brand-300 border border-brand-500/50'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          <Search className="w-4 h-4" />
+          Search
+        </button>
+        <button
           onClick={() => setSearchType('collection')}
           className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
             searchType === 'collection'
@@ -239,6 +263,7 @@ export function AdvancedFilters({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={
+            searchType === 'search' ? 'Search movies by title (e.g., The Matrix, Inception)...' :
             searchType === 'collection' ? 'Search collections (e.g., James Bond, Marvel)...' :
             searchType === 'company' ? 'Search studios (e.g., Disney, Warner Bros)...' :
             searchType === 'director' ? 'Search directors (e.g., Quentin Tarantino)...' :
@@ -257,6 +282,15 @@ export function AdvancedFilters({
       {!searchQuery && (
         <div className="flex flex-wrap gap-2">
           <span className="text-xs text-gray-500">Try:</span>
+          {searchType === 'search' && ['The Matrix', 'Inception', 'The Godfather', 'Interstellar'].map(ex => (
+            <button
+              key={ex}
+              onClick={() => setSearchQuery(ex)}
+              className="text-xs px-2 py-1 bg-gray-900 hover:bg-gray-700 text-gray-400 hover:text-gray-300 rounded transition-colors"
+            >
+              {ex}
+            </button>
+          ))}
           {searchType === 'collection' && ['James Bond', 'Marvel', 'Star Wars', 'Fast & Furious'].map(ex => (
             <button
               key={ex}

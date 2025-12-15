@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { API_BASE } from '@/lib/config';
+import { signOut } from '@/lib/auth';
 
 interface VPNStatus {
   connected: boolean;
   server?: string;
+  daysRemaining?: number;
+  expiryDate?: string;
 }
 
 export function Layout() {
+  const navigate = useNavigate();
   const [vpnStatus, setVpnStatus] = useState<VPNStatus | null>(null);
   const [vpnLoading, setVpnLoading] = useState(false);
 
@@ -83,16 +87,35 @@ export function Layout() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/sign-in');
+    } catch (err) {
+      console.error('Failed to sign out:', err);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-x-hidden">
+    <div className="flex min-h-screen bg-gray-900 overflow-x-hidden relative">
+      {/* Background Image */}
+      <div
+        className="fixed inset-0 z-0 opacity-20"
+        style={{
+          backgroundImage: 'url(/background.webp)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      />
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 fixed h-screen overflow-y-auto flex-shrink-0">
+      <aside className="w-64 bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 fixed h-screen flex flex-col flex-shrink-0 z-10">
         <div className="p-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">MediaVault</h1>
+          <img src="/logo.png" alt="MediaVault" className="h-12 w-auto mb-2" />
           <p className="text-sm text-gray-400">Your Personal Media Hub</p>
         </div>
 
-        <nav className="px-4 space-y-1 pb-8">
+        <nav className="px-4 space-y-1 flex-1 overflow-y-auto pb-4">
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
@@ -188,19 +211,43 @@ export function Layout() {
                   {vpnStatus.connected ? 'Connecting...' : 'Disconnecting...'}
                 </p>
               ) : (
-                vpnStatus.connected && vpnStatus.server && (
-                  <p className="text-xs text-gray-400 mt-1 truncate" title={vpnStatus.server}>
-                    {vpnStatus.server}
-                  </p>
-                )
+                <>
+                  {vpnStatus.connected && vpnStatus.server && (
+                    <p className="text-xs text-gray-400 mt-1 truncate" title={vpnStatus.server}>
+                      {vpnStatus.server}
+                    </p>
+                  )}
+                  {vpnStatus.daysRemaining !== undefined && (
+                    <p className={`text-xs mt-1 font-medium ${
+                      vpnStatus.daysRemaining < 7 ? 'text-red-400' :
+                      vpnStatus.daysRemaining < 30 ? 'text-yellow-400' :
+                      'text-green-400'
+                    }`}>
+                      {vpnStatus.daysRemaining} days remaining
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
         </nav>
+
+        {/* Sign Out Button - Bottom of Sidebar */}
+        <div className="p-4 border-t border-gray-800">
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Sign Out
+          </button>
+        </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 ml-64 w-full max-w-full overflow-x-hidden">
+      <main className="flex-1 ml-64 w-full max-w-full overflow-x-hidden relative z-10">
         <div className="w-full max-w-7xl mx-auto px-8 py-8">
           <Outlet />
         </div>

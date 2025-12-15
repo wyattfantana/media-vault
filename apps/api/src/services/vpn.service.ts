@@ -13,6 +13,8 @@ export interface VPNStatus {
   location?: string;
   ip?: string;
   interface?: string;
+  daysRemaining?: number;
+  expiryDate?: string;
 }
 
 export class VPNService {
@@ -26,6 +28,48 @@ export class VPNService {
     } catch (error) {
       console.error('[VPN] Mullvad CLI not found at:', MULLVAD_CLI);
       return false;
+    }
+  }
+
+  /**
+   * Get account information including subscription expiry
+   */
+  async getAccountInfo(): Promise<{
+    daysRemaining?: number;
+    expiryDate?: string;
+  }> {
+    try {
+      const { stdout } = await execAsync(`"${MULLVAD_CLI}" account get`);
+      const output = stdout.trim();
+
+      console.log('[VPN] Account output:', output);
+
+      // Parse account output
+      // Example:
+      // Mullvad account: 1234567890123456
+      // Expires at: 2025-03-15 12:34:56 UTC
+      const expiryMatch = output.match(/Expires at:\s+(.+?)(?:\s+UTC)?$/im);
+
+      if (expiryMatch) {
+        const expiryStr = expiryMatch[1].trim();
+        const expiryDate = new Date(expiryStr);
+
+        if (!isNaN(expiryDate.getTime())) {
+          const now = new Date();
+          const diffMs = expiryDate.getTime() - now.getTime();
+          const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+          return {
+            daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
+            expiryDate: expiryDate.toISOString(),
+          };
+        }
+      }
+
+      return {};
+    } catch (error: any) {
+      console.error('[VPN] Failed to get account info:', error.message);
+      return {};
     }
   }
 
@@ -48,9 +92,13 @@ export class VPNService {
       const connected = output.toLowerCase().startsWith('connected') &&
                        !output.toLowerCase().includes('disconnected');
 
+      // Get account info (days remaining)
+      const accountInfo = await this.getAccountInfo();
+
       if (!connected) {
         return {
           connected: false,
+          ...accountInfo,
         };
       }
 
@@ -70,6 +118,7 @@ export class VPNService {
         ip,
         // Windows VPN interface isn't easily accessible from WSL2
         interface: 'Mullvad',
+        ...accountInfo,
       };
 
       return status;

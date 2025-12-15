@@ -215,6 +215,12 @@ export default function Movies() {
       return;
     }
 
+    // Skip loading if advanced filter is active
+    const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
+    if (hasAdvancedFilter) {
+      return;
+    }
+
     if (viewMode === 'all-movies' || viewMode === 'top-rated') {
       const timeoutId = setTimeout(() => {
         loadManyPages(1, 10, viewMode, false); // Load 10 pages when filters change
@@ -222,7 +228,7 @@ export default function Movies() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [allMoviesFilters.minRating, allMoviesFilters.minVotes, allMoviesFilters.sortBy, allMoviesFilters.yearFrom, allMoviesFilters.yearTo, allMoviesFilters.selectedGenres, allMoviesFilters.excludeGenres, allMoviesFilters.originCountries]);
+  }, [allMoviesFilters.minRating, allMoviesFilters.minVotes, allMoviesFilters.sortBy, allMoviesFilters.yearFrom, allMoviesFilters.yearTo, allMoviesFilters.selectedGenres, allMoviesFilters.excludeGenres, allMoviesFilters.originCountries, selectedCollection, selectedCompany, selectedDirector, selectedActor]);
 
   // Save browse state to sessionStorage when it changes
   useEffect(() => {
@@ -676,20 +682,30 @@ export default function Movies() {
     if (!collectionId) {
       setSelectedCollection(null);
       setAdvancedFilterMovies([]);
-      setViewMode('all-movies');
+      // Reload the regular catalog
+      loadManyPages(1, 10, viewMode, false);
       return;
     }
 
     setSelectedCollection({ id: collectionId, name });
     setAdvancedFilterLoading(true);
-    setViewMode('all-movies'); // Switch to all-movies view to show collection results
 
     try {
       const res = await fetch(`${API_BASE}/tmdb/collection/${collectionId}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setAllMovies(data.parts || []);
-        setAdvancedFilterMovies(data.parts || []);
+
+        // Transform TMDB format to Movie format (poster_path -> poster_url, etc.)
+        const transformedMovies = (data.parts || []).map((movie: any) => ({
+          ...movie,
+          poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+          backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
+          year: movie.release_date ? movie.release_date.split('-')[0] : null
+        }));
+
+        setAllMovies(transformedMovies);
+        setAllMoviesTotalPages(1); // Collection is just one "page"
+        setAllMoviesPage(1);
       }
     } catch (error) {
       console.error('Failed to load collection:', error);
@@ -702,22 +718,31 @@ export default function Movies() {
     if (!companyId) {
       setSelectedCompany(null);
       setAdvancedFilterMovies([]);
-      setViewMode('all-movies');
+      // Reload the regular catalog
+      loadManyPages(1, 10, viewMode, false);
       return;
     }
 
     setSelectedCompany({ id: companyId, name });
     setAdvancedFilterLoading(true);
     setAdvancedFilterPage(1);
-    setViewMode('all-movies');
 
     try {
       const res = await fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=1`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setAllMovies(data.results || []);
-        setAdvancedFilterMovies(data.results || []);
+
+        // Transform TMDB format to Movie format
+        const transformedMovies = (data.results || []).map((movie: any) => ({
+          ...movie,
+          poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+          backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
+          year: movie.release_date ? movie.release_date.split('-')[0] : null
+        }));
+
+        setAllMovies(transformedMovies);
         setAllMoviesTotalPages(data.total_pages);
+        setAllMoviesPage(1);
       }
     } catch (error) {
       console.error('Failed to load company movies:', error);
@@ -730,22 +755,31 @@ export default function Movies() {
     if (!personId) {
       setSelectedDirector(null);
       setAdvancedFilterMovies([]);
-      setViewMode('all-movies');
+      // Reload the regular catalog
+      loadManyPages(1, 10, viewMode, false);
       return;
     }
 
     setSelectedDirector({ id: personId, name });
     setAdvancedFilterLoading(true);
     setAdvancedFilterPage(1);
-    setViewMode('all-movies');
 
     try {
       const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=crew&page=1`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setAllMovies(data.results || []);
-        setAdvancedFilterMovies(data.results || []);
+
+        // Transform TMDB format to Movie format
+        const transformedMovies = (data.results || []).map((movie: any) => ({
+          ...movie,
+          poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+          backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
+          year: movie.release_date ? movie.release_date.split('-')[0] : null
+        }));
+
+        setAllMovies(transformedMovies);
         setAllMoviesTotalPages(data.total_pages);
+        setAllMoviesPage(1);
       }
     } catch (error) {
       console.error('Failed to load director movies:', error);
@@ -758,25 +792,65 @@ export default function Movies() {
     if (!personId) {
       setSelectedActor(null);
       setAdvancedFilterMovies([]);
-      setViewMode('all-movies');
+      // Reload the regular catalog
+      loadManyPages(1, 10, viewMode, false);
       return;
     }
 
     setSelectedActor({ id: personId, name });
     setAdvancedFilterLoading(true);
     setAdvancedFilterPage(1);
-    setViewMode('all-movies');
 
     try {
       const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=cast&page=1`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setAllMovies(data.results || []);
-        setAdvancedFilterMovies(data.results || []);
+
+        // Transform TMDB format to Movie format
+        const transformedMovies = (data.results || []).map((movie: any) => ({
+          ...movie,
+          poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+          backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
+          year: movie.release_date ? movie.release_date.split('-')[0] : null
+        }));
+
+        setAllMovies(transformedMovies);
         setAllMoviesTotalPages(data.total_pages);
+        setAllMoviesPage(1);
       }
     } catch (error) {
       console.error('Failed to load actor movies:', error);
+    } finally {
+      setAdvancedFilterLoading(false);
+    }
+  };
+
+  const handleMovieSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      // Clear search - reload the regular catalog
+      loadManyPages(1, 10, viewMode, false);
+      return;
+    }
+
+    // Search for movies and display in the all-movies view
+    setAdvancedFilterLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/tmdb/search/movies?q=${encodeURIComponent(query)}`,
+        { credentials: 'include' }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const results = data.results || [];
+
+        // Set results to allMovies so they appear in the all-movies view
+        setAllMovies(results);
+        setAllMoviesTotalPages(data.total_pages || 1);
+        setAllMoviesPage(1);
+      }
+    } catch (err) {
+      console.error('Search failed:', err);
     } finally {
       setAdvancedFilterLoading(false);
     }
@@ -804,16 +878,15 @@ export default function Movies() {
     useWindow: true
   });
 
-  // Debounced search - automatically triggers when user stops typing
-  useEffect(() => {
-    if (!debouncedSearchQuery.trim()) {
-      setSearchResults([]);
-      if (viewMode === 'search') setViewMode('all-movies');
-      return;
-    }
-
-    performSearch(debouncedSearchQuery);
-  }, [debouncedSearchQuery]);
+  // Debounced search - disabled, now handled by AdvancedFilters component
+  // useEffect(() => {
+  //   if (!debouncedSearchQuery.trim()) {
+  //     setSearchResults([]);
+  //     if (viewMode === 'search') setViewMode('all-movies');
+  //     return;
+  //   }
+  //   performSearch(debouncedSearchQuery);
+  // }, [debouncedSearchQuery]);
 
   const performSearch = async (query: string) => {
     if (!query.trim()) return;
@@ -1267,19 +1340,6 @@ export default function Movies() {
             <div className="flex items-center gap-3">
             </div>
           </div>
-
-          <form onSubmit={handleSearch}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search movies..."
-                className="w-full bg-gray-800 text-white pl-10 pr-4 py-3 rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-          </form>
         </div>
       </div>
 
@@ -1444,36 +1504,43 @@ export default function Movies() {
       {/* All Movies View */}
       {viewMode === 'all-movies' && (
         <div className="max-w-7xl mx-auto px-8 py-8 space-y-6">
-          {/* Filters Toggle */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setShowAllMoviesFilters(!showAllMoviesFilters)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              {showAllMoviesFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
+          {/* Stats */}
+          <div className="flex items-center justify-end">
             <div className="text-sm text-gray-400">
               {allMovies.length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
             </div>
           </div>
 
-          {/* Filter Panel */}
+          {/* Advanced Filters - Always Visible */}
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-3">Advanced Discovery</h3>
+            <AdvancedFilters
+              onCollectionSelect={handleCollectionSelect}
+              onCompanySelect={handleCompanySelect}
+              onDirectorSelect={handleDirectorSelect}
+              onActorSelect={handleActorSelect}
+              onMovieSearch={handleMovieSearch}
+              selectedCollection={selectedCollection}
+              selectedCompany={selectedCompany}
+              selectedDirector={selectedDirector}
+              selectedActor={selectedActor}
+              movieSearchQuery={searchQuery}
+            />
+          </div>
+
+          {/* Additional Filters Panel - Collapsible */}
           {showAllMoviesFilters && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              {/* Advanced Filters - Collections, Studios, Directors, Actors */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-200 mb-3">Advanced Discovery</h3>
-                <AdvancedFilters
-                  onCollectionSelect={handleCollectionSelect}
-                  onCompanySelect={handleCompanySelect}
-                  onDirectorSelect={handleDirectorSelect}
-                  onActorSelect={handleActorSelect}
-                  selectedCollection={selectedCollection}
-                  selectedCompany={selectedCompany}
-                  selectedDirector={selectedDirector}
-                  selectedActor={selectedActor}
-                />
+              {/* Hide Filters Button */}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-200">Additional Filters</h3>
+                <button
+                  onClick={() => setShowAllMoviesFilters(false)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300"
+                >
+                  <X className="w-4 h-4" />
+                  Hide
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
