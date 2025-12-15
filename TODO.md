@@ -1371,6 +1371,40 @@ Based on Settings system completion and identified gaps:
 7. **Make sort options more visible** - Move sort dropdown to prominent position
 8. **Content Discovery Features** - Recommended/trending/popular aggregated views
 
+### Lower Priority (Automation Stack)
+
+9. **Full Media Automation with Sonarr/Radarr/Bazarr** ⏸️ DEFERRED
+   - **Goal**: Complete "set it and forget it" media automation
+   - **Components**:
+     - Sonarr - Automated TV show downloading (monitors RSS, auto-downloads new episodes)
+     - Radarr - Automated movie downloading (monitors releases, auto-downloads)
+     - Bazarr - Automated subtitle downloading (unlimited sources, no rate limits)
+   - **Setup Steps**:
+     1. Install Sonarr + Radarr via Docker containers
+     2. Configure both to scan existing media folders (`/mnt/d/MediaVault/TV Shows`, `/mnt/d/MediaVault/Movies`)
+     3. Connect to qBittorrent for automatic torrent management
+     4. Configure Bazarr to integrate with Sonarr/Radarr
+     5. Set up subtitle providers (OpenSubtitles, Subscene, Supersubtitles)
+     6. Configure quality profiles and folder organization
+     7. Set up automatic library scans in Jellyfin
+   - **Benefits**:
+     - Automatically download new episodes when they air
+     - Automatically fetch subtitles for all media (no daily limits)
+     - Automatic organization and renaming
+     - Quality upgrades (720p → 1080p automatically when available)
+     - Track ongoing shows without manual checks
+     - Unified media management interface
+   - **Current Workaround**:
+     - Manual downloads via get_iplayer, yt-dlp, and torrent sites
+     - Jellyfin OpenSubtitles plugin (20 subs/day limit on free account)
+   - **Estimated Setup Time**: 1-2 hours for complete automation stack
+   - **Complexity**: Medium (requires Docker, API keys, configuration)
+   - **Priority**: Low - Current workflow is functional, this is convenience enhancement
+   - **Notes**:
+     - Bazarr container already created but not configured
+     - Would replace manual subtitle downloads completely
+     - Best for tracking ongoing TV series (new episodes auto-download)
+
 ---
 
 ## 🎨 UX ENHANCEMENT IDEAS
