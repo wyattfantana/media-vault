@@ -45,11 +45,25 @@ interface StorageData {
   duration: number;
 }
 
+interface DiskSpace {
+  disk: {
+    total: number;
+    used: number;
+    available: number;
+    usedPercent: number;
+  };
+  media: {
+    used: number;
+    percentOfDisk: string;
+  };
+}
+
 export function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentDownloads, setRecentDownloads] = useState<Download[]>([]);
   const [platformData, setPlatformData] = useState<PlatformData[]>([]);
   const [storageData, setStorageData] = useState<StorageData[]>([]);
+  const [diskSpace, setDiskSpace] = useState<DiskSpace | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -91,9 +105,10 @@ export function Dashboard() {
       }
 
       // Fetch analytics data
-      const [platformRes, storageRes] = await Promise.all([
+      const [platformRes, storageRes, diskSpaceRes] = await Promise.all([
         fetch(`${API_BASE}/analytics/platform-distribution`, { credentials: 'include' }),
-        fetch(`${API_BASE}/analytics/storage-breakdown`, { credentials: 'include' })
+        fetch(`${API_BASE}/analytics/storage-breakdown`, { credentials: 'include' }),
+        fetch(`${API_BASE}/analytics/disk-space`, { credentials: 'include' })
       ]);
 
       if (platformRes.ok) {
@@ -104,6 +119,11 @@ export function Dashboard() {
       if (storageRes.ok) {
         const storageAnalytics = await storageRes.json();
         setStorageData(storageAnalytics.breakdown || []);
+      }
+
+      if (diskSpaceRes.ok) {
+        const diskSpaceData = await diskSpaceRes.json();
+        setDiskSpace(diskSpaceData);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
@@ -219,7 +239,7 @@ export function Dashboard() {
         </div>
 
         <div className="card">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-sm text-gray-400">Storage Used</p>
               <p className="text-2xl font-bold text-gray-100 mt-1">
@@ -232,6 +252,23 @@ export function Dashboard() {
               </svg>
             </div>
           </div>
+          {diskSpace && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>Available: {formatBytes(diskSpace.disk.available)}</span>
+                <span>Total: {formatBytes(diskSpace.disk.total)}</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-orange-500 h-2 rounded-full transition-all"
+                  style={{ width: `${diskSpace.disk.usedPercent}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-500 text-center">
+                {diskSpace.disk.usedPercent.toFixed(1)}% disk used
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

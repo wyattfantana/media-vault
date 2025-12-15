@@ -1,6 +1,10 @@
 import express from 'express';
 import { auth } from '../auth.js';
 import { AppDataSource } from '../data-source.js';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export const analyticsRouter = express.Router();
 
@@ -278,5 +282,48 @@ analyticsRouter.get('/summary', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Failed to get analytics summary:', err);
     res.status(500).json({ error: 'Failed to get analytics summary' });
+  }
+});
+
+// GET /api/v1/analytics/disk-space - Get disk space information
+analyticsRouter.get('/disk-space', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { path = process.env.MEDIA_VAULT_STORAGE || '/mnt/d/MediaVault' } = req.query;
+
+    // Get disk space using df command
+    const { stdout } = await execAsync(`df -B1 "${path}" | tail -1`);
+    const parts = stdout.trim().split(/\s+/);
+
+    // df output: Filesystem 1B-blocks Used Available Use% Mounted
+    const total = parseInt(parts[1]) || 0;
+    const used = parseInt(parts[2]) || 0;
+    const available = parseInt(parts[3]) || 0;
+    const usedPercent = parseFloat(parts[4]) || 0;
+
+    // Get media storage used for this user
+    const mediaStats = await AppDataSource.query(`
+      SELECT SUM(file_size) as media_used
+      FROM media
+      WHERE user_id = $1
+    `, [userId]);
+
+    const mediaUsed = parseInt(mediaStats[0]?.media_used) || 0;
+
+    res.json({
+      disk: {
+        total,
+        used,
+        available,
+        usedPercent
+      },
+      media: {
+        used: mediaUsed,
+        percentOfDisk: total > 0 ? ((mediaUsed / total) * 100).toFixed(2) : 0
+      }
+    });
+  } catch (err) {
+    console.error('Failed to get disk space:', err);
+    res.status(500).json({ error: 'Failed to get disk space' });
   }
 });

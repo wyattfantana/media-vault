@@ -35,6 +35,7 @@ export function Favorites() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [downloadFilter, setDownloadFilter] = useState<'all' | 'downloaded' | 'not_downloaded'>('all');
 
   // Download modal state
   const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null);
@@ -88,9 +89,17 @@ export function Favorites() {
     }
   };
 
-  const filteredBookmarks = filter === 'all'
+  // Apply type filter
+  let filteredBookmarks = filter === 'all'
     ? bookmarks
     : bookmarks.filter(b => b.type === filter);
+
+  // Apply download status filter
+  if (downloadFilter === 'downloaded') {
+    filteredBookmarks = filteredBookmarks.filter(b => b.download_status?.is_downloaded === true);
+  } else if (downloadFilter === 'not_downloaded') {
+    filteredBookmarks = filteredBookmarks.filter(b => !b.download_status?.is_downloaded);
+  }
 
   const stats = {
     total: bookmarks.length,
@@ -100,7 +109,9 @@ export function Favorites() {
     tmdb_movie: bookmarks.filter(b => b.type === 'tmdb_movie').length,
     tmdb_tv: bookmarks.filter(b => b.type === 'tmdb_tv').length,
     tmdb_documentary: bookmarks.filter(b => b.type === 'tmdb_documentary').length,
-    other: bookmarks.filter(b => b.type === 'other').length
+    other: bookmarks.filter(b => b.type === 'other').length,
+    downloaded: bookmarks.filter(b => b.download_status?.is_downloaded === true).length,
+    not_downloaded: bookmarks.filter(b => !b.download_status?.is_downloaded).length
   };
 
   const formatCount = (count?: number) => {
@@ -428,7 +439,7 @@ export function Favorites() {
       {/* Filters */}
       <div className="card mb-6">
         <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Type</label>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mb-4">
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-lg text-sm ${filter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
@@ -470,6 +481,28 @@ export function Favorites() {
             className={`px-4 py-2 rounded-lg text-sm ${filter === 'soundcloud_user' ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
           >
             SoundCloud ({stats.soundcloud_user})
+          </button>
+        </div>
+
+        <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Download Status</label>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setDownloadFilter('all')}
+            className={`px-4 py-2 rounded-lg text-sm ${downloadFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          >
+            All ({stats.total})
+          </button>
+          <button
+            onClick={() => setDownloadFilter('downloaded')}
+            className={`px-4 py-2 rounded-lg text-sm ${downloadFilter === 'downloaded' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          >
+            ✓ Downloaded ({stats.downloaded})
+          </button>
+          <button
+            onClick={() => setDownloadFilter('not_downloaded')}
+            className={`px-4 py-2 rounded-lg text-sm ${downloadFilter === 'not_downloaded' ? 'bg-amber-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          >
+            ⬇ Not Downloaded ({stats.not_downloaded})
           </button>
         </div>
       </div>
