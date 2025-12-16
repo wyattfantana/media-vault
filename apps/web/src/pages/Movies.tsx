@@ -107,6 +107,9 @@ export default function Movies() {
   const [selectedDirector, setSelectedDirector] = useState<{ id: number; name: string } | null>(null);
   const [selectedActor, setSelectedActor] = useState<{ id: number; name: string } | null>(null);
   const [advancedFilterMovies, setAdvancedFilterMovies] = useState<Movie[]>([]);
+
+  // Cache for filter results - so we can quickly switch between filters
+  const [filterCache, setFilterCache] = useState<Record<string, { movies: Movie[]; totalResults: number }>>({});
   const [advancedFilterLoading, setAdvancedFilterLoading] = useState(false);
   const [advancedFilterPage, setAdvancedFilterPage] = useState(1);
 
@@ -210,17 +213,7 @@ export default function Movies() {
 
   // Watch for filter changes and reload
   useEffect(() => {
-    console.log('[DEBUG useEffect] Filter change detected', {
-      isInitialMount: isInitialMount.current,
-      selectedCollection,
-      selectedCompany,
-      selectedDirector,
-      selectedActor,
-      viewMode
-    });
-
     if (isInitialMount.current) {
-      console.log('[DEBUG useEffect] Skipping - initial mount');
       isInitialMount.current = false;
       return;
     }
@@ -228,14 +221,11 @@ export default function Movies() {
     // Skip loading if advanced filter is active
     const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
     if (hasAdvancedFilter) {
-      console.log('[DEBUG useEffect] Skipping - advanced filter active');
       return;
     }
 
     if (viewMode === 'all-movies' || viewMode === 'top-rated') {
-      console.log('[DEBUG useEffect] Scheduling loadManyPages');
       const timeoutId = setTimeout(() => {
-        console.log('[DEBUG useEffect] Executing loadManyPages');
         loadManyPages(1, 3, viewMode, false); // Load 3 pages initially (~50 movies)
       }, 300);
 
@@ -608,8 +598,6 @@ export default function Movies() {
 
   // Load multiple pages at once for better browsing
   const loadManyPages = async (startPage: number, numPages: number, mode: 'all-movies' | 'top-rated', append = false) => {
-    console.log('[DEBUG loadManyPages] Called with:', { startPage, numPages, mode, append });
-    console.log('[DEBUG loadManyPages] Stack trace:', new Error().stack);
     setLoadingMultiplePages(true);
     try {
       const filters = mode === 'top-rated'
@@ -692,7 +680,7 @@ export default function Movies() {
     }
   };
 
-  // Helper function to clear ALL advanced filters and reset state
+  // Helper function to clear ALL advanced filters and reload general catalog
   const clearAllAdvancedFilters = () => {
     setSelectedCollection(null);
     setSelectedCompany(null);
@@ -701,18 +689,15 @@ export default function Movies() {
     setSearchQuery('');
     setAllMovies([]);
     setAdvancedFilterLoading(false);
+    // Reload general catalog
+    loadManyPages(1, 3, viewMode, false);
   };
 
   // Advanced Filter Handlers
   const handleCollectionSelect = async (collectionId: number | null, name: string) => {
     if (!collectionId) {
-      // Only clear THIS filter
       setSelectedCollection(null);
-      // If no other filters active, reload catalog
-      if (!selectedCompany && !selectedDirector && !selectedActor && !searchQuery) {
-        setAllMovies([]);
-        loadManyPages(1, 3, viewMode, false);
-      }
+      setAllMovies([]); // Just clear, don't reload
       return;
     }
 
@@ -724,6 +709,17 @@ export default function Movies() {
 
     // Set this filter and show loading
     setSelectedCollection({ id: collectionId, name });
+
+    // Check cache first
+    const cacheKey = `collection:${collectionId}`;
+    if (filterCache[cacheKey]) {
+      setAllMovies(filterCache[cacheKey].movies);
+      setAllMoviesTotalPages(1);
+      setAllMoviesPage(1);
+      setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
+      return;
+    }
+
     setAllMovies([]); // Clear movies for instant feedback
     setAdvancedFilterLoading(true);
 
@@ -738,6 +734,12 @@ export default function Movies() {
           poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
           backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
           year: movie.release_date ? movie.release_date.split('-')[0] : null
+        }));
+
+        // Cache the results
+        setFilterCache(prev => ({
+          ...prev,
+          [cacheKey]: { movies: transformedMovies, totalResults: transformedMovies.length }
         }));
 
         setAllMovies(transformedMovies);
@@ -756,10 +758,7 @@ export default function Movies() {
   const handleCompanySelect = async (companyId: number | null, name: string) => {
     if (!companyId) {
       setSelectedCompany(null);
-      if (!selectedCollection && !selectedDirector && !selectedActor && !searchQuery) {
-        setAllMovies([]);
-        loadManyPages(1, 3, viewMode, false);
-      }
+      setAllMovies([]); // Just clear, don't reload
       return;
     }
 
@@ -770,6 +769,17 @@ export default function Movies() {
     setSearchQuery('');
 
     setSelectedCompany({ id: companyId, name });
+
+    // Check cache first
+    const cacheKey = `company:${companyId}`;
+    if (filterCache[cacheKey]) {
+      setAllMovies(filterCache[cacheKey].movies);
+      setAllMoviesTotalPages(Math.ceil(filterCache[cacheKey].movies.length / 20));
+      setAllMoviesPage(3);
+      setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
+      return;
+    }
+
     setAllMovies([]);
     setAdvancedFilterLoading(true);
 
@@ -791,6 +801,12 @@ export default function Movies() {
         year: movie.release_date ? movie.release_date.split('-')[0] : null
       }));
 
+      // Cache the results
+      setFilterCache(prev => ({
+        ...prev,
+        [cacheKey]: { movies: transformedMovies, totalResults }
+      }));
+
       setAllMovies(transformedMovies);
       setAllMoviesTotalPages(totalPages);
       setAllMoviesPage(3);
@@ -804,45 +820,38 @@ export default function Movies() {
   };
 
   const handleDirectorSelect = async (personId: number | null, name: string) => {
-    console.log('[DEBUG] handleDirectorSelect called:', { personId, name });
-
     if (!personId) {
-      console.log('[DEBUG] Clearing director filter');
       setSelectedDirector(null);
-      if (!selectedCollection && !selectedCompany && !selectedActor && !searchQuery) {
-        setAllMovies([]);
-        loadManyPages(1, 3, viewMode, false);
-      }
+      setAllMovies([]); // Just clear, don't reload
       return;
     }
 
     // Clear OTHER filter types
-    console.log('[DEBUG] Clearing other filters');
     setSelectedCollection(null);
     setSelectedCompany(null);
     setSelectedActor(null);
     setSearchQuery('');
 
-    console.log('[DEBUG] Setting director and clearing movies');
     setSelectedDirector({ id: personId, name });
+
+    // Check cache first
+    const cacheKey = `director:${personId}`;
+    if (filterCache[cacheKey]) {
+      setAllMovies(filterCache[cacheKey].movies);
+      setAllMoviesTotalPages(1);
+      setAllMoviesPage(1);
+      setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
+      return;
+    }
+
     setAllMovies([]);
     setAdvancedFilterLoading(true);
 
     try {
-      const url = `${API_BASE}/tmdb/discover/person/${personId}?role=crew`;
-      console.log('[DEBUG] Fetching director movies from:', url);
-      const res = await fetch(url, { credentials: 'include' });
-
-      console.log('[DEBUG] Response status:', res.status, res.ok);
+      const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=crew`, { credentials: 'include' });
 
       if (res.ok) {
         const data = await res.json();
-        console.log('[DEBUG] API response:', {
-          resultsCount: data.results?.length,
-          totalResults: data.total_results,
-          totalPages: data.total_pages,
-          firstMovie: data.results?.[0]?.title
-        });
 
         // Directors usually have fewer movies, load all in one go
         const transformedMovies = (data.results || []).map((movie: any) => ({
@@ -852,36 +861,29 @@ export default function Movies() {
           year: movie.release_date ? movie.release_date.split('-')[0] : null
         }));
 
-        console.log('[DEBUG] Setting movies:', {
-          count: transformedMovies.length,
-          titles: transformedMovies.slice(0, 5).map((m: any) => m.title)
-        });
+        // Cache the results
+        setFilterCache(prev => ({
+          ...prev,
+          [cacheKey]: { movies: transformedMovies, totalResults: transformedMovies.length }
+        }));
 
         setAllMovies(transformedMovies);
         setAllMoviesTotalPages(1);
         setAllMoviesPage(1);
         setAllMoviesTotalResults(transformedMovies.length);
-
-        console.log('[DEBUG] State updated successfully');
-      } else {
-        console.error('[DEBUG] API request failed:', res.status);
       }
     } catch (error) {
-      console.error('[DEBUG] Failed to load director movies:', error);
+      console.error('Failed to load director movies:', error);
       setAllMovies([]);
     } finally {
       setAdvancedFilterLoading(false);
-      console.log('[DEBUG] handleDirectorSelect complete');
     }
   };
 
   const handleActorSelect = async (personId: number | null, name: string) => {
     if (!personId) {
       setSelectedActor(null);
-      if (!selectedCollection && !selectedCompany && !selectedDirector && !searchQuery) {
-        setAllMovies([]);
-        loadManyPages(1, 3, viewMode, false);
-      }
+      setAllMovies([]); // Just clear, don't reload
       return;
     }
 
@@ -892,6 +894,17 @@ export default function Movies() {
     setSearchQuery('');
 
     setSelectedActor({ id: personId, name });
+
+    // Check cache first
+    const cacheKey = `actor:${personId}`;
+    if (filterCache[cacheKey]) {
+      setAllMovies(filterCache[cacheKey].movies);
+      setAllMoviesTotalPages(Math.ceil(filterCache[cacheKey].movies.length / 20));
+      setAllMoviesPage(5);
+      setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
+      return;
+    }
+
     setAllMovies([]);
     setAdvancedFilterLoading(true);
 
@@ -913,6 +926,12 @@ export default function Movies() {
         year: movie.release_date ? movie.release_date.split('-')[0] : null
       }));
 
+      // Cache the results
+      setFilterCache(prev => ({
+        ...prev,
+        [cacheKey]: { movies: transformedMovies, totalResults }
+      }));
+
       setAllMovies(transformedMovies);
       setAllMoviesTotalPages(totalPages);
       setAllMoviesPage(5);
@@ -928,10 +947,7 @@ export default function Movies() {
   const handleMovieSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchQuery('');
-      if (!selectedCollection && !selectedCompany && !selectedDirector && !selectedActor) {
-        setAllMovies([]);
-        loadManyPages(1, 3, viewMode, false);
-      }
+      setAllMovies([]); // Just clear, don't reload
       return;
     }
 
@@ -1631,6 +1647,7 @@ export default function Movies() {
               onDirectorSelect={handleDirectorSelect}
               onActorSelect={handleActorSelect}
               onMovieSearch={handleMovieSearch}
+              onClearAll={clearAllAdvancedFilters}
               selectedCollection={selectedCollection}
               selectedCompany={selectedCompany}
               selectedDirector={selectedDirector}

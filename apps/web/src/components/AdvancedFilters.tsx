@@ -24,6 +24,7 @@ interface AdvancedFiltersProps {
   onDirectorSelect: (personId: number | null, name: string) => void;
   onActorSelect: (personId: number | null, name: string) => void;
   onMovieSearch: (query: string) => void;
+  onClearAll: () => void;
   selectedCollection: { id: number; name: string } | null;
   selectedCompany: { id: number; name: string } | null;
   selectedDirector: { id: number; name: string } | null;
@@ -37,6 +38,7 @@ export function AdvancedFilters({
   onDirectorSelect,
   onActorSelect,
   onMovieSearch,
+  onClearAll,
   selectedCollection,
   selectedCompany,
   selectedDirector,
@@ -78,7 +80,7 @@ export function AdvancedFilters({
 
       switch (searchType) {
         case 'collection':
-          endpoint = `/tmdb/search/collections?q=${encodeURIComponent(searchQuery)}`;
+          endpoint = `/tmdb/search/collections?query=${encodeURIComponent(searchQuery)}`;
           break;
         case 'company':
           endpoint = `/tmdb/search/companies?query=${encodeURIComponent(searchQuery)}`;
@@ -193,6 +195,15 @@ export function AdvancedFilters({
               </button>
             </div>
           )}
+
+          {/* Clear All & Browse Movies Button */}
+          <button
+            onClick={onClearAll}
+            className="flex items-center gap-2 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+          >
+            <X className="w-4 h-4" />
+            Clear All & Browse Movies
+          </button>
         </div>
       )}
 
