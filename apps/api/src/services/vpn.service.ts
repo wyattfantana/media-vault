@@ -57,7 +57,7 @@ export class VPNService {
         if (!isNaN(expiryDate.getTime())) {
           const now = new Date();
           const diffMs = expiryDate.getTime() - now.getTime();
-          const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          const daysRemaining = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
           return {
             daysRemaining: daysRemaining > 0 ? daysRemaining : 0,

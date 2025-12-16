@@ -80,7 +80,7 @@ export function SignIn() {
       <div
         className="fixed inset-0 z-0 opacity-20"
         style={{
-          backgroundImage: 'url(/background.webp)',
+          backgroundImage: 'url(/images/background.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat'
@@ -90,7 +90,7 @@ export function SignIn() {
       <div className="w-full max-w-md space-y-8 relative z-10">
         {/* Logo/Header */}
         <div className="text-center">
-          <img src="/logo.png" alt="MediaVault" className="h-16 w-auto mx-auto mb-4" />
+          <img src="/images/logo.png" alt="MediaVault" className="h-16 w-auto mx-auto mb-4" />
           <h2 className="text-2xl font-semibold text-gray-100">
             Sign in to your account
           </h2>

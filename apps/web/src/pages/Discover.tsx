@@ -29,12 +29,12 @@ export function Discover() {
     { id: 'movies' as const, label: 'Movies', icon: '🎬', description: 'Browse' },
     { id: 'tvshows' as const, label: 'TV Shows', icon: '📺', description: 'Series' },
     { id: 'documentaries' as const, label: 'Documentaries', icon: '🎞️', description: 'Films' },
-    { id: 'youtube' as const, label: 'YouTube', icon: '▶️', description: 'Channels' },
-    { id: 'bbc' as const, label: 'BBC iPlayer', icon: '📻', description: 'Programmes' },
-    { id: 'soundcloud' as const, label: 'SoundCloud', icon: '🎧', description: 'Tracks' },
-    { id: 'tiktok' as const, label: 'TikTok', icon: '🎵', description: 'Clips' },
-    { id: 'twitch' as const, label: 'Twitch', icon: '🎮', description: 'VODs' },
-    { id: 'reddit' as const, label: 'Reddit', icon: '🔴', description: 'Video Posts' },
+    { id: 'youtube' as const, label: 'YouTube', logo: '/images/youtube.svg' },
+    { id: 'bbc' as const, label: 'BBC iPlayer', logo: '/images/bbc-iplayer.svg' },
+    { id: 'soundcloud' as const, label: 'SoundCloud', logo: '/images/soundcloud.svg' },
+    { id: 'tiktok' as const, label: 'TikTok', logo: '/images/tiktok.png' },
+    { id: 'twitch' as const, label: 'Twitch', logo: '/images/twitch.svg' },
+    { id: 'reddit' as const, label: 'Reddit', logo: '/images/reddit.svg' },
   ];
 
   // Save active tab to sessionStorage whenever it changes
@@ -48,26 +48,31 @@ export function Discover() {
       {/* Tab Navigation */}
       <div className="mb-6">
         <div className="border-b border-gray-700">
-          <nav className="flex space-x-8" aria-label="Tabs">
+          <nav className="flex justify-between" aria-label="Tabs">
             {tabs.map((tab, index) => (
               <React.Fragment key={tab.id}>
                 <button
                   onClick={() => handleTabChange(tab.id)}
                   className={`
-                    py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                    py-4 px-3 border-b-2 font-medium text-sm transition-colors
                     ${activeTab === tab.id
                       ? 'border-brand-500 text-brand-400'
                       : 'border-transparent text-gray-300 hover:text-gray-100 hover:border-gray-500'
                     }
                   `}
+                  title={tab.label}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{tab.icon}</span>
-                    <div className="text-left">
-                      <div>{tab.label}</div>
-                      <div className="text-xs text-gray-400">{tab.description}</div>
+                  {'logo' in tab ? (
+                    <img src={tab.logo} alt={tab.label} className="h-8 w-8 object-contain" />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{tab.icon}</span>
+                      <div className="text-left">
+                        <div>{tab.label}</div>
+                        <div className="text-xs text-gray-400">{tab.description}</div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </button>
                 {/* Separator after Documentaries (index 2) and SoundCloud (index 5) */}
                 {(index === 2 || index === 5) && (

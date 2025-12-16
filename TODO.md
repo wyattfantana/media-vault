@@ -255,7 +255,61 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-15 (Session 18) ✅ COMPLETED
+### Current Session: 2025-12-16 (Session 19) ✅ COMPLETED
+**Focus:** Advanced Filters - Clean UX with Caching
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Fixed collection search bug** - Parameter mismatch (q vs query)
+  - Collections search endpoint expected `query` parameter
+  - Frontend was sending `q` parameter
+  - Updated AdvancedFilters.tsx to use correct parameter
+  - Collection search now works perfectly
+- [x] **Removed auto-reload on filter clear** - Cleaner UX
+  - Clicking X on filter badges no longer reloads general catalog
+  - Switching between filters is smooth (no flashing)
+  - User stays in "discovery mode" until explicitly clearing all
+- [x] **Added "Clear All & Browse Movies" button** - Explicit reset
+  - New button in AdvancedFilters component
+  - Only way to get back to general catalog
+  - Clear, intentional action from user
+  - Prevents accidental catalog reloads
+- [x] **Implemented filter result caching** - Instant switching
+  - Added filterCache state to store results by filter type
+  - Cache key format: `director:138`, `actor:1100`, `collection:645`, `company:420`
+  - Check cache before fetching (instant load on second visit)
+  - Applied to all filter types (Director, Actor, Collection, Company)
+  - Example: Select Tarantino → fetch 17 movies → cache. Select Arnold → fetch 100 movies → cache. Go back to Tarantino → instant!
+
+**Implementation Details:**
+- Cache structure: `Record<string, { movies: Movie[]; totalResults: number }>`
+- Each filter handler checks cache first before making API request
+- Cache persists for session duration (cleared on page reload)
+- Smooth transitions with no network delay when revisiting filters
+
+**UX Improvements:**
+- Director filter shows correct movie count (17 of 17, not 17 of 814,562)
+- Actor filter loads 100 movies initially (5 pages)
+- Collection/Company filters also cached
+- Total catalog reference always shown at bottom
+- Filter name displayed next to count
+
+**Files Modified:**
+- `apps/web/src/components/AdvancedFilters.tsx` - Fixed collection search, added Clear All button
+- `apps/web/src/pages/Movies.tsx` - Filter caching, removed auto-reload, updated all handlers
+
+**Known Remaining Issues:**
+- Initial "All Movies" loading behavior could be refined
+- Consider making "Browse All" the default starting state instead of loading catalog on mount
+
+**Next Session Start Point:**
+→ Advanced filters working smoothly! Consider:
+  - Refining initial load behavior (don't load catalog until user action)
+  - Adding more filter types (Writer, Cinematographer, etc.)
+  - Implementing filter combinations (Tarantino films starring Jackson)
+
+---
+
+### Session: 2025-12-15 (Session 18) ✅ COMPLETED
 **Focus:** Permanent Download History & Duplicate Prevention System
 **Status:** ✅ COMPLETED
 **Completed:**

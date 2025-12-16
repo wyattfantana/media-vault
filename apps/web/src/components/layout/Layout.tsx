@@ -102,7 +102,7 @@ export function Layout() {
       <div
         className="fixed inset-0 z-0 opacity-20"
         style={{
-          backgroundImage: 'url(/background.webp)',
+          backgroundImage: 'url(/images/background.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat'
@@ -111,7 +111,7 @@ export function Layout() {
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 fixed h-screen flex flex-col flex-shrink-0 z-10">
         <div className="p-6">
-          <img src="/logo.png" alt="MediaVault" className="h-12 w-auto mb-2" />
+          <img src="/images/logo.png" alt="MediaVault" className="h-12 w-auto mb-2" />
           <p className="text-sm text-gray-400">Your Personal Media Hub</p>
         </div>
 
