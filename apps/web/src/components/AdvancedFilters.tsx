@@ -78,14 +78,14 @@ export function AdvancedFilters({
 
       switch (searchType) {
         case 'collection':
-          endpoint = `/tmdb/search/collections?query=${encodeURIComponent(searchQuery)}`;
+          endpoint = `/tmdb/search/collections?q=${encodeURIComponent(searchQuery)}`;
           break;
         case 'company':
           endpoint = `/tmdb/search/companies?query=${encodeURIComponent(searchQuery)}`;
           break;
         case 'director':
         case 'actor':
-          endpoint = `/tmdb/search/people?query=${encodeURIComponent(searchQuery)}`;
+          endpoint = `/tmdb/search/people?q=${encodeURIComponent(searchQuery)}`;
           break;
       }
 
