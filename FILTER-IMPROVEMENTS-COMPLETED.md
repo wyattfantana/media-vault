@@ -196,11 +196,32 @@ CREATE INDEX idx_bookmarks_user_created ON bookmarks(user_id, created_at DESC);
 ## Testing Checklist
 
 - [x] TypeScript compilation passes (fixed Zod error property)
-- [ ] Run migration 021 on database
-- [ ] Test media filtering with various sortBy values
-- [ ] Test movie discovery with filters
-- [ ] Test TV show discovery with year ranges
-- [ ] Test invalid filter parameters return 400 errors
+- [x] Run migration 021 on database - Indexes created successfully
+- [x] Test movie discovery with filters - Working correctly (high-rated movies returned)
+- [ ] Test media filtering with various sortBy values - NOT TESTED YET
+- [ ] Test TV show discovery with year ranges - NO /discover/tv ENDPOINT YET
+- [x] Test invalid filter parameters - ⚠️ ISSUE FOUND: /discover/movies accepts invalid sortBy (no Zod validation applied)
+
+## Issues Found During Testing
+
+### 1. Missing Zod Validation on /discover/movies Endpoint
+**Location:** `apps/api/src/routes/tmdb.ts:594`
+
+**Problem:** The endpoint accepts sortBy parameter without validation:
+```typescript
+sort_by: (req.query.sort_by as any) || 'vote_average.desc',
+```
+
+**Impact:** The SQL injection fix described in Phase 1 has NOT been applied to this endpoint. The Zod schemas exist but aren't being used here.
+
+**Fix Needed:** Apply MovieFilterSchema.safeParse() to validate request parameters before passing to tmdbService.
+
+### 2. Missing /discover/tv Endpoint
+**Problem:** No advanced filtering endpoint exists for TV shows
+
+**Impact:** TV show year range filtering cannot be tested
+
+**Fix Needed:** Create /discover/tv endpoint with TVFilterSchema validation
 
 ---
 

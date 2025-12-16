@@ -210,7 +210,17 @@ export default function Movies() {
 
   // Watch for filter changes and reload
   useEffect(() => {
+    console.log('[DEBUG useEffect] Filter change detected', {
+      isInitialMount: isInitialMount.current,
+      selectedCollection,
+      selectedCompany,
+      selectedDirector,
+      selectedActor,
+      viewMode
+    });
+
     if (isInitialMount.current) {
+      console.log('[DEBUG useEffect] Skipping - initial mount');
       isInitialMount.current = false;
       return;
     }
@@ -218,11 +228,14 @@ export default function Movies() {
     // Skip loading if advanced filter is active
     const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
     if (hasAdvancedFilter) {
+      console.log('[DEBUG useEffect] Skipping - advanced filter active');
       return;
     }
 
     if (viewMode === 'all-movies' || viewMode === 'top-rated') {
+      console.log('[DEBUG useEffect] Scheduling loadManyPages');
       const timeoutId = setTimeout(() => {
+        console.log('[DEBUG useEffect] Executing loadManyPages');
         loadManyPages(1, 3, viewMode, false); // Load 3 pages initially (~50 movies)
       }, 300);
 
@@ -595,6 +608,8 @@ export default function Movies() {
 
   // Load multiple pages at once for better browsing
   const loadManyPages = async (startPage: number, numPages: number, mode: 'all-movies' | 'top-rated', append = false) => {
+    console.log('[DEBUG loadManyPages] Called with:', { startPage, numPages, mode, append });
+    console.log('[DEBUG loadManyPages] Stack trace:', new Error().stack);
     setLoadingMultiplePages(true);
     try {
       const filters = mode === 'top-rated'
@@ -684,24 +699,32 @@ export default function Movies() {
     setSelectedDirector(null);
     setSelectedActor(null);
     setSearchQuery('');
-    setAllMovies([]); // Clear movies immediately to prevent stale data
+    setAllMovies([]);
     setAdvancedFilterLoading(false);
   };
 
   // Advanced Filter Handlers
   const handleCollectionSelect = async (collectionId: number | null, name: string) => {
     if (!collectionId) {
-      clearAllAdvancedFilters();
-      // Reload the regular catalog
-      loadManyPages(1, 3, viewMode, false);
+      // Only clear THIS filter
+      setSelectedCollection(null);
+      // If no other filters active, reload catalog
+      if (!selectedCompany && !selectedDirector && !selectedActor && !searchQuery) {
+        setAllMovies([]);
+        loadManyPages(1, 3, viewMode, false);
+      }
       return;
     }
 
-    // Clear all other filters immediately
-    clearAllAdvancedFilters();
+    // Clear OTHER filter types (not this one)
+    setSelectedCompany(null);
+    setSelectedDirector(null);
+    setSelectedActor(null);
+    setSearchQuery('');
 
     // Set this filter and show loading
     setSelectedCollection({ id: collectionId, name });
+    setAllMovies([]); // Clear movies for instant feedback
     setAdvancedFilterLoading(true);
 
     try {
@@ -732,37 +755,46 @@ export default function Movies() {
 
   const handleCompanySelect = async (companyId: number | null, name: string) => {
     if (!companyId) {
-      clearAllAdvancedFilters();
-      // Reload the regular catalog
-      loadManyPages(1, 3, viewMode, false);
+      setSelectedCompany(null);
+      if (!selectedCollection && !selectedDirector && !selectedActor && !searchQuery) {
+        setAllMovies([]);
+        loadManyPages(1, 3, viewMode, false);
+      }
       return;
     }
 
-    // Clear all other filters immediately
-    clearAllAdvancedFilters();
+    // Clear OTHER filter types
+    setSelectedCollection(null);
+    setSelectedDirector(null);
+    setSelectedActor(null);
+    setSearchQuery('');
 
-    // Set this filter and show loading
     setSelectedCompany({ id: companyId, name });
+    setAllMovies([]);
     setAdvancedFilterLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=1`, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
+      // Load first 3 pages (60 movies) immediately
+      const pages = await Promise.all([1, 2, 3].map(page =>
+        fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=${page}`, { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+      ));
 
-        // Transform TMDB format to Movie format
-        const transformedMovies = (data.results || []).map((movie: any) => ({
-          ...movie,
-          poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
-          backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
-          year: movie.release_date ? movie.release_date.split('-')[0] : null
-        }));
+      const allResults = pages.flatMap(data => data?.results || []);
+      const totalResults = pages[0]?.total_results || 0;
+      const totalPages = pages[0]?.total_pages || 1;
 
-        setAllMovies(transformedMovies);
-        setAllMoviesTotalPages(data.total_pages);
-        setAllMoviesPage(1);
-        setAllMoviesTotalResults(data.total_results || transformedMovies.length);
-      }
+      const transformedMovies = allResults.map((movie: any) => ({
+        ...movie,
+        poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+        backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
+        year: movie.release_date ? movie.release_date.split('-')[0] : null
+      }));
+
+      setAllMovies(transformedMovies);
+      setAllMoviesTotalPages(totalPages);
+      setAllMoviesPage(3);
+      setAllMoviesTotalResults(totalResults);
     } catch (error) {
       console.error('Failed to load company movies:', error);
       setAllMovies([]);
@@ -772,26 +804,47 @@ export default function Movies() {
   };
 
   const handleDirectorSelect = async (personId: number | null, name: string) => {
+    console.log('[DEBUG] handleDirectorSelect called:', { personId, name });
+
     if (!personId) {
-      clearAllAdvancedFilters();
-      // Reload the regular catalog
-      loadManyPages(1, 3, viewMode, false);
+      console.log('[DEBUG] Clearing director filter');
+      setSelectedDirector(null);
+      if (!selectedCollection && !selectedCompany && !selectedActor && !searchQuery) {
+        setAllMovies([]);
+        loadManyPages(1, 3, viewMode, false);
+      }
       return;
     }
 
-    // Clear all other filters immediately
-    clearAllAdvancedFilters();
+    // Clear OTHER filter types
+    console.log('[DEBUG] Clearing other filters');
+    setSelectedCollection(null);
+    setSelectedCompany(null);
+    setSelectedActor(null);
+    setSearchQuery('');
 
-    // Set this filter and show loading
+    console.log('[DEBUG] Setting director and clearing movies');
     setSelectedDirector({ id: personId, name });
+    setAllMovies([]);
     setAdvancedFilterLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=crew&page=1`, { credentials: 'include' });
+      const url = `${API_BASE}/tmdb/discover/person/${personId}?role=crew`;
+      console.log('[DEBUG] Fetching director movies from:', url);
+      const res = await fetch(url, { credentials: 'include' });
+
+      console.log('[DEBUG] Response status:', res.status, res.ok);
+
       if (res.ok) {
         const data = await res.json();
+        console.log('[DEBUG] API response:', {
+          resultsCount: data.results?.length,
+          totalResults: data.total_results,
+          totalPages: data.total_pages,
+          firstMovie: data.results?.[0]?.title
+        });
 
-        // Transform TMDB format to Movie format
+        // Directors usually have fewer movies, load all in one go
         const transformedMovies = (data.results || []).map((movie: any) => ({
           ...movie,
           poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
@@ -799,52 +852,71 @@ export default function Movies() {
           year: movie.release_date ? movie.release_date.split('-')[0] : null
         }));
 
+        console.log('[DEBUG] Setting movies:', {
+          count: transformedMovies.length,
+          titles: transformedMovies.slice(0, 5).map((m: any) => m.title)
+        });
+
         setAllMovies(transformedMovies);
-        setAllMoviesTotalPages(data.total_pages);
+        setAllMoviesTotalPages(1);
         setAllMoviesPage(1);
-        setAllMoviesTotalResults(data.total_results || transformedMovies.length);
+        setAllMoviesTotalResults(transformedMovies.length);
+
+        console.log('[DEBUG] State updated successfully');
+      } else {
+        console.error('[DEBUG] API request failed:', res.status);
       }
     } catch (error) {
-      console.error('Failed to load director movies:', error);
+      console.error('[DEBUG] Failed to load director movies:', error);
       setAllMovies([]);
     } finally {
       setAdvancedFilterLoading(false);
+      console.log('[DEBUG] handleDirectorSelect complete');
     }
   };
 
   const handleActorSelect = async (personId: number | null, name: string) => {
     if (!personId) {
-      clearAllAdvancedFilters();
-      // Reload the regular catalog
-      loadManyPages(1, 3, viewMode, false);
+      setSelectedActor(null);
+      if (!selectedCollection && !selectedCompany && !selectedDirector && !searchQuery) {
+        setAllMovies([]);
+        loadManyPages(1, 3, viewMode, false);
+      }
       return;
     }
 
-    // Clear all other filters immediately
-    clearAllAdvancedFilters();
+    // Clear OTHER filter types
+    setSelectedCollection(null);
+    setSelectedCompany(null);
+    setSelectedDirector(null);
+    setSearchQuery('');
 
-    // Set this filter and show loading
     setSelectedActor({ id: personId, name });
+    setAllMovies([]);
     setAdvancedFilterLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=cast&page=1`, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
+      // Load first 5 pages (100 movies) for actors who typically have many films
+      const pages = await Promise.all([1, 2, 3, 4, 5].map(page =>
+        fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=cast&page=${page}`, { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+      ));
 
-        // Transform TMDB format to Movie format
-        const transformedMovies = (data.results || []).map((movie: any) => ({
-          ...movie,
-          poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
-          backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
-          year: movie.release_date ? movie.release_date.split('-')[0] : null
-        }));
+      const allResults = pages.flatMap(data => data?.results || []);
+      const totalResults = pages[0]?.total_results || 0;
+      const totalPages = pages[0]?.total_pages || 1;
 
-        setAllMovies(transformedMovies);
-        setAllMoviesTotalPages(data.total_pages);
-        setAllMoviesPage(1);
-        setAllMoviesTotalResults(data.total_results || transformedMovies.length);
-      }
+      const transformedMovies = allResults.map((movie: any) => ({
+        ...movie,
+        poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+        backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
+        year: movie.release_date ? movie.release_date.split('-')[0] : null
+      }));
+
+      setAllMovies(transformedMovies);
+      setAllMoviesTotalPages(totalPages);
+      setAllMoviesPage(5);
+      setAllMoviesTotalResults(totalResults);
     } catch (error) {
       console.error('Failed to load actor movies:', error);
       setAllMovies([]);
@@ -855,17 +927,22 @@ export default function Movies() {
 
   const handleMovieSearch = async (query: string) => {
     if (!query.trim()) {
-      // Clear search - reload the regular catalog
-      clearAllAdvancedFilters();
-      loadManyPages(1, 3, viewMode, false);
+      setSearchQuery('');
+      if (!selectedCollection && !selectedCompany && !selectedDirector && !selectedActor) {
+        setAllMovies([]);
+        loadManyPages(1, 3, viewMode, false);
+      }
       return;
     }
 
-    // Clear all other filters immediately
-    clearAllAdvancedFilters();
+    // Clear OTHER filter types
+    setSelectedCollection(null);
+    setSelectedCompany(null);
+    setSelectedDirector(null);
+    setSelectedActor(null);
 
-    // Set search query and show loading
     setSearchQuery(query);
+    setAllMovies([]);
     setAdvancedFilterLoading(true);
 
     try {
@@ -877,7 +954,6 @@ export default function Movies() {
         const data = await res.json();
         const results = data.results || [];
 
-        // Set results to allMovies so they appear in the all-movies view
         setAllMovies(results);
         setAllMoviesTotalPages(data.total_pages || 1);
         setAllMoviesPage(1);
@@ -1893,35 +1969,39 @@ export default function Movies() {
 
           {/* Results header */}
           <div className="bg-gray-800/50 p-4 rounded-lg border-l-4 border-blue-500">
-            <div className="space-y-1">
-              <div className="text-sm text-gray-300 flex items-center gap-2">
+            <div className="space-y-2">
+              <div className="text-sm text-gray-300 flex items-center gap-2 flex-wrap">
                 <span className="text-gray-400">Loaded:</span>{' '}
                 <span className="font-bold text-white">{allMovies.length.toLocaleString()}</span> of{' '}
                 <span className="font-bold text-blue-400">{allMoviesTotalResults.toLocaleString()}</span>{' '}
-                {allMoviesFilters.minRating > 0 || allMoviesFilters.minVotes > 0 || allMoviesFilters.selectedGenres.length > 0 || allMoviesFilters.excludeGenres.length > 0 || allMoviesFilters.yearFrom || allMoviesFilters.yearTo ? (
-                  <span className="text-yellow-400">matching movies</span>
-                ) : (
-                  <span className="text-gray-400">movies</span>
+                <span className="text-gray-400">movies</span>
+
+                {/* Show active filter */}
+                {selectedCollection && (
+                  <span className="text-purple-400">- {selectedCollection.name}</span>
                 )}
+                {selectedCompany && (
+                  <span className="text-blue-400">- {selectedCompany.name} (Studio)</span>
+                )}
+                {selectedDirector && (
+                  <span className="text-green-400">- {selectedDirector.name} (Director)</span>
+                )}
+                {selectedActor && (
+                  <span className="text-yellow-400">- {selectedActor.name} (Actor)</span>
+                )}
+                {searchQuery && (
+                  <span className="text-gray-400">- Search: "{searchQuery}"</span>
+                )}
+
                 {loadingMultiplePages && (
-                  <Loader className="w-4 h-4 animate-spin text-blue-400 ml-2" />
+                  <Loader className="w-4 h-4 animate-spin text-blue-400" />
                 )}
               </div>
-              <div className="text-xs text-gray-500 space-y-1">
-                {(allMoviesFilters.minRating > 0 || allMoviesFilters.minVotes > 0 || allMoviesFilters.selectedGenres.length > 0 || allMoviesFilters.excludeGenres.length > 0 || allMoviesFilters.yearFrom || allMoviesFilters.yearTo) ? (
-                  <>
-                    <div>
-                      <span className="text-yellow-400">Filtered:</span> <span className="font-semibold text-yellow-300">{allMoviesTotalResults.toLocaleString()}+ matching movies</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Total catalog:</span> <span className="font-semibold text-gray-400">1,082,951+ movies</span>
-                    </div>
-                  </>
-                ) : (
-                  <div>
-                    Total catalog: <span className="font-semibold text-gray-400">{allMoviesTotalResults.toLocaleString()}+ movies</span>
-                  </div>
-                )}
+
+              {/* Always show total catalog for reference */}
+              <div className="text-xs text-gray-500">
+                <span className="text-gray-500">Total catalog:</span>{' '}
+                <span className="font-semibold text-gray-400">814,562+ movies</span>
               </div>
             </div>
           </div>
