@@ -223,7 +223,7 @@ export default function Movies() {
 
     if (viewMode === 'all-movies' || viewMode === 'top-rated') {
       const timeoutId = setTimeout(() => {
-        loadManyPages(1, 10, viewMode, false); // Load 10 pages when filters change
+        loadManyPages(1, 3, viewMode, false); // Load 3 pages initially (~50 movies)
       }, 300);
 
       return () => clearTimeout(timeoutId);
@@ -281,7 +281,7 @@ export default function Movies() {
 
   // Function to load movies based on current filters
   const loadMovies = () => {
-    loadManyPages(1, 10, 'all-movies'); // Load 10 pages initially (~200 movies)
+    loadManyPages(1, 3, 'all-movies'); // Load 3 pages initially (~50 movies)
   };
 
   // Genre configuration with emojis - ordered by popularity
@@ -683,7 +683,7 @@ export default function Movies() {
       setSelectedCollection(null);
       setAdvancedFilterMovies([]);
       // Reload the regular catalog
-      loadManyPages(1, 10, viewMode, false);
+      loadManyPages(1, 3, viewMode, false);
       return;
     }
 
@@ -719,7 +719,7 @@ export default function Movies() {
       setSelectedCompany(null);
       setAdvancedFilterMovies([]);
       // Reload the regular catalog
-      loadManyPages(1, 10, viewMode, false);
+      loadManyPages(1, 3, viewMode, false);
       return;
     }
 
@@ -756,7 +756,7 @@ export default function Movies() {
       setSelectedDirector(null);
       setAdvancedFilterMovies([]);
       // Reload the regular catalog
-      loadManyPages(1, 10, viewMode, false);
+      loadManyPages(1, 3, viewMode, false);
       return;
     }
 
@@ -793,7 +793,7 @@ export default function Movies() {
       setSelectedActor(null);
       setAdvancedFilterMovies([]);
       // Reload the regular catalog
-      loadManyPages(1, 10, viewMode, false);
+      loadManyPages(1, 3, viewMode, false);
       return;
     }
 
@@ -829,7 +829,7 @@ export default function Movies() {
     setSearchQuery(query);
     if (!query.trim()) {
       // Clear search - reload the regular catalog
-      loadManyPages(1, 10, viewMode, false);
+      loadManyPages(1, 3, viewMode, false);
       return;
     }
 
@@ -1858,48 +1858,37 @@ export default function Movies() {
 
           {/* Results header */}
           <div className="bg-gray-800/50 p-4 rounded-lg border-l-4 border-blue-500">
-            {loadingMultiplePages ? (
-              <div className="flex items-center gap-3 py-2">
-                <Loader className="w-6 h-6 animate-spin text-blue-400" />
-                <div className="space-y-1">
-                  <div className="text-base font-semibold text-blue-400 animate-pulse">
-                    Loading movies...
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Please wait while we fetch more results
-                  </div>
-                </div>
+            <div className="space-y-1">
+              <div className="text-sm text-gray-300 flex items-center gap-2">
+                <span className="text-gray-400">Loaded:</span>{' '}
+                <span className="font-bold text-white">{allMovies.length.toLocaleString()}</span> of{' '}
+                <span className="font-bold text-blue-400">{allMoviesTotalResults.toLocaleString()}</span>{' '}
+                {allMoviesFilters.minRating > 0 || allMoviesFilters.minVotes > 0 || allMoviesFilters.selectedGenres.length > 0 || allMoviesFilters.excludeGenres.length > 0 || allMoviesFilters.yearFrom || allMoviesFilters.yearTo ? (
+                  <span className="text-yellow-400">matching movies</span>
+                ) : (
+                  <span className="text-gray-400">movies</span>
+                )}
+                {loadingMultiplePages && (
+                  <Loader className="w-4 h-4 animate-spin text-blue-400 ml-2" />
+                )}
               </div>
-            ) : (
-              <div className="space-y-1">
-                <div className="text-sm text-gray-300">
-                  <span className="text-gray-400">Loaded:</span>{' '}
-                  <span className="font-bold text-white">{allMovies.length.toLocaleString()}</span> of{' '}
-                  <span className="font-bold text-blue-400">{allMoviesTotalResults.toLocaleString()}</span>{' '}
-                  {allMoviesFilters.minRating > 0 || allMoviesFilters.minVotes > 0 || allMoviesFilters.selectedGenres.length > 0 || allMoviesFilters.excludeGenres.length > 0 || allMoviesFilters.yearFrom || allMoviesFilters.yearTo ? (
-                    <span className="text-yellow-400">matching movies</span>
-                  ) : (
-                    <span className="text-gray-400">movies</span>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500 space-y-1">
-                  {(allMoviesFilters.minRating > 0 || allMoviesFilters.minVotes > 0 || allMoviesFilters.selectedGenres.length > 0 || allMoviesFilters.excludeGenres.length > 0 || allMoviesFilters.yearFrom || allMoviesFilters.yearTo) ? (
-                    <>
-                      <div>
-                        <span className="text-yellow-400">Filtered:</span> <span className="font-semibold text-yellow-300">{allMoviesTotalResults.toLocaleString()}+ matching movies</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Total catalog:</span> <span className="font-semibold text-gray-400">1,082,951+ movies</span>
-                      </div>
-                    </>
-                  ) : (
+              <div className="text-xs text-gray-500 space-y-1">
+                {(allMoviesFilters.minRating > 0 || allMoviesFilters.minVotes > 0 || allMoviesFilters.selectedGenres.length > 0 || allMoviesFilters.excludeGenres.length > 0 || allMoviesFilters.yearFrom || allMoviesFilters.yearTo) ? (
+                  <>
                     <div>
-                      Total catalog: <span className="font-semibold text-gray-400">{allMoviesTotalResults.toLocaleString()}+ movies</span>
+                      <span className="text-yellow-400">Filtered:</span> <span className="font-semibold text-yellow-300">{allMoviesTotalResults.toLocaleString()}+ matching movies</span>
                     </div>
-                  )}
-                </div>
+                    <div>
+                      <span className="text-gray-500">Total catalog:</span> <span className="font-semibold text-gray-400">1,082,951+ movies</span>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    Total catalog: <span className="font-semibold text-gray-400">{allMoviesTotalResults.toLocaleString()}+ movies</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           {allMoviesLoading && allMoviesPage === 1 ? (
