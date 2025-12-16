@@ -5,7 +5,10 @@ import { getIPlayerService } from '../services/get-iplayer.service.js';
 import { qbittorrentService, QBittorrentService } from '../services/qbittorrent.service.js';
 import { vpnService } from '../services/vpn.service.js';
 import { jellyfinFormatter } from '../services/jellyfin-formatter.service.js';
+import { jellyfinService } from '../services/jellyfin.service.js';
 import { AppDataSource } from '../data-source.js';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 export const downloadsRouter = express.Router();
 
@@ -405,12 +408,12 @@ downloadsRouter.post('/:id/start', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/v1/downloads/:id - Cancel/delete a download
+// DELETE /api/v1/downloads/:id - Cancel/delete a download and its files
 downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
     const { id } = req.params;
-    const { deleteFiles = false } = req.query;
+    const { deleteFiles = 'true' } = req.query; // Default to true for file deletion
 
     const download = await AppDataSource
       .createQueryBuilder()
@@ -423,12 +426,77 @@ downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Download not found' });
     }
 
+    const shouldDeleteFiles = deleteFiles === 'true';
+    let deletedFilePath: string | null = null;
+
+    // If user wants to delete files, find and delete them
+    if (shouldDeleteFiles && download.status === 'completed') {
+      try {
+        // Find the media entry for this download
+        const media = await AppDataSource
+          .createQueryBuilder()
+          .select('*')
+          .from('media', 'm')
+          .where('m.download_id = :downloadId', { downloadId: id })
+          .getRawOne();
+
+        if (media && media.file_path) {
+          deletedFilePath = media.file_path;
+          console.log(`[Delete] Deleting file: ${media.file_path}`);
+
+          // Delete the main file
+          try {
+            await fs.unlink(media.file_path);
+            console.log(`[Delete] Deleted main file: ${media.file_path}`);
+          } catch (err: any) {
+            console.error(`[Delete] Failed to delete main file:`, err);
+          }
+
+          // Delete related files (subtitles, metadata, etc.)
+          const dir = path.dirname(media.file_path);
+          const baseName = path.basename(media.file_path, path.extname(media.file_path));
+
+          try {
+            const files = await fs.readdir(dir);
+            const relatedFiles = files.filter(f => {
+              const nameWithoutExt = path.basename(f, path.extname(f));
+              // Match files with same base name (subtitles, .nfo, etc.)
+              return nameWithoutExt === baseName && f !== path.basename(media.file_path);
+            });
+
+            for (const file of relatedFiles) {
+              const filePath = path.join(dir, file);
+              try {
+                await fs.unlink(filePath);
+                console.log(`[Delete] Deleted related file: ${filePath}`);
+              } catch (err) {
+                console.error(`[Delete] Failed to delete related file ${filePath}:`, err);
+              }
+            }
+          } catch (err) {
+            console.error(`[Delete] Failed to scan directory for related files:`, err);
+          }
+
+          // Delete the media database entry
+          await AppDataSource
+            .createQueryBuilder()
+            .delete()
+            .from('media')
+            .where('id = :mediaId', { mediaId: media.id })
+            .execute();
+        }
+      } catch (err) {
+        console.error('[Delete] Failed to delete media files:', err);
+        // Continue with download deletion even if file deletion fails
+      }
+    }
+
     // If it's a qBittorrent download, also remove from qBittorrent
     if (download.downloader === 'qbittorrent' && download.metadata?.torrentHash) {
       try {
         await qbittorrentService.deleteTorrent(
           download.metadata.torrentHash,
-          deleteFiles === 'true'
+          shouldDeleteFiles
         );
       } catch (err) {
         console.error('Failed to delete torrent from qBittorrent:', err);
@@ -436,25 +504,31 @@ downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
       }
     }
 
-    // If downloading, mark as cancelled
-    if (download.status === 'downloading') {
-      await AppDataSource
-        .createQueryBuilder()
-        .update('downloads')
-        .set({ status: 'cancelled' })
-        .where('id = :id', { id })
-        .execute();
-    } else {
-      // Otherwise delete it
-      await AppDataSource
-        .createQueryBuilder()
-        .delete()
-        .from('downloads')
-        .where('id = :id', { id })
-        .execute();
+    // Delete the download record
+    await AppDataSource
+      .createQueryBuilder()
+      .delete()
+      .from('downloads')
+      .where('id = :id', { id })
+      .execute();
+
+    // Trigger Jellyfin library refresh if files were deleted
+    if (deletedFilePath) {
+      try {
+        console.log(`[Delete] Triggering Jellyfin library scan for: ${deletedFilePath}`);
+        await jellyfinService.scanMediaFile(deletedFilePath);
+        console.log(`[Delete] Jellyfin library scan triggered successfully`);
+      } catch (err) {
+        console.error('[Delete] Failed to trigger Jellyfin scan:', err);
+        // Don't fail the request if Jellyfin scan fails
+      }
     }
 
-    res.json({ message: 'Download cancelled/deleted' });
+    res.json({
+      message: 'Download and associated files deleted successfully',
+      filesDeleted: shouldDeleteFiles,
+      jellyfinRefreshed: !!deletedFilePath
+    });
   } catch (err) {
     console.error('Failed to delete download:', err);
     res.status(500).json({ error: 'Failed to delete download' });

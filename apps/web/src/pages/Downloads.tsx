@@ -85,13 +85,15 @@ export function Downloads() {
     : downloads.filter(d => d.status === statusFilter);
 
   const handleClearCompleted = async () => {
-    if (!confirm('Clear all completed downloads from the list?')) return;
+    const confirmMsg = `Clear all completed downloads?\n\nThis will:\n• Remove all completed downloads from your queue\n• Delete all downloaded files from your storage\n• Delete any related files (subtitles, metadata, etc.)\n• Refresh your Jellyfin media server\n\nThis action cannot be undone.`;
+
+    if (!confirm(confirmMsg)) return;
 
     try {
       const completedIds = downloads.filter(d => d.status === 'completed').map(d => d.id);
       await Promise.all(
         completedIds.map(id =>
-          fetch(`${API_BASE}/downloads/${id}`, {
+          fetch(`${API_BASE}/downloads/${id}?deleteFiles=true`, {
             method: 'DELETE',
             credentials: 'include'
           })
@@ -151,10 +153,8 @@ export function Downloads() {
     }
   };
 
-  const handleDeleteTorrent = async (download: Download, deleteFiles: boolean = false) => {
-    const confirmMsg = deleteFiles
-      ? 'Delete this torrent and remove all downloaded files?'
-      : 'Delete this torrent but keep the downloaded files?';
+  const handleDeleteTorrent = async (download: Download, deleteFiles: boolean = true) => {
+    const confirmMsg = `Are you sure you want to delete this download?\n\nThis will:\n• Remove the download from your queue\n• Delete the file from your storage\n• Delete any related files (subtitles, metadata, etc.)\n• Remove it from your Jellyfin media server\n\nThis action cannot be undone.`;
 
     if (!confirm(confirmMsg)) return;
 
@@ -165,7 +165,7 @@ export function Downloads() {
       });
       fetchDownloads();
     } catch (err) {
-      alert('Failed to delete torrent');
+      alert('Failed to delete download');
     }
   };
 
@@ -233,10 +233,12 @@ export function Downloads() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this download?')) return;
+    const confirmMsg = `Are you sure you want to delete this download?\n\nThis will:\n• Remove the download from your queue\n• Delete the file from your storage\n• Delete any related files (subtitles, metadata, etc.)\n• Remove it from your Jellyfin media server\n\nThis action cannot be undone.`;
+
+    if (!confirm(confirmMsg)) return;
 
     try {
-      await fetch(`${API_BASE}/downloads/${id}`, {
+      await fetch(`${API_BASE}/downloads/${id}?deleteFiles=true`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -598,18 +600,11 @@ export function Downloads() {
                       </button>
                     )}
                     <button
-                      onClick={() => handleDeleteTorrent(download, false)}
-                      className="flex-1 px-3 py-1.5 bg-gray-700 text-gray-300 text-sm rounded hover:bg-gray-600"
-                      title="Delete torrent, keep files"
-                    >
-                      Remove
-                    </button>
-                    <button
                       onClick={() => handleDeleteTorrent(download, true)}
                       className="flex-1 px-3 py-1.5 bg-red-900/50 text-red-300 text-sm rounded hover:bg-red-900/70"
-                      title="Delete torrent and files"
+                      title="Delete download and all files"
                     >
-                      Delete All
+                      Delete
                     </button>
                   </>
                 ) : (
