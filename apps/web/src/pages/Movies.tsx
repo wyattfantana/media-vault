@@ -677,16 +677,30 @@ export default function Movies() {
     }
   };
 
+  // Helper function to clear ALL advanced filters and reset state
+  const clearAllAdvancedFilters = () => {
+    setSelectedCollection(null);
+    setSelectedCompany(null);
+    setSelectedDirector(null);
+    setSelectedActor(null);
+    setSearchQuery('');
+    setAllMovies([]); // Clear movies immediately to prevent stale data
+    setAdvancedFilterLoading(false);
+  };
+
   // Advanced Filter Handlers
   const handleCollectionSelect = async (collectionId: number | null, name: string) => {
     if (!collectionId) {
-      setSelectedCollection(null);
-      setAdvancedFilterMovies([]);
+      clearAllAdvancedFilters();
       // Reload the regular catalog
       loadManyPages(1, 3, viewMode, false);
       return;
     }
 
+    // Clear all other filters immediately
+    clearAllAdvancedFilters();
+
+    // Set this filter and show loading
     setSelectedCollection({ id: collectionId, name });
     setAdvancedFilterLoading(true);
 
@@ -706,9 +720,11 @@ export default function Movies() {
         setAllMovies(transformedMovies);
         setAllMoviesTotalPages(1); // Collection is just one "page"
         setAllMoviesPage(1);
+        setAllMoviesTotalResults(transformedMovies.length);
       }
     } catch (error) {
       console.error('Failed to load collection:', error);
+      setAllMovies([]);
     } finally {
       setAdvancedFilterLoading(false);
     }
@@ -716,16 +732,18 @@ export default function Movies() {
 
   const handleCompanySelect = async (companyId: number | null, name: string) => {
     if (!companyId) {
-      setSelectedCompany(null);
-      setAdvancedFilterMovies([]);
+      clearAllAdvancedFilters();
       // Reload the regular catalog
       loadManyPages(1, 3, viewMode, false);
       return;
     }
 
+    // Clear all other filters immediately
+    clearAllAdvancedFilters();
+
+    // Set this filter and show loading
     setSelectedCompany({ id: companyId, name });
     setAdvancedFilterLoading(true);
-    setAdvancedFilterPage(1);
 
     try {
       const res = await fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=1`, { credentials: 'include' });
@@ -743,9 +761,11 @@ export default function Movies() {
         setAllMovies(transformedMovies);
         setAllMoviesTotalPages(data.total_pages);
         setAllMoviesPage(1);
+        setAllMoviesTotalResults(data.total_results || transformedMovies.length);
       }
     } catch (error) {
       console.error('Failed to load company movies:', error);
+      setAllMovies([]);
     } finally {
       setAdvancedFilterLoading(false);
     }
@@ -753,16 +773,18 @@ export default function Movies() {
 
   const handleDirectorSelect = async (personId: number | null, name: string) => {
     if (!personId) {
-      setSelectedDirector(null);
-      setAdvancedFilterMovies([]);
+      clearAllAdvancedFilters();
       // Reload the regular catalog
       loadManyPages(1, 3, viewMode, false);
       return;
     }
 
+    // Clear all other filters immediately
+    clearAllAdvancedFilters();
+
+    // Set this filter and show loading
     setSelectedDirector({ id: personId, name });
     setAdvancedFilterLoading(true);
-    setAdvancedFilterPage(1);
 
     try {
       const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=crew&page=1`, { credentials: 'include' });
@@ -780,9 +802,11 @@ export default function Movies() {
         setAllMovies(transformedMovies);
         setAllMoviesTotalPages(data.total_pages);
         setAllMoviesPage(1);
+        setAllMoviesTotalResults(data.total_results || transformedMovies.length);
       }
     } catch (error) {
       console.error('Failed to load director movies:', error);
+      setAllMovies([]);
     } finally {
       setAdvancedFilterLoading(false);
     }
@@ -790,16 +814,18 @@ export default function Movies() {
 
   const handleActorSelect = async (personId: number | null, name: string) => {
     if (!personId) {
-      setSelectedActor(null);
-      setAdvancedFilterMovies([]);
+      clearAllAdvancedFilters();
       // Reload the regular catalog
       loadManyPages(1, 3, viewMode, false);
       return;
     }
 
+    // Clear all other filters immediately
+    clearAllAdvancedFilters();
+
+    // Set this filter and show loading
     setSelectedActor({ id: personId, name });
     setAdvancedFilterLoading(true);
-    setAdvancedFilterPage(1);
 
     try {
       const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=cast&page=1`, { credentials: 'include' });
@@ -817,24 +843,31 @@ export default function Movies() {
         setAllMovies(transformedMovies);
         setAllMoviesTotalPages(data.total_pages);
         setAllMoviesPage(1);
+        setAllMoviesTotalResults(data.total_results || transformedMovies.length);
       }
     } catch (error) {
       console.error('Failed to load actor movies:', error);
+      setAllMovies([]);
     } finally {
       setAdvancedFilterLoading(false);
     }
   };
 
   const handleMovieSearch = async (query: string) => {
-    setSearchQuery(query);
     if (!query.trim()) {
       // Clear search - reload the regular catalog
+      clearAllAdvancedFilters();
       loadManyPages(1, 3, viewMode, false);
       return;
     }
 
-    // Search for movies and display in the all-movies view
+    // Clear all other filters immediately
+    clearAllAdvancedFilters();
+
+    // Set search query and show loading
+    setSearchQuery(query);
     setAdvancedFilterLoading(true);
+
     try {
       const res = await fetch(
         `${API_BASE}/tmdb/search/movies?q=${encodeURIComponent(query)}`,
@@ -848,9 +881,11 @@ export default function Movies() {
         setAllMovies(results);
         setAllMoviesTotalPages(data.total_pages || 1);
         setAllMoviesPage(1);
+        setAllMoviesTotalResults(data.total_results || results.length);
       }
     } catch (err) {
       console.error('Search failed:', err);
+      setAllMovies([]);
     } finally {
       setAdvancedFilterLoading(false);
     }
