@@ -850,29 +850,51 @@ export class TMDBService {
 
   /**
    * Discover movies by person (actor or director)
+   * Uses person's movie credits and filters by department/job
    * @param personId TMDB person ID
-   * @param role 'cast' for actor, 'crew' for director/writer
+   * @param role 'cast' for actor, 'crew' for director
    */
   async discoverByPerson(personId: number, role: 'cast' | 'crew' = 'cast', page: number = 1, userId?: string): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       const apiKey = await this.getApiKey(userId);
-      const params: any = {
-        api_key: apiKey,
-        sort_by: 'popularity.desc',
-        page
-      };
 
-      if (role === 'cast') {
-        params.with_cast = personId;
-      } else {
-        params.with_crew = personId;
-      }
-
-      const response = await axios.get(`${TMDB_BASE_URL}/discover/movie`, {
-        params
+      // Fetch person's movie credits
+      const response = await axios.get(`${TMDB_BASE_URL}/person/${personId}/movie_credits`, {
+        params: { api_key: apiKey }
       });
 
-      return response.data;
+      let movies: any[] = [];
+
+      if (role === 'cast') {
+        // For actors, use the cast array
+        movies = response.data.cast || [];
+      } else {
+        // For directors, filter crew for directing jobs only
+        const crew = response.data.crew || [];
+        movies = crew.filter((credit: any) =>
+          credit.job === 'Director' ||
+          (credit.department === 'Directing' && credit.job === 'Director')
+        );
+      }
+
+      // Remove duplicates (person might have multiple credits on same movie)
+      const uniqueMovies = Array.from(
+        new Map(movies.map(m => [m.id, m])).values()
+      );
+
+      // Sort by popularity descending
+      uniqueMovies.sort((a: any, b: any) => (b.popularity || 0) - (a.popularity || 0));
+
+      // Paginate results (20 per page like TMDB)
+      const perPage = 20;
+      const startIndex = (page - 1) * perPage;
+      const paginatedMovies = uniqueMovies.slice(startIndex, startIndex + perPage);
+
+      return {
+        results: paginatedMovies as TMDBMovie[],
+        total_pages: Math.ceil(uniqueMovies.length / perPage),
+        total_results: uniqueMovies.length
+      };
     } catch (error) {
       console.error('[TMDB] Discover by person error:', error);
       throw new Error('Failed to discover movies by person');
