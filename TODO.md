@@ -255,7 +255,87 @@
 
 ## 🔄 SESSION STATE TRACKER
 
-### Current Session: 2025-12-16 (Session 19) ✅ COMPLETED
+### Current Session: 2025-12-16 (Session 20) ✅ COMPLETED
+**Focus:** Image Organization, VPN Fix, File Deletion, UX Bug Fixes
+**Status:** ✅ COMPLETED
+**Completed:**
+- [x] **Organized image assets** - Moved all images to `/public/images/` folder
+  - Created /apps/web/public/images/ directory
+  - Moved logo.png and background.webp from root to organized folder
+  - Updated all image paths in Layout.tsx, SignIn.tsx
+  - Better project organization and maintainability
+- [x] **Updated Discover tab with platform logos** - Replaced emoji text with actual logos
+  - Downloaded high-quality SVG logos for YouTube, BBC iPlayer, SoundCloud, Twitch, Reddit
+  - Found white TikTok logo suitable for dark backgrounds (PNG, 26KB)
+  - Updated Discover.tsx to render logos instead of emoji icons
+  - Changed navigation layout to `justify-between` for even spacing
+  - Added separator after SoundCloud logo
+  - Professional appearance with actual brand logos
+- [x] **Fixed VPN days remaining calculation** - Accurate subscription tracking
+  - Changed Math.ceil() to Math.floor() in vpn.service.ts line 60
+  - Now shows correct complete days remaining (17 days shows as 17, not 18)
+  - Better accuracy for subscription expiry tracking
+- [x] **Comprehensive file deletion with Jellyfin refresh** - Storage management
+  - Enhanced DELETE /downloads/:id endpoint to physically delete files
+  - Scans directory for related files (subtitles .srt, metadata .nfo, etc.)
+  - Deletes media database entries
+  - Triggers Jellyfin library scan via jellyfinService.scanMediaFile()
+  - Works for all download types (yt-dlp, iPlayer, qBittorrent)
+  - Added detailed confirmation dialog warning about file/storage removal
+  - Simplified torrent UI (removed confusing "Remove" vs "Delete All")
+- [x] **Fixed quick filters + advanced filters compatibility** - Filter system enhancement
+  - Quick filters (Worth Watching 5.5+, Quality 6.5+, Elite 7.5+) now work with advanced filters
+  - When advanced filter active (Collection/Company/Director/Actor), quick filters apply client-side
+  - Filters current results instead of clearing advanced filter state
+  - Restores from cache when deactivating quick filter preset
+  - Users can now combine Collection + Quality filter, etc.
+- [x] **Fixed scroll jumping when favoriting movies** - Smooth UX
+  - Added e?.preventDefault() to toggleBookmark function
+  - Saves scroll position before async operations (const scrollY = window.scrollY)
+  - Restores position after state update using requestAnimationFrame
+  - Page stays in place when clicking favorite stars far down the list
+
+**Implementation Details:**
+- Image paths: All references updated to `/images/` prefix
+- Platform logos: SVG for scalability, PNG for TikTok (transparency issues)
+- VPN calculation: Math.floor() ensures accurate complete days
+- File deletion: Uses fs.promises for async file operations, scans directory with fs.readdir()
+- Quick filters: Client-side filtering with allMovies.filter() when hasAdvancedFilter is true
+- Scroll preservation: requestAnimationFrame(() => window.scrollTo(0, scrollY)) after state updates
+
+**Files Modified:**
+- `/apps/web/public/images/` - Created folder with 8 images (logos, background)
+- `/apps/web/src/pages/Discover.tsx` - Logo rendering, justify-between layout
+- `/apps/web/src/components/layout/Layout.tsx` - Updated image paths
+- `/apps/web/src/pages/auth/SignIn.tsx` - Updated image paths
+- `/apps/api/src/services/vpn.service.ts` - Math.floor() for days calculation
+- `/apps/api/src/routes/downloads.ts` - File deletion, related file scanning, Jellyfin refresh
+- `/apps/web/src/pages/Downloads.tsx` - Enhanced confirmation dialogs, simplified torrent UI
+- `/apps/web/src/pages/Movies.tsx` - Quick filter compatibility, scroll preservation
+
+**Commits:**
+- 5fd793e - Refactor: Organize images & update Discover UI with platform logos
+- 08aa469 - Feature: Comprehensive file deletion with Jellyfin refresh
+- [pending] - Fix: Quick filters work with advanced filters + scroll preservation
+
+**User Feedback:**
+- Multiple TikTok logo attempts before finding acceptable white logo
+- "it will have to do" - Final TikTok logo verdict
+- Requested VPN accuracy improvement (17 vs 18 days)
+- Wanted file deletion to remove from storage and Jellyfin
+- Reported quick filters not working after advanced filters
+- Reported scroll jumping when clicking favorites
+
+**Next Session Start Point:**
+→ All UX bugs fixed! Image organization complete! Consider:
+  - Phase 3 remaining tasks (Quick filter sidebar, Sort visibility)
+  - TMDB/IMDb List Integration
+  - Per-Platform Preferences
+  - Toast notifications system
+
+---
+
+### Session: 2025-12-16 (Session 19) ✅ COMPLETED
 **Focus:** Advanced Filters - Clean UX with Caching
 **Status:** ✅ COMPLETED
 **Completed:**

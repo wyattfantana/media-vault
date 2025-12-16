@@ -1262,6 +1262,10 @@ export default function Movies() {
 
   const toggleBookmark = async (movie: Movie, e?: React.MouseEvent) => {
     e?.stopPropagation(); // Prevent opening the download modal
+    e?.preventDefault(); // Prevent default browser behavior
+
+    // Save current scroll position to prevent page jumping
+    const scrollY = window.scrollY;
 
     const isBookmarked = bookmarkedMovies.has(movie.id);
 
@@ -1303,6 +1307,11 @@ export default function Movies() {
         });
         setBookmarkedMovies(prev => new Set(prev).add(movie.id));
       }
+
+      // Restore scroll position after state update
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY);
+      });
     } catch (err) {
       console.error('Failed to toggle bookmark:', err);
       alert('Failed to update watchlist');
@@ -1678,6 +1687,9 @@ export default function Movies() {
                   <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() => {
+                        // Check if advanced filter is active
+                        const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
+
                         if (activePreset === 'worth-watching') {
                           // Deselect - reset to no filters
                           setAllMoviesFilters({
@@ -1691,6 +1703,18 @@ export default function Movies() {
                             originCountries: []
                           });
                           setActivePreset(null);
+
+                          // If advanced filter is active, restore from cache
+                          if (hasAdvancedFilter) {
+                            const cacheKey = selectedCollection ? `collection:${selectedCollection.id}` :
+                                           selectedCompany ? `company:${selectedCompany.id}` :
+                                           selectedDirector ? `director:${selectedDirector.id}` :
+                                           selectedActor ? `actor:${selectedActor.id}` : null;
+
+                            if (cacheKey && filterCache[cacheKey]) {
+                              setAllMovies(filterCache[cacheKey].movies);
+                            }
+                          }
                         } else {
                           // Select - apply preset
                           setAllMoviesFilters({
@@ -1704,6 +1728,14 @@ export default function Movies() {
                             originCountries: []
                           });
                           setActivePreset('worth-watching');
+
+                          // If advanced filter is active, apply filter client-side
+                          if (hasAdvancedFilter) {
+                            const filtered = allMovies.filter(movie =>
+                              movie.vote_average >= 5.5 && movie.vote_count >= 25
+                            );
+                            setAllMovies(filtered);
+                          }
                         }
                       }}
                       className={`px-6 py-3 rounded-lg font-medium transition-all ${
@@ -1716,6 +1748,9 @@ export default function Movies() {
                     </button>
                     <button
                       onClick={() => {
+                        // Check if advanced filter is active
+                        const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
+
                         if (activePreset === 'quality') {
                           // Deselect - reset to no filters
                           setAllMoviesFilters({
@@ -1729,6 +1764,18 @@ export default function Movies() {
                             originCountries: []
                           });
                           setActivePreset(null);
+
+                          // If advanced filter is active, restore from cache
+                          if (hasAdvancedFilter) {
+                            const cacheKey = selectedCollection ? `collection:${selectedCollection.id}` :
+                                           selectedCompany ? `company:${selectedCompany.id}` :
+                                           selectedDirector ? `director:${selectedDirector.id}` :
+                                           selectedActor ? `actor:${selectedActor.id}` : null;
+
+                            if (cacheKey && filterCache[cacheKey]) {
+                              setAllMovies(filterCache[cacheKey].movies);
+                            }
+                          }
                         } else {
                           // Select - apply preset
                           setAllMoviesFilters({
@@ -1742,6 +1789,14 @@ export default function Movies() {
                             originCountries: []
                           });
                           setActivePreset('quality');
+
+                          // If advanced filter is active, apply filter client-side
+                          if (hasAdvancedFilter) {
+                            const filtered = allMovies.filter(movie =>
+                              movie.vote_average >= 6.5 && movie.vote_count >= 50
+                            );
+                            setAllMovies(filtered);
+                          }
                         }
                       }}
                       className={`px-6 py-3 rounded-lg font-medium transition-all ${
@@ -1754,6 +1809,9 @@ export default function Movies() {
                     </button>
                     <button
                       onClick={() => {
+                        // Check if advanced filter is active
+                        const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
+
                         if (activePreset === 'elite') {
                           // Deselect - reset to no filters
                           setAllMoviesFilters({
@@ -1767,6 +1825,18 @@ export default function Movies() {
                             originCountries: []
                           });
                           setActivePreset(null);
+
+                          // If advanced filter is active, restore from cache
+                          if (hasAdvancedFilter) {
+                            const cacheKey = selectedCollection ? `collection:${selectedCollection.id}` :
+                                           selectedCompany ? `company:${selectedCompany.id}` :
+                                           selectedDirector ? `director:${selectedDirector.id}` :
+                                           selectedActor ? `actor:${selectedActor.id}` : null;
+
+                            if (cacheKey && filterCache[cacheKey]) {
+                              setAllMovies(filterCache[cacheKey].movies);
+                            }
+                          }
                         } else {
                           // Select - apply preset
                           setAllMoviesFilters({
@@ -1780,6 +1850,14 @@ export default function Movies() {
                             originCountries: []
                           });
                           setActivePreset('elite');
+
+                          // If advanced filter is active, apply filter client-side
+                          if (hasAdvancedFilter) {
+                            const filtered = allMovies.filter(movie =>
+                              movie.vote_average >= 7.5 && movie.vote_count >= 100
+                            );
+                            setAllMovies(filtered);
+                          }
                         }
                       }}
                       className={`px-6 py-3 rounded-lg font-medium transition-all ${
