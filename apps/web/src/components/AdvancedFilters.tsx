@@ -50,6 +50,14 @@ export function AdvancedFilters({
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
 
+  // Sync local search query with parent when parent clears it (e.g., when selecting other filters)
+  useEffect(() => {
+    if (movieSearchQuery === '' && searchQuery !== '' && searchType === 'search') {
+      setSearchQuery('');
+      setResults([]);
+    }
+  }, [movieSearchQuery]);
+
   // Debounced search
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -293,7 +301,7 @@ export function AdvancedFilters({
       {!searchQuery && (
         <div className="flex flex-wrap gap-2">
           <span className="text-xs text-gray-500">Try:</span>
-          {searchType === 'search' && ['The Matrix', 'Inception', 'The Godfather', 'Interstellar'].map(ex => (
+          {searchType === 'search' && ['The Matrix', 'Inception', 'The Godfather', 'Interstellar', 'Pulp Fiction', 'The Dark Knight', 'Fight Club', 'Goodfellas', 'The Shawshank Redemption', 'Forrest Gump'].map(ex => (
             <button
               key={ex}
               onClick={() => setSearchQuery(ex)}
@@ -302,7 +310,7 @@ export function AdvancedFilters({
               {ex}
             </button>
           ))}
-          {searchType === 'collection' && ['James Bond', 'Marvel', 'Star Wars', 'Fast & Furious'].map(ex => (
+          {searchType === 'collection' && ['James Bond', 'Marvel', 'Star Wars', 'Fast & Furious', 'Harry Potter', 'Lord of the Rings', 'Jurassic Park', 'Mission Impossible', 'X-Men', 'Avengers'].map(ex => (
             <button
               key={ex}
               onClick={() => setSearchQuery(ex)}
@@ -311,7 +319,7 @@ export function AdvancedFilters({
               {ex}
             </button>
           ))}
-          {searchType === 'company' && ['Disney', 'Warner Bros', 'A24', 'Pixar'].map(ex => (
+          {searchType === 'company' && ['Disney', 'Warner Bros', 'A24', 'Pixar', 'Universal', 'Paramount', 'Sony Pictures', '20th Century', 'Lionsgate', 'DreamWorks'].map(ex => (
             <button
               key={ex}
               onClick={() => setSearchQuery(ex)}
@@ -320,7 +328,7 @@ export function AdvancedFilters({
               {ex}
             </button>
           ))}
-          {searchType === 'director' && ['Quentin Tarantino', 'Christopher Nolan', 'Steven Spielberg'].map(ex => (
+          {searchType === 'director' && ['Quentin Tarantino', 'Christopher Nolan', 'Steven Spielberg', 'Martin Scorsese', 'Ridley Scott', 'David Fincher', 'James Cameron', 'Peter Jackson', 'Stanley Kubrick'].map(ex => (
             <button
               key={ex}
               onClick={() => setSearchQuery(ex)}
@@ -329,7 +337,7 @@ export function AdvancedFilters({
               {ex}
             </button>
           ))}
-          {searchType === 'actor' && ['Arnold Schwarzenegger', 'Tom Cruise', 'Leonardo DiCaprio'].map(ex => (
+          {searchType === 'actor' && ['Arnold Schwarzenegger', 'Tom Cruise', 'Leonardo DiCaprio', 'Denzel Washington', 'Brad Pitt', 'Tom Hanks', 'Robert De Niro', 'Al Pacino', 'Keanu Reeves', 'Matt Damon'].map(ex => (
             <button
               key={ex}
               onClick={() => setSearchQuery(ex)}
@@ -343,23 +351,30 @@ export function AdvancedFilters({
 
       {/* Results Dropdown */}
       {results.length > 0 && (
-        <div className="bg-gray-900 border border-gray-700 rounded-lg max-h-64 overflow-y-auto">
+        <div className="bg-gray-900 border-2 border-blue-500/50 rounded-lg max-h-64 overflow-y-auto shadow-xl shadow-blue-500/20">
           {results.map((item) => (
             <button
               key={item.id}
               onClick={() => handleSelect(item)}
-              className="w-full px-4 py-2 text-left hover:bg-gray-800 transition-colors flex items-center gap-3 border-b border-gray-800 last:border-b-0"
+              className={`w-full px-4 py-3 text-left transition-all flex items-center gap-3 border-b border-gray-800 last:border-b-0 ${
+                searchType === 'collection' ? 'hover:bg-purple-900/30 hover:border-purple-500/50' :
+                searchType === 'company' ? 'hover:bg-blue-900/30 hover:border-blue-500/50' :
+                searchType === 'director' ? 'hover:bg-green-900/30 hover:border-green-500/50' :
+                searchType === 'actor' ? 'hover:bg-yellow-900/30 hover:border-yellow-500/50' :
+                'hover:bg-gray-800'
+              }`}
             >
-              {searchType === 'collection' && <Folder className="w-4 h-4 text-purple-400 flex-shrink-0" />}
-              {searchType === 'company' && <Building2 className="w-4 h-4 text-blue-400 flex-shrink-0" />}
-              {(searchType === 'director' || searchType === 'actor') && <User className="w-4 h-4 text-green-400 flex-shrink-0" />}
+              {searchType === 'collection' && <Folder className="w-5 h-5 text-purple-400 flex-shrink-0" />}
+              {searchType === 'company' && <Building2 className="w-5 h-5 text-blue-400 flex-shrink-0" />}
+              {searchType === 'director' && <User className="w-5 h-5 text-green-400 flex-shrink-0" />}
+              {searchType === 'actor' && <User className="w-5 h-5 text-yellow-400 flex-shrink-0" />}
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-gray-200 truncate">{item.name}</div>
+                <div className="text-base font-medium text-white truncate">{item.name}</div>
                 {item.origin_country && (
-                  <div className="text-xs text-gray-500">{item.origin_country}</div>
+                  <div className="text-xs text-gray-400">{item.origin_country}</div>
                 )}
                 {item.known_for_department && (
-                  <div className="text-xs text-gray-500">{item.known_for_department}</div>
+                  <div className="text-xs text-gray-400">{item.known_for_department}</div>
                 )}
               </div>
             </button>

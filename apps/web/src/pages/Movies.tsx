@@ -45,6 +45,7 @@ export default function Movies() {
   const [loading, setLoading] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [downloadUrl, setDownloadUrl] = useState('');
+  const requestIdRef = useRef(0); // Track request IDs to prevent race conditions
   const [viewMode, setViewMode] = useState<ViewMode>('all-movies');
   const [showFormatPreview, setShowFormatPreview] = useState(false);
   const [previewFilename, setPreviewFilename] = useState('');
@@ -100,7 +101,7 @@ export default function Movies() {
     excludeCountries: [] as string[]
   });
   const [showAllMoviesFilters, setShowAllMoviesFilters] = useState(false);
-  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [activePreset, setActivePreset] = useState<string | null>('all-movies');
 
   // Advanced filters (collection, company, director, actor)
   const [selectedCollection, setSelectedCollection] = useState<{ id: number; name: string } | null>(null);
@@ -702,6 +703,7 @@ export default function Movies() {
     setSearchQuery('');
     setAllMovies([]);
     setAdvancedFilterLoading(false);
+    setActivePreset('all-movies'); // Reset to All Movies preset
     // Reload general catalog
     loadManyPages(1, 3, viewMode, false);
   };
@@ -739,8 +741,17 @@ export default function Movies() {
     setAllMoviesTotalPages(1); // Set to 1 immediately to prevent infinite scroll
     setAdvancedFilterLoading(true);
 
+    // Increment request ID to track this request
+    const currentRequestId = ++requestIdRef.current;
+
     try {
       const res = await fetch(`${API_BASE}/tmdb/collection/${collectionId}`, { credentials: 'include' });
+
+      // Ignore stale responses
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
 
@@ -765,9 +776,13 @@ export default function Movies() {
       }
     } catch (error) {
       console.error('Failed to load collection:', error);
-      setAllMovies([]);
+      if (currentRequestId === requestIdRef.current) {
+        setAllMovies([]);
+      }
     } finally {
-      setAdvancedFilterLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
     }
   };
 
@@ -801,6 +816,9 @@ export default function Movies() {
     setAllMoviesPage(1); // Reset page immediately to prevent race conditions
     setAdvancedFilterLoading(true);
 
+    // Increment request ID to track this request
+    const currentRequestId = ++requestIdRef.current;
+
     try {
       // Load first 3 pages (60 movies) immediately
       const pages = await Promise.all([1, 2, 3].map(page =>
@@ -808,11 +826,21 @@ export default function Movies() {
           .then(r => r.ok ? r.json() : null)
       ));
 
+      // Ignore stale responses
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       const allResults = pages.flatMap(data => data?.results || []);
       const totalResults = pages[0]?.total_results || 0;
       const totalPages = pages[0]?.total_pages || 1;
 
-      const transformedMovies = allResults.map((movie: any) => ({
+      // Deduplicate by movie ID
+      const uniqueResults = Array.from(
+        new Map(allResults.map((movie: any) => [movie.id, movie])).values()
+      );
+
+      const transformedMovies = uniqueResults.map((movie: any) => ({
         ...movie,
         poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
         backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
@@ -831,9 +859,13 @@ export default function Movies() {
       setAllMoviesTotalResults(totalResults);
     } catch (error) {
       console.error('Failed to load company movies:', error);
-      setAllMovies([]);
+      if (currentRequestId === requestIdRef.current) {
+        setAllMovies([]);
+      }
     } finally {
-      setAdvancedFilterLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
     }
   };
 
@@ -868,8 +900,16 @@ export default function Movies() {
     setAllMoviesTotalPages(1); // Set to 1 immediately to prevent infinite scroll
     setAdvancedFilterLoading(true);
 
+    // Increment request ID to track this request
+    const currentRequestId = ++requestIdRef.current;
+
     try {
       const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=crew`, { credentials: 'include' });
+
+      // Ignore stale responses
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
 
       if (res.ok) {
         const data = await res.json();
@@ -895,9 +935,13 @@ export default function Movies() {
       }
     } catch (error) {
       console.error('Failed to load director movies:', error);
-      setAllMovies([]);
+      if (currentRequestId === requestIdRef.current) {
+        setAllMovies([]);
+      }
     } finally {
-      setAdvancedFilterLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
     }
   };
 
@@ -931,6 +975,9 @@ export default function Movies() {
     setAllMoviesPage(1); // Reset page immediately to prevent race conditions
     setAdvancedFilterLoading(true);
 
+    // Increment request ID to track this request
+    const currentRequestId = ++requestIdRef.current;
+
     try {
       // Load first 5 pages (100 movies) for actors who typically have many films
       const pages = await Promise.all([1, 2, 3, 4, 5].map(page =>
@@ -938,11 +985,21 @@ export default function Movies() {
           .then(r => r.ok ? r.json() : null)
       ));
 
+      // Ignore stale responses
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       const allResults = pages.flatMap(data => data?.results || []);
       const totalResults = pages[0]?.total_results || 0;
       const totalPages = pages[0]?.total_pages || 1;
 
-      const transformedMovies = allResults.map((movie: any) => ({
+      // Deduplicate by movie ID
+      const uniqueResults = Array.from(
+        new Map(allResults.map((movie: any) => [movie.id, movie])).values()
+      );
+
+      const transformedMovies = uniqueResults.map((movie: any) => ({
         ...movie,
         poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
         backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
@@ -961,9 +1018,13 @@ export default function Movies() {
       setAllMoviesTotalResults(totalResults);
     } catch (error) {
       console.error('Failed to load actor movies:', error);
-      setAllMovies([]);
+      if (currentRequestId === requestIdRef.current) {
+        setAllMovies([]);
+      }
     } finally {
-      setAdvancedFilterLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
     }
   };
 
@@ -984,11 +1045,20 @@ export default function Movies() {
     setAllMovies([]);
     setAdvancedFilterLoading(true);
 
+    // Increment request ID to track this request
+    const currentRequestId = ++requestIdRef.current;
+
     try {
       const res = await fetch(
         `${API_BASE}/tmdb/search/movies?q=${encodeURIComponent(query)}&page=1`,
         { credentials: 'include' }
       );
+
+      // Ignore stale responses
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
         const results = data.results || [];
@@ -1009,9 +1079,15 @@ export default function Movies() {
       }
     } catch (err) {
       console.error('Search failed:', err);
-      setAllMovies([]);
+      // Only clear movies if this is still the current request
+      if (currentRequestId === requestIdRef.current) {
+        setAllMovies([]);
+      }
     } finally {
-      setAdvancedFilterLoading(false);
+      // Only stop loading if this is still the current request
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
     }
   };
 
@@ -1480,7 +1556,7 @@ export default function Movies() {
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-0">
           <div className="absolute bottom-0 p-3 w-full">
             <h3 className="text-white font-bold text-sm mb-1 line-clamp-2">{movie.title}</h3>
-            <div className="flex items-center gap-2 text-xs text-gray-300">
+            <div className="flex items-center gap-2 text-xs text-gray-300 mb-2">
               {movie.year && <span>{movie.year}</span>}
               <span className="text-gray-400">• {movie.vote_count.toLocaleString()} votes</span>
             </div>
@@ -1546,7 +1622,7 @@ export default function Movies() {
               className="flex gap-4 px-4 overflow-x-auto scrollbar-hide scroll-smooth"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              {movies.map(movie => (
+              {movies.filter(movie => movie.poster_url).map(movie => (
                 <MovieCard key={movie.id} movie={movie} />
               ))}
             </div>
@@ -1588,9 +1664,9 @@ export default function Movies() {
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
             </div>
-          ) : searchResults.length > 0 ? (
+          ) : searchResults.filter(movie => movie.poster_url).length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {searchResults.map(movie => (
+              {searchResults.filter(movie => movie.poster_url).map(movie => (
                 <MovieCard key={movie.id} movie={movie} />
               ))}
             </div>
@@ -1713,7 +1789,7 @@ export default function Movies() {
           ) : (
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {genreMovies.map(movie => (
+                {genreMovies.filter(movie => movie.poster_url).map(movie => (
                   <MovieCard key={movie.id} movie={movie} />
                 ))}
               </div>
@@ -1795,9 +1871,30 @@ export default function Movies() {
                       originCountries: [],
                       excludeCountries: []
                     });
-                    setActivePreset(null);
+                    setActivePreset('all-movies'); // Auto-select All Movies
                   }}
-                  className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300 font-medium"
+                  disabled={
+                    allMoviesFilters.minRating === 0 &&
+                    allMoviesFilters.minVotes === 0 &&
+                    !allMoviesFilters.yearFrom &&
+                    !allMoviesFilters.yearTo &&
+                    allMoviesFilters.selectedGenres.length === 0 &&
+                    allMoviesFilters.excludeGenres.length === 0 &&
+                    allMoviesFilters.originCountries.length === 0 &&
+                    allMoviesFilters.excludeCountries.length === 0
+                  }
+                  className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors font-medium ${
+                    allMoviesFilters.minRating === 0 &&
+                    allMoviesFilters.minVotes === 0 &&
+                    !allMoviesFilters.yearFrom &&
+                    !allMoviesFilters.yearTo &&
+                    allMoviesFilters.selectedGenres.length === 0 &&
+                    allMoviesFilters.excludeGenres.length === 0 &&
+                    allMoviesFilters.originCountries.length === 0 &&
+                    allMoviesFilters.excludeCountries.length === 0
+                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
                 >
                   Reset All Filters
                 </button>
@@ -1842,7 +1939,7 @@ export default function Movies() {
                       }}
                       className={`px-6 py-3 rounded-lg font-medium transition-all ${
                         activePreset === 'all-movies'
-                          ? 'bg-gray-600 text-white ring-2 ring-gray-400 shadow-lg scale-105'
+                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white ring-2 ring-blue-400 shadow-lg shadow-blue-500/50 scale-105'
                           : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       }`}
                     >
@@ -2075,46 +2172,6 @@ export default function Movies() {
                       🚫 No Romance
                     </button>
 
-                    {/* No Drama */}
-                    <button
-                      onClick={() => {
-                        setAllMoviesFilters(prev => ({
-                          ...prev,
-                          excludeGenres: prev.excludeGenres.includes(18)
-                            ? prev.excludeGenres.filter(id => id !== 18)
-                            : [...prev.excludeGenres, 18]
-                        }));
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        allMoviesFilters.excludeGenres.includes(18)
-                          ? 'bg-red-600 text-white ring-2 ring-red-300'
-                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
-                      }`}
-                      title="Exclude Drama"
-                    >
-                      🚫 No Drama
-                    </button>
-
-                    {/* No Bollywood */}
-                    <button
-                      onClick={() => {
-                        setAllMoviesFilters(prev => ({
-                          ...prev,
-                          excludeCountries: prev.excludeCountries.includes('IN')
-                            ? prev.excludeCountries.filter(c => c !== 'IN')
-                            : [...prev.excludeCountries, 'IN']
-                        }));
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        allMoviesFilters.excludeCountries.includes('IN')
-                          ? 'bg-red-600 text-white ring-2 ring-red-300'
-                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
-                      }`}
-                      title="Exclude Indian/Bollywood movies"
-                    >
-                      🚫 No Bollywood
-                    </button>
-
                     {/* English Only */}
                     <button
                       onClick={() => {
@@ -2300,7 +2357,7 @@ export default function Movies() {
           ) : (
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {allMovies.map(movie => (
+                {allMovies.filter(movie => movie.poster_url).map(movie => (
                   <MovieCard key={movie.id} movie={movie} />
                 ))}
               </div>
@@ -2308,7 +2365,7 @@ export default function Movies() {
               {/* Stats at bottom */}
               <div className="flex items-center justify-center mt-6">
                 <div className="text-sm text-gray-400 bg-gray-800/50 px-6 py-3 rounded-lg border border-gray-700">
-                  {allMovies.length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
+                  {allMovies.filter(movie => movie.poster_url).length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
                 </div>
               </div>
 
@@ -2344,7 +2401,7 @@ export default function Movies() {
           ) : (
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {allMovies.map(movie => (
+                {allMovies.filter(movie => movie.poster_url).map(movie => (
                   <MovieCard key={movie.id} movie={movie} />
                 ))}
               </div>
@@ -2352,7 +2409,7 @@ export default function Movies() {
               {/* Stats at bottom */}
               <div className="flex items-center justify-center mt-6">
                 <div className="text-sm text-gray-400 bg-gray-800/50 px-6 py-3 rounded-lg border border-gray-700">
-                  {allMovies.length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
+                  {allMovies.filter(movie => movie.poster_url).length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
                 </div>
               </div>
 
@@ -2413,16 +2470,18 @@ export default function Movies() {
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   <span>{selectedMovie.vote_average.toFixed(1)}/10</span>
                 </div>
-                {selectedMovie.imdb_id && (
-                  <a
-                    href={`https://www.imdb.com/title/${selectedMovie.imdb_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-                  >
-                    IMDb
-                  </a>
-                )}
+                <a
+                  href={selectedMovie.imdb_id
+                    ? `https://www.imdb.com/title/${selectedMovie.imdb_id}`
+                    : `https://www.imdb.com/find?q=${encodeURIComponent(selectedMovie.title + (selectedMovie.year ? ` ${selectedMovie.year}` : ''))}&s=tt`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded-full text-xs font-semibold transition-colors"
+                  title={selectedMovie.imdb_id ? 'View on IMDb' : 'Search on IMDb'}
+                >
+                  IMDb
+                </a>
               </div>
 
               <p className="text-gray-300 mb-6">{selectedMovie.overview}</p>
