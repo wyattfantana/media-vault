@@ -1,8 +1,81 @@
 # MediaVault - Development Roadmap & Session Tracker
 
-**Last Updated:** 2025-12-14
-**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete | ✅ Settings Simplified | ✅ Jellyfin Auto-Scan
+**Last Updated:** 2025-12-20
+**Current Phase:** ✅ Phases 1, 2 Complete | ⚠️ Phases 4, 5 Partially Complete | ✅ VPN Integration Complete | ✅ Startup System Complete | ✅ Settings Simplified | ✅ Jellyfin Auto-Scan | ✅ Filter System Overhaul Complete
 **Next Session:** Favorites/Watchlist feature, IMDB Top 250 completion, or Phase 4 (advanced features)
+
+---
+
+## 📅 SESSION 11 - December 20, 2025 - Filter UX Overhaul & Authentication Fix
+
+### Summary
+Major improvements to movie filter system UX and fixed critical login bug.
+
+### Changes Made
+1. **🎬 Genre Filter System Redesign**
+   - Changed from exclusion-based to inclusion-based filtering
+   - Users now SELECT genres they want (instead of excluding what they don't want)
+   - Much more intuitive and user-friendly
+   - Updated all related tests to match new system
+
+2. **🚫 Content Filter Improvements**
+   - Split "No Kids/Anime" into separate, granular filters:
+     - No Kids (excludes Family genre)
+     - No Anime (excludes Animation genre)
+     - No Romance (excludes Romance genre)
+     - No Drama (excludes Drama genre)
+     - No Bollywood (excludes Indian movies by country code)
+   - Added English Only filter for English-speaking countries
+   - All filters work independently and can be combined
+
+3. **🔐 Fixed Login Double-Click Bug**
+   - **Issue**: Users had to click "Sign In" twice to log in
+   - **Root Cause**: Race condition - app navigated to dashboard before session was established, then got redirected back to login
+   - **Fix**: Added 500ms delay after successful sign-in to allow session establishment
+   - **Bonus**: Added autocomplete attributes to email/password inputs (fixes DOM warnings)
+
+4. **🎨 Filter UI Improvements**
+   - Moved "Reset Filters" button next to "Hide Filters" button for better UX
+   - Reorganized filter layout - Genres dropdown now appears BEFORE Min Rating/Votes/Year Range
+   - More logical flow and easier to use
+
+5. **✅ Test Suite Updates**
+   - Updated `filters-advanced.spec.ts` to test new inclusion-based genre system
+   - Changed test names: "can exclude genre filters" → "can select genre filters"
+   - Updated content filter tests for new separate buttons
+   - Current pass rate: 10/13 active tests (77%)
+   - Only ran updated tests (not full suite) for faster feedback
+
+6. **📝 Documentation**
+   - Updated `PLAYWRIGHT.md` with Session 2 changelog
+   - Documented all filter system changes
+   - Updated test descriptions to reflect new functionality
+
+### Files Modified
+- `/apps/web/src/pages/Movies.tsx` - Genre system, content filters, UI layout
+- `/apps/web/src/pages/auth/SignIn.tsx` - Login delay fix, autocomplete attributes
+- `/apps/web/src/lib/auth.ts` - Added 429 error handling
+- `/apps/web/tests/filters-advanced.spec.ts` - Updated genre and content filter tests
+- `/apps/web/PLAYWRIGHT.md` - Session 2 changelog
+
+### Technical Details
+- **State Management**: Added `excludeCountries` array to filter state for Bollywood filter
+- **API Integration**: Backend now receives `exclude_countries` parameter
+- **Race Condition Fix**: 500ms setTimeout before navigation ensures session cookie is set
+- **Test Reliability**: Genre tests now properly test inclusion behavior instead of exclusion
+
+### Impact
+- ✅ **Better UX**: Genre selection is much more intuitive
+- ✅ **No More Double Login**: Fixed annoying authentication bug
+- ✅ **More Filter Options**: Users can now fine-tune content filtering
+- ✅ **Cleaner UI**: Better organized filter layout
+- ✅ **Test Coverage**: Tests match actual implementation behavior
+
+### Next Steps
+- Consider adding genre filter presets (Action Pack, Crime Time, etc.)
+- Implement year range filter tests
+- Add rating/votes slider tests
+- Fix remaining 3 test timeouts in advanced suite
 
 ---
 

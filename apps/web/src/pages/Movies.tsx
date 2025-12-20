@@ -96,7 +96,8 @@ export default function Movies() {
     sortBy: 'popularity.desc' as 'vote_average.desc' | 'popularity.desc' | 'release_date.desc',
     selectedGenres: [] as number[],
     excludeGenres: [] as number[],
-    originCountries: [] as string[]
+    originCountries: [] as string[],
+    excludeCountries: [] as string[]
   });
   const [showAllMoviesFilters, setShowAllMoviesFilters] = useState(false);
   const [activePreset, setActivePreset] = useState<string | null>(null);
@@ -169,8 +170,12 @@ export default function Movies() {
     }
 
     // Only load movies if we didn't restore state
+    // This ensures search and filters work properly
     if (!savedBrowseState) {
-      loadMovies();
+      // Small delay to let the page render first, then load initial batch
+      setTimeout(() => {
+        loadMovies();
+      }, 100);
     }
   }, []);
 
@@ -218,8 +223,8 @@ export default function Movies() {
       return;
     }
 
-    // Skip loading if advanced filter is active
-    const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
+    // Skip loading if advanced filter OR search is active
+    const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor || searchQuery.trim() !== '';
     if (hasAdvancedFilter) {
       return;
     }
@@ -231,7 +236,7 @@ export default function Movies() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [allMoviesFilters.minRating, allMoviesFilters.minVotes, allMoviesFilters.sortBy, allMoviesFilters.yearFrom, allMoviesFilters.yearTo, allMoviesFilters.selectedGenres, allMoviesFilters.excludeGenres, allMoviesFilters.originCountries, selectedCollection, selectedCompany, selectedDirector, selectedActor]);
+  }, [allMoviesFilters.minRating, allMoviesFilters.minVotes, allMoviesFilters.sortBy, allMoviesFilters.yearFrom, allMoviesFilters.yearTo, allMoviesFilters.selectedGenres, allMoviesFilters.excludeGenres, allMoviesFilters.originCountries, allMoviesFilters.excludeCountries, selectedCollection, selectedCompany, selectedDirector, selectedActor, searchQuery]);
 
   // Save browse state to sessionStorage when it changes
   useEffect(() => {
@@ -577,6 +582,10 @@ export default function Movies() {
         url += `&exclude_genres=${allExclusions.join(',')}`;
       }
 
+      if (allMoviesFilters.excludeCountries && allMoviesFilters.excludeCountries.length > 0) {
+        url += `&exclude_countries=${allMoviesFilters.excludeCountries.join(',')}`;
+      }
+
       const res = await fetch(url, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
@@ -621,6 +630,10 @@ export default function Movies() {
 
       if (allMoviesFilters.originCountries && allMoviesFilters.originCountries.length > 0) {
         baseUrl += `&origin_countries=${allMoviesFilters.originCountries.join(',')}`;
+      }
+
+      if (allMoviesFilters.excludeCountries && allMoviesFilters.excludeCountries.length > 0) {
+        baseUrl += `&exclude_countries=${allMoviesFilters.excludeCountries.join(',')}`;
       }
 
       // Fetch pages in parallel
@@ -714,13 +727,16 @@ export default function Movies() {
     const cacheKey = `collection:${collectionId}`;
     if (filterCache[cacheKey]) {
       setAllMovies(filterCache[cacheKey].movies);
-      setAllMoviesTotalPages(1);
+      setAllMoviesTotalPages(1); // Collection is just one "page"
       setAllMoviesPage(1);
       setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
+      // Ensure infinite scroll is disabled
       return;
     }
 
     setAllMovies([]); // Clear movies for instant feedback
+    setAllMoviesPage(1); // Reset page immediately to prevent race conditions
+    setAllMoviesTotalPages(1); // Set to 1 immediately to prevent infinite scroll
     setAdvancedFilterLoading(true);
 
     try {
@@ -777,10 +793,12 @@ export default function Movies() {
       setAllMoviesTotalPages(Math.ceil(filterCache[cacheKey].movies.length / 20));
       setAllMoviesPage(3);
       setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
+      // Ensure infinite scroll is disabled (hasAdvancedFilter check handles this)
       return;
     }
 
     setAllMovies([]);
+    setAllMoviesPage(1); // Reset page immediately to prevent race conditions
     setAdvancedFilterLoading(true);
 
     try {
@@ -841,10 +859,13 @@ export default function Movies() {
       setAllMoviesTotalPages(1);
       setAllMoviesPage(1);
       setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
+      // Ensure infinite scroll is disabled (hasAdvancedFilter check handles this)
       return;
     }
 
     setAllMovies([]);
+    setAllMoviesPage(1); // Reset page immediately to prevent race conditions
+    setAllMoviesTotalPages(1); // Set to 1 immediately to prevent infinite scroll
     setAdvancedFilterLoading(true);
 
     try {
@@ -902,10 +923,12 @@ export default function Movies() {
       setAllMoviesTotalPages(Math.ceil(filterCache[cacheKey].movies.length / 20));
       setAllMoviesPage(5);
       setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
+      // Ensure infinite scroll is disabled (hasAdvancedFilter check handles this)
       return;
     }
 
     setAllMovies([]);
+    setAllMoviesPage(1); // Reset page immediately to prevent race conditions
     setAdvancedFilterLoading(true);
 
     try {
@@ -963,17 +986,26 @@ export default function Movies() {
 
     try {
       const res = await fetch(
-        `${API_BASE}/tmdb/search/movies?q=${encodeURIComponent(query)}`,
+        `${API_BASE}/tmdb/search/movies?q=${encodeURIComponent(query)}&page=1`,
         { credentials: 'include' }
       );
       if (res.ok) {
         const data = await res.json();
         const results = data.results || [];
 
-        setAllMovies(results);
+        // Transform results to ensure poster_url and backdrop_url are set
+        // (API only transforms first 20, so we need to handle all results)
+        const transformedResults = results.map((movie: any) => ({
+          ...movie,
+          poster_url: movie.poster_url || (movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null),
+          backdrop_url: movie.backdrop_url || (movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null),
+          year: movie.year || (movie.release_date ? movie.release_date.substring(0, 4) : null)
+        }));
+
+        setAllMovies(transformedResults);
         setAllMoviesTotalPages(data.total_pages || 1);
         setAllMoviesPage(1);
-        setAllMoviesTotalResults(data.total_results || results.length);
+        setAllMoviesTotalResults(data.total_results || transformedResults.length);
       }
     } catch (err) {
       console.error('Search failed:', err);
@@ -983,16 +1015,81 @@ export default function Movies() {
     }
   };
 
+  // Load more search results (pagination for search)
+  const loadMoreSearchResults = async () => {
+    if (!searchQuery.trim() || allMoviesPage >= allMoviesTotalPages || allMoviesLoading || loadingMultiplePages) {
+      return;
+    }
+
+    setAllMoviesLoading(true);
+    try {
+      const nextPage = allMoviesPage + 1;
+      const res = await fetch(
+        `${API_BASE}/tmdb/search/movies?q=${encodeURIComponent(searchQuery)}&page=${nextPage}`,
+        { credentials: 'include' }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const results = data.results || [];
+
+        // Transform results to ensure poster_url and backdrop_url are set
+        // (API only transforms first 20, so we need to handle all results)
+        const transformedResults = results.map((movie: any) => ({
+          ...movie,
+          poster_url: movie.poster_url || (movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null),
+          backdrop_url: movie.backdrop_url || (movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null),
+          year: movie.year || (movie.release_date ? movie.release_date.substring(0, 4) : null)
+        }));
+
+        // Append new results to existing ones
+        setAllMovies(prev => {
+          const combined = [...prev, ...transformedResults];
+          // Deduplicate by movie ID
+          return Array.from(new Map(combined.map(movie => [movie.id, movie])).values());
+        });
+        setAllMoviesPage(nextPage);
+        setAllMoviesTotalPages(data.total_pages || 1);
+        setAllMoviesTotalResults(data.total_results || 0);
+      }
+    } catch (err) {
+      console.error('Failed to load more search results:', err);
+    } finally {
+      setAllMoviesLoading(false);
+    }
+  };
+
   // Infinite scroll - consolidated into single hook to avoid conflicts
   const hasMoreGenre = viewMode === 'genre' && genreCurrentPage < genreTotalPages;
-  const hasMoreAllMovies = (viewMode === 'all-movies' || viewMode === 'top-rated') && allMoviesPage < allMoviesTotalPages;
-  const hasMore = hasMoreGenre || hasMoreAllMovies;
-  const isLoadingAny = genreLoading || allMoviesLoading || loadingMultiplePages;
+  
+  // Check if advanced filters are active (Collection/Director/Actor/Company - these disable infinite scroll)
+  const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
+  
+  // Search has its own pagination - enable infinite scroll for search when there are more pages
+  const hasMoreSearch = searchQuery.trim() !== '' && allMoviesPage < allMoviesTotalPages;
+  
+  // Only enable infinite scroll for all-movies/top-rated when NOT searching or filtering
+  // (Search has its own hasMoreSearch check above)
+  const hasMoreAllMovies = !hasAdvancedFilter && 
+    searchQuery.trim() === '' && // No search active
+    (viewMode === 'all-movies' || viewMode === 'top-rated') && 
+    allMoviesPage < allMoviesTotalPages;
+  
+  const hasMore = hasMoreGenre || hasMoreAllMovies || hasMoreSearch;
+  const isLoadingAny = genreLoading || allMoviesLoading || loadingMultiplePages || advancedFilterLoading;
 
   const handleLoadMore = () => {
+    // Safety check: never load more if advanced filters are active
+    if (hasAdvancedFilter) {
+      return;
+    }
+
     if (viewMode === 'genre' && hasMoreGenre && !genreLoading) {
       loadMoreGenreMovies();
+    } else if (hasMoreSearch && !allMoviesLoading && !loadingMultiplePages && !advancedFilterLoading) {
+      // Load more search results
+      loadMoreSearchResults();
     } else if ((viewMode === 'all-movies' || viewMode === 'top-rated') && hasMoreAllMovies && !allMoviesLoading && !loadingMultiplePages) {
+      // Load more general catalog movies
       loadMoreAllMovies();
     }
   };
@@ -1343,6 +1440,8 @@ export default function Movies() {
             src={movie.poster_url}
             alt={movie.title}
             className={`w-full object-cover ${size === 'small' ? 'h-60' : 'h-72'}`}
+            loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className={`w-full bg-gray-700 flex items-center justify-center ${size === 'small' ? 'h-60' : 'h-72'}`}>
@@ -1640,13 +1739,6 @@ export default function Movies() {
       {/* All Movies View */}
       {viewMode === 'all-movies' && (
         <div className="max-w-7xl mx-auto px-8 py-8 space-y-6">
-          {/* Stats */}
-          <div className="flex items-center justify-end">
-            <div className="text-sm text-gray-400">
-              {allMovies.length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
-            </div>
-          </div>
-
           {/* Advanced Filters - Always Visible */}
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-3">Advanced Discovery</h3>
@@ -1665,18 +1757,49 @@ export default function Movies() {
             />
           </div>
 
+          {/* Show/Hide Additional Filters Toggle */}
+          {!showAllMoviesFilters && (
+            <div className="flex items-center justify-start">
+              <button
+                onClick={() => setShowAllMoviesFilters(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300 font-medium"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                Show Additional Filters
+              </button>
+            </div>
+          )}
+
           {/* Additional Filters Panel - Collapsible */}
           {showAllMoviesFilters && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              {/* Hide Filters Button */}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-200">Additional Filters</h3>
+              {/* Hide Filters Button & Reset Button */}
+              <div className="flex items-center justify-start gap-3 mb-4">
                 <button
                   onClick={() => setShowAllMoviesFilters(false)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300"
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300 font-medium"
                 >
                   <X className="w-4 h-4" />
-                  Hide
+                  Hide Additional Filters
+                </button>
+                <button
+                  onClick={() => {
+                    setAllMoviesFilters({
+                      minRating: 0,
+                      minVotes: 0,
+                      yearFrom: null,
+                      yearTo: null,
+                      sortBy: 'popularity.desc',
+                      selectedGenres: [],
+                      excludeGenres: [],
+                      originCountries: [],
+                      excludeCountries: []
+                    });
+                    setActivePreset(null);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300 font-medium"
+                >
+                  Reset All Filters
                 </button>
               </div>
 
@@ -1685,23 +1808,60 @@ export default function Movies() {
                 <div className="col-span-full">
                   <label className="block text-sm font-medium text-gray-400 mb-3">Quick Filters</label>
                   <div className="flex flex-wrap gap-3">
+                    {/* All Movies - No filters */}
+                    <button
+                      onClick={() => {
+                        // Check if advanced filter is active
+                        const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
+
+                        if (activePreset === 'all-movies') {
+                          // Deselect - already at defaults, do nothing
+                          setActivePreset(null);
+                        } else {
+                          // Select - reset to no rating/vote filters (preserve additional filters)
+                          setAllMoviesFilters(prev => ({
+                            ...prev,
+                            minRating: 0,
+                            minVotes: 0,
+                            sortBy: 'popularity.desc'
+                          }));
+                          setActivePreset('all-movies');
+
+                          // If advanced filter is active, restore from cache
+                          if (hasAdvancedFilter) {
+                            const cacheKey = selectedCollection ? `collection:${selectedCollection.id}` :
+                                           selectedCompany ? `company:${selectedCompany.id}` :
+                                           selectedDirector ? `director:${selectedDirector.id}` :
+                                           selectedActor ? `actor:${selectedActor.id}` : null;
+
+                            if (cacheKey && filterCache[cacheKey]) {
+                              setAllMovies(filterCache[cacheKey].movies);
+                            }
+                          }
+                        }
+                      }}
+                      className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                        activePreset === 'all-movies'
+                          ? 'bg-gray-600 text-white ring-2 ring-gray-400 shadow-lg scale-105'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      🎬 All Movies
+                    </button>
+
                     <button
                       onClick={() => {
                         // Check if advanced filter is active
                         const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
 
                         if (activePreset === 'worth-watching') {
-                          // Deselect - reset to no filters
-                          setAllMoviesFilters({
+                          // Deselect - reset ONLY rating/votes/sort (preserve additional filters)
+                          setAllMoviesFilters(prev => ({
+                            ...prev,
                             minRating: 0,
                             minVotes: 0,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'popularity.desc',
-                            originCountries: []
-                          });
+                            sortBy: 'popularity.desc'
+                          }));
                           setActivePreset(null);
 
                           // If advanced filter is active, restore from cache
@@ -1716,23 +1876,19 @@ export default function Movies() {
                             }
                           }
                         } else {
-                          // Select - apply preset
-                          setAllMoviesFilters({
+                          // Select - apply preset (preserve additional filters)
+                          setAllMoviesFilters(prev => ({
+                            ...prev,
                             minRating: 5.5,
-                            minVotes: 25,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'vote_average.desc',
-                            originCountries: []
-                          });
+                            minVotes: 250,
+                            sortBy: 'vote_average.desc'
+                          }));
                           setActivePreset('worth-watching');
 
                           // If advanced filter is active, apply filter client-side
                           if (hasAdvancedFilter) {
                             const filtered = allMovies.filter(movie =>
-                              movie.vote_average >= 5.5 && movie.vote_count >= 25
+                              movie.vote_average >= 5.5 && movie.vote_count >= 250
                             );
                             setAllMovies(filtered);
                           }
@@ -1752,17 +1908,13 @@ export default function Movies() {
                         const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
 
                         if (activePreset === 'quality') {
-                          // Deselect - reset to no filters
-                          setAllMoviesFilters({
+                          // Deselect - reset ONLY rating/votes/sort (preserve additional filters)
+                          setAllMoviesFilters(prev => ({
+                            ...prev,
                             minRating: 0,
                             minVotes: 0,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'popularity.desc',
-                            originCountries: []
-                          });
+                            sortBy: 'popularity.desc'
+                          }));
                           setActivePreset(null);
 
                           // If advanced filter is active, restore from cache
@@ -1777,23 +1929,19 @@ export default function Movies() {
                             }
                           }
                         } else {
-                          // Select - apply preset
-                          setAllMoviesFilters({
+                          // Select - apply preset (preserve additional filters)
+                          setAllMoviesFilters(prev => ({
+                            ...prev,
                             minRating: 6.5,
-                            minVotes: 50,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'vote_average.desc',
-                            originCountries: []
-                          });
+                            minVotes: 500,
+                            sortBy: 'vote_average.desc'
+                          }));
                           setActivePreset('quality');
 
                           // If advanced filter is active, apply filter client-side
                           if (hasAdvancedFilter) {
                             const filtered = allMovies.filter(movie =>
-                              movie.vote_average >= 6.5 && movie.vote_count >= 50
+                              movie.vote_average >= 6.5 && movie.vote_count >= 500
                             );
                             setAllMovies(filtered);
                           }
@@ -1813,17 +1961,13 @@ export default function Movies() {
                         const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor;
 
                         if (activePreset === 'elite') {
-                          // Deselect - reset to no filters
-                          setAllMoviesFilters({
+                          // Deselect - reset ONLY rating/votes/sort (preserve additional filters)
+                          setAllMoviesFilters(prev => ({
+                            ...prev,
                             minRating: 0,
                             minVotes: 0,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'popularity.desc',
-                            originCountries: []
-                          });
+                            sortBy: 'popularity.desc'
+                          }));
                           setActivePreset(null);
 
                           // If advanced filter is active, restore from cache
@@ -1838,23 +1982,19 @@ export default function Movies() {
                             }
                           }
                         } else {
-                          // Select - apply preset
-                          setAllMoviesFilters({
+                          // Select - apply preset (preserve additional filters)
+                          setAllMoviesFilters(prev => ({
+                            ...prev,
                             minRating: 7.5,
-                            minVotes: 100,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'vote_average.desc',
-                            originCountries: []
-                          });
+                            minVotes: 1000,
+                            sortBy: 'vote_average.desc'
+                          }));
                           setActivePreset('elite');
 
                           // If advanced filter is active, apply filter client-side
                           if (hasAdvancedFilter) {
                             const filtered = allMovies.filter(movie =>
-                              movie.vote_average >= 7.5 && movie.vote_count >= 100
+                              movie.vote_average >= 7.5 && movie.vote_count >= 1000
                             );
                             setAllMovies(filtered);
                           }
@@ -1873,39 +2013,109 @@ export default function Movies() {
 
                 {/* Additional Filters */}
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-gray-400 mb-3">Additional Filters</label>
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Content Filters</label>
                   <div className="flex flex-wrap gap-3">
+                    {/* No Kids */}
                     <button
                       onClick={() => {
-                        setAllMoviesFilters(prev => {
-                          const hasExclusions = prev.excludeGenres.includes(16) && prev.excludeGenres.includes(10751);
-                          if (hasExclusions) {
-                            // Remove exclusions
-                            return {
-                              ...prev,
-                              excludeGenres: prev.excludeGenres.filter(id => id !== 16 && id !== 10751)
-                            };
-                          } else {
-                            // Add exclusions
-                            const newExclusions = [...prev.excludeGenres];
-                            if (!newExclusions.includes(16)) newExclusions.push(16);
-                            if (!newExclusions.includes(10751)) newExclusions.push(10751);
-                            return {
-                              ...prev,
-                              excludeGenres: newExclusions
-                            };
-                          }
-                        });
+                        setAllMoviesFilters(prev => ({
+                          ...prev,
+                          excludeGenres: prev.excludeGenres.includes(10751)
+                            ? prev.excludeGenres.filter(id => id !== 10751)
+                            : [...prev.excludeGenres, 10751]
+                        }));
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        allMoviesFilters.excludeGenres.includes(16) && allMoviesFilters.excludeGenres.includes(10751)
+                        allMoviesFilters.excludeGenres.includes(10751)
                           ? 'bg-red-600 text-white ring-2 ring-red-300'
                           : 'bg-gray-700 text-gray-300 hover:bg-red-600'
                       }`}
+                      title="Exclude Family movies"
                     >
-                      🚫 No Kids/Anime
+                      🚫 No Kids
                     </button>
 
+                    {/* No Anime */}
+                    <button
+                      onClick={() => {
+                        setAllMoviesFilters(prev => ({
+                          ...prev,
+                          excludeGenres: prev.excludeGenres.includes(16)
+                            ? prev.excludeGenres.filter(id => id !== 16)
+                            : [...prev.excludeGenres, 16]
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allMoviesFilters.excludeGenres.includes(16)
+                          ? 'bg-red-600 text-white ring-2 ring-red-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                      title="Exclude Animation"
+                    >
+                      🚫 No Anime
+                    </button>
+
+                    {/* No Romance */}
+                    <button
+                      onClick={() => {
+                        setAllMoviesFilters(prev => ({
+                          ...prev,
+                          excludeGenres: prev.excludeGenres.includes(10749)
+                            ? prev.excludeGenres.filter(id => id !== 10749)
+                            : [...prev.excludeGenres, 10749]
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allMoviesFilters.excludeGenres.includes(10749)
+                          ? 'bg-red-600 text-white ring-2 ring-red-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                      title="Exclude Romance"
+                    >
+                      🚫 No Romance
+                    </button>
+
+                    {/* No Drama */}
+                    <button
+                      onClick={() => {
+                        setAllMoviesFilters(prev => ({
+                          ...prev,
+                          excludeGenres: prev.excludeGenres.includes(18)
+                            ? prev.excludeGenres.filter(id => id !== 18)
+                            : [...prev.excludeGenres, 18]
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allMoviesFilters.excludeGenres.includes(18)
+                          ? 'bg-red-600 text-white ring-2 ring-red-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                      title="Exclude Drama"
+                    >
+                      🚫 No Drama
+                    </button>
+
+                    {/* No Bollywood */}
+                    <button
+                      onClick={() => {
+                        setAllMoviesFilters(prev => ({
+                          ...prev,
+                          excludeCountries: prev.excludeCountries.includes('IN')
+                            ? prev.excludeCountries.filter(c => c !== 'IN')
+                            : [...prev.excludeCountries, 'IN']
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allMoviesFilters.excludeCountries.includes('IN')
+                          ? 'bg-red-600 text-white ring-2 ring-red-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                      title="Exclude Indian/Bollywood movies"
+                    >
+                      🚫 No Bollywood
+                    </button>
+
+                    {/* English Only */}
                     <button
                       onClick={() => {
                         setAllMoviesFilters(prev => {
@@ -1937,20 +2147,65 @@ export default function Movies() {
                   </div>
                 </div>
 
+                {/* Genre Multi-Select Dropdown */}
+                <div className="col-span-full">
+                  <details className="group">
+                    <summary className="cursor-pointer list-none">
+                      <div className="flex items-center justify-between bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors">
+                        <span className="text-sm font-medium text-gray-300">
+                          Genres {allMoviesFilters.selectedGenres.length > 0 && `(${allMoviesFilters.selectedGenres.length} selected)`}
+                        </span>
+                        <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </summary>
+                    <div className="mt-3 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        {genres.map(genre => {
+                          const isSelected = allMoviesFilters.selectedGenres.includes(genre.id);
+                          return (
+                            <button
+                              key={genre.id}
+                              onClick={() => {
+                                setAllMoviesFilters(prev => ({
+                                  ...prev,
+                                  selectedGenres: isSelected
+                                    ? prev.selectedGenres.filter(id => id !== genre.id)
+                                    : [...prev.selectedGenres, genre.id]
+                                }));
+                              }}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                isSelected
+                                  ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30 hover:bg-blue-900/50'
+                                  : 'bg-gray-700 text-gray-400 border border-gray-600 hover:bg-gray-600'
+                              }`}
+                            >
+                              {genre.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+
                 {/* Min Rating */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Min Rating: {allMoviesFilters.minRating > 0 ? allMoviesFilters.minRating.toFixed(1) : 'Any'}
                   </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="0.5"
-                    value={allMoviesFilters.minRating}
-                    onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
-                    className="w-full accent-blue-600"
-                  />
+                  <div className="pt-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="0.5"
+                      value={allMoviesFilters.minRating}
+                      onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
                 </div>
 
                 {/* Min Votes */}
@@ -1958,15 +2213,17 @@ export default function Movies() {
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Min Votes: {allMoviesFilters.minVotes > 0 ? allMoviesFilters.minVotes : 'Any'}
                   </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="5000"
-                    step="100"
-                    value={allMoviesFilters.minVotes}
-                    onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, minVotes: parseInt(e.target.value) }))}
-                    className="w-full accent-blue-600"
-                  />
+                  <div className="pt-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="5000"
+                      step="100"
+                      value={allMoviesFilters.minVotes}
+                      onChange={(e) => setAllMoviesFilters(prev => ({ ...prev, minVotes: parseInt(e.target.value) }))}
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
                 </div>
 
                 {/* Year Range */}
@@ -1992,71 +2249,6 @@ export default function Movies() {
                       className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
                     />
                   </div>
-                </div>
-
-                {/* Genre Multi-Select Dropdown */}
-                <div className="col-span-full">
-                  <details className="group">
-                    <summary className="cursor-pointer list-none">
-                      <div className="flex items-center justify-between bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors">
-                        <span className="text-sm font-medium text-gray-300">
-                          Genres (click to toggle • <span className="text-green-400">included</span> / <span className="text-red-400">excluded</span>)
-                        </span>
-                        <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </summary>
-                    <div className="mt-3 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                        {genres.map(genre => {
-                          const isExcluded = allMoviesFilters.excludeGenres.includes(genre.id);
-                          return (
-                            <button
-                              key={genre.id}
-                              onClick={() => {
-                                setAllMoviesFilters(prev => ({
-                                  ...prev,
-                                  excludeGenres: isExcluded
-                                    ? prev.excludeGenres.filter(id => id !== genre.id)
-                                    : [...prev.excludeGenres, genre.id]
-                                }));
-                              }}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
-                                isExcluded
-                                  ? 'bg-red-900/30 text-red-400 border border-red-500/30 hover:bg-red-900/50'
-                                  : 'bg-green-900/30 text-green-400 border border-green-500/30 hover:bg-green-900/50'
-                              }`}
-                            >
-                              {isExcluded && <span className="absolute top-1 right-1 text-xs">✕</span>}
-                              {genre.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </details>
-                </div>
-
-                {/* Reset Button */}
-                <div className="col-span-full">
-                  <button
-                    onClick={() => {
-                      setAllMoviesFilters({
-                        minRating: 0,
-                        minVotes: 0,
-                        yearFrom: null,
-                        yearTo: null,
-                        sortBy: 'popularity.desc',
-                        selectedGenres: [],
-                        excludeGenres: []
-                      });
-                      setActivePreset(null);
-                    }}
-                    className="w-full px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    Reset All Filters
-                  </button>
                 </div>
               </div>
             </div>
@@ -2113,6 +2305,13 @@ export default function Movies() {
                 ))}
               </div>
 
+              {/* Stats at bottom */}
+              <div className="flex items-center justify-center mt-6">
+                <div className="text-sm text-gray-400 bg-gray-800/50 px-6 py-3 rounded-lg border border-gray-700">
+                  {allMovies.length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
+                </div>
+              </div>
+
               {/* Loading indicator for infinite scroll */}
               {(allMoviesLoading || loadingMultiplePages) && allMoviesPage > 1 && (
                 <div className="text-center mt-8 py-8">
@@ -2136,9 +2335,6 @@ export default function Movies() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">⭐ Top Rated Movies (7.5+)</h2>
-            <div className="text-sm text-gray-400">
-              {allMovies.length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
-            </div>
           </div>
 
           {allMoviesLoading && allMoviesPage === 1 ? (
@@ -2151,6 +2347,13 @@ export default function Movies() {
                 {allMovies.map(movie => (
                   <MovieCard key={movie.id} movie={movie} />
                 ))}
+              </div>
+
+              {/* Stats at bottom */}
+              <div className="flex items-center justify-center mt-6">
+                <div className="text-sm text-gray-400 bg-gray-800/50 px-6 py-3 rounded-lg border border-gray-700">
+                  {allMovies.length} movies loaded • Page {allMoviesPage}/{allMoviesTotalPages}
+                </div>
               </div>
 
               {/* Loading indicator for infinite scroll */}

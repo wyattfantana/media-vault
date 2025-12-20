@@ -26,6 +26,9 @@ export function SignIn() {
         return;
       }
 
+      // Wait a moment for session to be established before redirecting
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Redirect to dashboard after successful sign-in
       navigate('/dashboard');
     } catch (err) {
@@ -132,6 +135,7 @@ export function SignIn() {
                   id="email"
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full rounded-lg border border-gray-600 bg-gray-900/50 px-4 py-3 text-gray-100 placeholder-gray-500 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
@@ -155,6 +159,7 @@ export function SignIn() {
                   id="password"
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="block w-full rounded-lg border border-gray-600 bg-gray-900/50 px-4 py-3 text-gray-100 placeholder-gray-500 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
