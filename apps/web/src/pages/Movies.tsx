@@ -1472,6 +1472,42 @@ export default function Movies() {
     setRadarrMessage(null);
 
     try {
+      // Check if movie already exists in Radarr
+      const existingRes = await fetch(`${API_BASE}/radarr/movies`, {
+        credentials: 'include'
+      });
+
+      if (existingRes.ok) {
+        const existingMovies = await existingRes.json();
+        const duplicate = existingMovies.find((m: any) => m.tmdbId === movie.id);
+
+        if (duplicate) {
+          const hasFile = duplicate.hasFile || duplicate.movieFileId > 0;
+          const quality = duplicate.movieFile?.quality?.quality?.name || 'Unknown';
+
+          if (hasFile) {
+            setRadarrMessage(`⚠️  "${movie.title}" is already in your library (${quality}). Want to search for an upgrade?`);
+            // TODO: Add upgrade button
+            setAddingToRadarr(false);
+            return;
+          } else {
+            setRadarrMessage(`⚠️  "${movie.title}" is already in Radarr but not downloaded yet. Searching for releases...`);
+            // Trigger a manual search for the existing movie
+            try {
+              await fetch(`${API_BASE}/radarr/movies/${duplicate.id}/search`, {
+                method: 'POST',
+                credentials: 'include'
+              });
+              setRadarrMessage(`✅ Triggered search for "${movie.title}" in Radarr`);
+            } catch (err) {
+              console.error('Failed to trigger search:', err);
+            }
+            setAddingToRadarr(false);
+            return;
+          }
+        }
+      }
+
       // First, get quality profiles and root folders
       const profilesRes = await fetch(`${API_BASE}/radarr/quality-profiles`, {
         credentials: 'include'

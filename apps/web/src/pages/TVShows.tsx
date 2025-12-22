@@ -67,6 +67,11 @@ export default function TVShows() {
   const [sonarrEnabled, setSonarrEnabled] = useState(false);
   const [addingToSonarr, setAddingToSonarr] = useState(false);
   const [sonarrMessage, setSonarrMessage] = useState<string | null>(null);
+  const [showQualityDialog, setShowQualityDialog] = useState(false);
+  const [qualityProfiles, setQualityProfiles] = useState<any[]>([]);
+  const [selectedQualityProfile, setSelectedQualityProfile] = useState<number | null>(null);
+  const [showToAdd, setShowToAdd] = useState<TVShow | null>(null);
+  const [rootFolders, setRootFolders] = useState<any[]>([]);
 
   const isInitialMount = React.useRef(true);
   const isRestoring = React.useRef(true); // Track if we're restoring state from localStorage
@@ -1383,11 +1388,34 @@ export default function TVShows() {
         throw new Error('Please configure quality profiles and root folders in Sonarr first');
       }
 
-      // Use first quality profile and root folder (user can change in Sonarr UI later)
-      const qualityProfileId = profiles[0].id;
-      const rootFolderPath = folders[0].path;
+      // Store the profiles, folders, and show, then show quality selection dialog
+      setQualityProfiles(profiles);
+      setRootFolders(folders);
+      setShowToAdd(show);
 
-      // Add show to Sonarr
+      // Default to HD-1080p if available, otherwise first profile
+      const defaultProfile = profiles.find((p: any) => p.name === 'HD-1080p') || profiles[0];
+      setSelectedQualityProfile(defaultProfile.id);
+
+      setShowQualityDialog(true);
+    } catch (error: any) {
+      console.error('Failed to load Sonarr configuration:', error);
+      setSonarrMessage(`❌ ${error.message}`);
+    } finally {
+      setAddingToSonarr(false);
+    }
+  };
+
+  const confirmAddToSonarr = async () => {
+    if (!showToAdd || !selectedQualityProfile) return;
+
+    setAddingToSonarr(true);
+    setShowQualityDialog(false);
+
+    try {
+      const rootFolderPath = rootFolders[0]?.path;
+
+      // Add show to Sonarr with selected quality
       const response = await fetch(`${API_BASE}/sonarr/series`, {
         method: 'POST',
         headers: {
@@ -1395,9 +1423,9 @@ export default function TVShows() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          title: show.name || show.title,
-          tvdbId: show.id,
-          qualityProfileId,
+          title: showToAdd.name || showToAdd.title,
+          tvdbId: showToAdd.id,
+          qualityProfileId: selectedQualityProfile,
           rootFolderPath,
         })
       });
@@ -1408,13 +1436,14 @@ export default function TVShows() {
       }
 
       const data = await response.json();
-      setSonarrMessage(`✅ Added "${show.name || show.title}" to Sonarr! It will be downloaded automatically.`);
+      setSonarrMessage(`✅ Added "${showToAdd.name || showToAdd.title}" to Sonarr! Downloading in ${qualityProfiles.find(p => p.id === selectedQualityProfile)?.name || 'selected quality'}...`);
       setTimeout(() => setSonarrMessage(null), 5000);
     } catch (error: any) {
       console.error('Failed to add to Sonarr:', error);
       setSonarrMessage(`❌ ${error.message}`);
     } finally {
       setAddingToSonarr(false);
+      setShowToAdd(null);
     }
   };
 
@@ -2836,6 +2865,68 @@ export default function TVShows() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quality Selection Dialog */}
+      {showQualityDialog && showToAdd && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-2xl border border-gray-700">
+            <h3 className="text-xl font-bold text-white mb-4">Select Quality for "{showToAdd.name || showToAdd.title}"</h3>
+
+            <div className="space-y-3 mb-6">
+              {qualityProfiles.map((profile) => (
+                <button
+                  key={profile.id}
+                  onClick={() => setSelectedQualityProfile(profile.id)}
+                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                    selectedQualityProfile === profile.id
+                      ? 'border-purple-500 bg-purple-900/30'
+                      : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-white">{profile.name}</div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        {profile.name === 'HD-1080p' && 'Recommended - Best quality/size balance'}
+                        {profile.name === 'Ultra-HD' && '4K quality - Large file sizes'}
+                        {profile.name === 'HD-720p' && 'Good quality - Smaller files'}
+                        {profile.name === 'SD' && 'Low quality - Smallest files'}
+                        {!['HD-1080p', 'Ultra-HD', 'HD-720p', 'SD'].includes(profile.name) && 'Custom quality profile'}
+                      </div>
+                    </div>
+                    {selectedQualityProfile === profile.id && (
+                      <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowQualityDialog(false);
+                  setShowToAdd(null);
+                }}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmAddToSonarr}
+                disabled={!selectedQualityProfile || addingToSonarr}
+                className="flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                {addingToSonarr ? 'Adding...' : 'Add to Sonarr'}
+              </button>
             </div>
           </div>
         </div>
