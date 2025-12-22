@@ -3,9 +3,9 @@
 
 # Radarr Configuration
 radarr:
-  main:
+  radarr-main:
     base_url: http://radarr:7878
-    api_key: !env_var RADARR_API_KEY
+    api_key: 85660fa98c9946e69634b52a4d29826b
 
     # Quality Definitions - Optimized file sizes
     quality_definition:
@@ -34,9 +34,9 @@ radarr:
 
 # Sonarr Configuration
 sonarr:
-  main:
+  sonarr-main:
     base_url: http://sonarr:8989
-    api_key: !env_var SONARR_API_KEY
+    api_key: 55aaf7dd9e034a159a8050e30ed3f0c5
 
     # Quality Definitions - Optimized file sizes
     quality_definition:
@@ -62,11 +62,3 @@ sonarr:
           - name: WEB-2160p
           - name: Bluray-1080p
           - name: WEB-1080p
-
-    # Release Profiles - TRaSH Guides recommendations
-    release_profiles:
-      # Prefer releases with these characteristics
-      - trash_ids:
-          # Streaming Services (preferred)
-          - d428eda85af1df8904b4bbe4fc2f537c  # WEB Tier 01
-          - afeb99e5db09290546f742dc4621a6be  # WEB Tier 02

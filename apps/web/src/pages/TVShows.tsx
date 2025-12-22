@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
+import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader, Plus } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
 import { searchCache } from '../utils/searchCache';
 import { API_BASE } from '@/lib/config';
+import { AdvancedFiltersTV } from '../components/AdvancedFiltersTV';
 
 interface TVShow {
   id: number;
@@ -62,7 +63,13 @@ export default function TVShows() {
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Sonarr state
+  const [sonarrEnabled, setSonarrEnabled] = useState(false);
+  const [addingToSonarr, setAddingToSonarr] = useState(false);
+  const [sonarrMessage, setSonarrMessage] = useState<string | null>(null);
+
   const isInitialMount = React.useRef(true);
+  const isRestoring = React.useRef(true); // Track if we're restoring state from localStorage
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -101,7 +108,17 @@ export default function TVShows() {
     originCountries: [] as string[]
   });
   const [showAllShowsFilters, setShowAllShowsFilters] = useState(false);
-  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [activePreset, setActivePreset] = useState<string | null>('all-shows');
+  const requestIdRef = useRef(0); // Track request IDs to prevent race conditions
+
+  // Advanced Discovery state
+  const [showSearchQuery, setShowSearchQuery] = useState('');
+  const [selectedCollection, setSelectedCollection] = useState<{ id: number; name: string } | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<{ id: number; name: string } | null>(null);
+  const [selectedCreator, setSelectedCreator] = useState<{ id: number; name: string } | null>(null);
+  const [selectedActor, setSelectedActor] = useState<{ id: number; name: string } | null>(null);
+  const [filterCache, setFilterCache] = useState<Record<string, { shows: TVShow[]; totalResults: number }>>({});
+  const [advancedFilterLoading, setAdvancedFilterLoading] = useState(false);
 
   // Genre filters
   const [genreFilters, setGenreFilters] = useState({
@@ -115,14 +132,20 @@ export default function TVShows() {
   const restoringScroll = React.useRef(false);
   const scrollPositionSaved = React.useRef(false);
 
-  // Genre configuration with emojis - ordered by popularity
+  // Genre configuration with emojis - ordered by popularity (TV-specific genres)
   const GENRE_CONFIG = [
-    { id: 28, name: 'Action', emoji: '💥' },
-    { id: 35, name: 'Comedy', emoji: '😂' },
     { id: 18, name: 'Drama', emoji: '🎭' },
-    { id: 27, name: 'Horror', emoji: '👻' },
-    { id: 878, name: 'Sci-Fi', emoji: '🚀' },
-    { id: 53, name: 'Thriller', emoji: '😱' },
+    { id: 35, name: 'Comedy', emoji: '😂' },
+    { id: 10759, name: 'Action & Adventure', emoji: '💥' },
+    { id: 80, name: 'Crime', emoji: '🔍' },
+    { id: 10765, name: 'Sci-Fi & Fantasy', emoji: '🚀' },
+    { id: 9648, name: 'Mystery', emoji: '🔎' },
+    { id: 10764, name: 'Reality', emoji: '📺' },
+    { id: 99, name: 'Documentary', emoji: '🎬' },
+    { id: 16, name: 'Animation', emoji: '🎨' },
+    { id: 10751, name: 'Family', emoji: '👨‍👩‍👧‍👦' },
+    { id: 10762, name: 'Kids', emoji: '🧒' },
+    { id: 10767, name: 'Talk', emoji: '💬' },
   ];
 
   useEffect(() => {
@@ -130,7 +153,7 @@ export default function TVShows() {
     setShowAllShowsFilters(true); // Show filters by default
 
     // Try to restore browse state from sessionStorage
-    const savedBrowseState = sessionStorage.getItem('tvShowsBrowseState');
+    const savedBrowseState = localStorage.getItem('tvShowsBrowseState');
     if (savedBrowseState) {
       try {
         const { shows, page, totalPages, totalResults, viewMode: savedViewMode, scrollY } = JSON.parse(savedBrowseState);
@@ -140,6 +163,9 @@ export default function TVShows() {
         setAllShowsTotalPages(totalPages || 1);
         setAllShowsTotalResults(totalResults || 0);
         setViewMode(savedViewMode || 'all-shows');
+        // Ensure no loading states are active when restoring from cache
+        setAllShowsLoading(false);
+        setLoadingMultiplePages(false);
 
         // Restore scroll position after a short delay to ensure content is rendered
         setTimeout(() => {
@@ -160,9 +186,48 @@ export default function TVShows() {
       try {
         const parsed = JSON.parse(savedFilters);
         setAllShowsFilters(parsed);
-        setActivePreset('saved');
       } catch (e) {
         console.error('Failed to load saved filters:', e);
+      }
+    }
+
+    // Restore active preset
+    const savedPreset = localStorage.getItem('tvShowsActivePreset');
+    if (savedPreset) {
+      setActivePreset(savedPreset);
+    }
+
+    // Restore advanced filters
+    const savedAdvanced = localStorage.getItem('tvShowsAdvancedFilters');
+    if (savedAdvanced) {
+      try {
+        const { collection, company, creator, actor } = JSON.parse(savedAdvanced);
+        if (collection) setSelectedCollection(collection);
+        if (company) setSelectedCompany(company);
+        if (creator) setSelectedCreator(creator);
+        if (actor) setSelectedActor(actor);
+      } catch (e) {
+        console.error('Failed to load advanced filters:', e);
+      }
+    }
+
+    // Restore filter panel state
+    const savedShowFilters = localStorage.getItem('tvShowsShowFilters');
+    if (savedShowFilters !== null) {
+      try {
+        setShowAllShowsFilters(JSON.parse(savedShowFilters));
+      } catch (e) {
+        console.error('Failed to load show filters state:', e);
+      }
+    }
+
+    // Restore selected genre
+    const savedGenre = localStorage.getItem('tvShowsSelectedGenre');
+    if (savedGenre) {
+      try {
+        setSelectedGenre(JSON.parse(savedGenre));
+      } catch (e) {
+        console.error('Failed to load selected genre:', e);
       }
     }
 
@@ -170,7 +235,72 @@ export default function TVShows() {
     if (!savedBrowseState) {
       loadShows();
     }
+
+    // Mark restoration complete - do this AFTER all state restoration is done
+    // This prevents the filter watch useEffect from triggering during restoration
+    setTimeout(() => {
+      isRestoring.current = false;
+      isInitialMount.current = false;
+    }, 100); // Small delay to ensure all React state updates have processed
   }, []);
+
+  // Check if Sonarr is enabled
+  useEffect(() => {
+    const checkSonarrStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/preferences`, {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const prefs = await res.json();
+          setSonarrEnabled(prefs.sonarr_enabled || false);
+        }
+      } catch (error) {
+        console.error('Failed to check Sonarr status:', error);
+      }
+    };
+    checkSonarrStatus();
+  }, []);
+
+  // Save filters to localStorage when they change (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    localStorage.setItem('tvShowsFilters', JSON.stringify(allShowsFilters));
+  }, [allShowsFilters]);
+
+  // Save active preset to localStorage (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    if (activePreset) {
+      localStorage.setItem('tvShowsActivePreset', activePreset);
+    }
+  }, [activePreset]);
+
+  // Save advanced filters to localStorage (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    const advancedFilters = {
+      collection: selectedCollection,
+      company: selectedCompany,
+      creator: selectedCreator,
+      actor: selectedActor
+    };
+    localStorage.setItem('tvShowsAdvancedFilters', JSON.stringify(advancedFilters));
+  }, [selectedCollection, selectedCompany, selectedCreator, selectedActor]);
+
+  // Save filter panel state (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    localStorage.setItem('tvShowsShowFilters', JSON.stringify(showAllShowsFilters));
+  }, [showAllShowsFilters]);
+
+  // Save selected genre (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    if (selectedGenre) {
+      localStorage.setItem('tvShowsSelectedGenre', JSON.stringify(selectedGenre));
+    }
+  }, [selectedGenre]);
 
   // Load bookmarked shows
   useEffect(() => {
@@ -222,7 +352,7 @@ export default function TVShows() {
       scrollY: window.scrollY
     };
 
-    sessionStorage.setItem('tvShowsBrowseState', JSON.stringify(browseState));
+    localStorage.setItem('tvShowsBrowseState', JSON.stringify(browseState));
   }, [allShows, allShowsPage, allShowsTotalPages, allShowsTotalResults, viewMode]);
 
   // Save scroll position on scroll events
@@ -230,12 +360,12 @@ export default function TVShows() {
     const saveScrollPosition = () => {
       if (restoringScroll.current) return;
 
-      const savedState = sessionStorage.getItem('tvShowsBrowseState');
+      const savedState = localStorage.getItem('tvShowsBrowseState');
       if (savedState) {
         try {
           const state = JSON.parse(savedState);
           state.scrollY = window.scrollY;
-          sessionStorage.setItem('tvShowsBrowseState', JSON.stringify(state));
+          localStorage.setItem('tvShowsBrowseState', JSON.stringify(state));
         } catch (e) {
           // Ignore parse errors
         }
@@ -261,6 +391,391 @@ export default function TVShows() {
   // Function to load shows based on current filters
   const loadShows = () => {
     loadManyPages(1, 10, 'all-shows'); // Load 10 pages initially (~200 shows)
+  };
+
+  // Advanced Discovery handlers
+  const clearAllAdvancedFilters = () => {
+    setSelectedCollection(null);
+    setSelectedCompany(null);
+    setSelectedCreator(null);
+    setSelectedActor(null);
+    setShowSearchQuery('');
+    setAllShows([]);
+    setAdvancedFilterLoading(false);
+    setActivePreset('all-shows'); // Reset to All Shows preset
+    // Reload general catalog
+    loadManyPages(1, 10, 'all-shows');
+  };
+
+  const handleShowSearch = async (query: string) => {
+    if (!query.trim()) {
+      setShowSearchQuery('');
+      setAllShows([]); // Just clear, don't reload
+      return;
+    }
+
+    // Clear OTHER filter types
+    setSelectedCollection(null);
+    setSelectedCompany(null);
+    setSelectedCreator(null);
+    setSelectedActor(null);
+
+    setShowSearchQuery(query);
+    setAllShows([]);
+    setAdvancedFilterLoading(true);
+
+    // Increment request ID to track this request
+    const currentRequestId = ++requestIdRef.current;
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/tmdb/search/tv?q=${encodeURIComponent(query)}&page=1`,
+        { credentials: 'include' }
+      );
+
+      // Ignore stale responses
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        const results = data.results || [];
+
+        // Transform results to ensure poster_url and backdrop_url are set
+        const transformedResults = results.map((show: any) => ({
+          ...show,
+          poster_url: show.poster_url || (show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : null),
+          backdrop_url: show.backdrop_url || (show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null),
+          year: show.year || (show.first_air_date ? show.first_air_date.substring(0, 4) : null)
+        }));
+
+        setAllShows(transformedResults);
+        setAllShowsTotalPages(data.total_pages || 1);
+        setAllShowsPage(1);
+        setAllShowsTotalResults(data.total_results || transformedResults.length);
+      }
+    } catch (err) {
+      console.error('Search failed:', err);
+      if (currentRequestId === requestIdRef.current) {
+        setAllShows([]);
+      }
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
+    }
+  };
+
+  const handleCollectionSelect = async (collectionId: number | null, name: string) => {
+    if (!collectionId) {
+      setSelectedCollection(null);
+      setAllShows([]); // Just clear, don't reload
+      return;
+    }
+
+    // Clear OTHER filter types
+    setSelectedCompany(null);
+    setSelectedCreator(null);
+    setSelectedActor(null);
+    setShowSearchQuery('');
+
+    setSelectedCollection({ id: collectionId, name });
+
+    // Check cache first
+    const cacheKey = `collection:${collectionId}`;
+    if (filterCache[cacheKey]) {
+      setAllShows(filterCache[cacheKey].shows);
+      setAllShowsTotalPages(1);
+      setAllShowsPage(1);
+      setAllShowsTotalResults(filterCache[cacheKey].totalResults);
+      return;
+    }
+
+    setAllShows([]);
+    setAllShowsPage(1);
+    setAllShowsTotalPages(1);
+    setAdvancedFilterLoading(true);
+
+    const currentRequestId = ++requestIdRef.current;
+
+    try {
+      const res = await fetch(`${API_BASE}/tmdb/collection/${collectionId}?type=tv`, { credentials: 'include' });
+
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+
+        const transformedShows = (data.parts || []).map((show: any) => ({
+          ...show,
+          poster_url: show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : null,
+          backdrop_url: show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null,
+          year: show.first_air_date ? show.first_air_date.split('-')[0] : null
+        }));
+
+        setFilterCache(prev => ({
+          ...prev,
+          [cacheKey]: { shows: transformedShows, totalResults: transformedShows.length }
+        }));
+
+        setAllShows(transformedShows);
+        setAllShowsTotalPages(1);
+        setAllShowsPage(1);
+        setAllShowsTotalResults(transformedShows.length);
+      }
+    } catch (error) {
+      console.error('Failed to load collection:', error);
+      if (currentRequestId === requestIdRef.current) {
+        setAllShows([]);
+      }
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
+    }
+  };
+
+  const handleCompanySelect = async (companyId: number | null, name: string) => {
+    if (!companyId) {
+      setSelectedCompany(null);
+      setAllShows([]);
+      return;
+    }
+
+    setSelectedCollection(null);
+    setSelectedCreator(null);
+    setSelectedActor(null);
+    setShowSearchQuery('');
+
+    setSelectedCompany({ id: companyId, name });
+
+    const cacheKey = `company:${companyId}`;
+    if (filterCache[cacheKey]) {
+      setAllShows(filterCache[cacheKey].shows);
+      const totalPages = Math.ceil(filterCache[cacheKey].shows.length / 20);
+      setAllShowsTotalPages(totalPages);
+      setAllShowsPage(totalPages);
+      setAllShowsTotalResults(filterCache[cacheKey].totalResults);
+      return;
+    }
+
+    setAllShows([]);
+    setAllShowsPage(1);
+    setAdvancedFilterLoading(true);
+
+    const currentRequestId = ++requestIdRef.current;
+
+    try {
+      // Fetch first page to get total_pages
+      const firstPageRes = await fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=1&type=tv`, { credentials: 'include' });
+
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      if (!firstPageRes.ok) {
+        throw new Error('Failed to fetch first page');
+      }
+
+      const firstPage = await firstPageRes.json();
+      const totalPages = firstPage.total_pages || 1;
+      const totalResults = firstPage.total_results || 0;
+
+      // Load all remaining pages
+      const remainingPages = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) => i + 2).map(page =>
+          fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=${page}&type=tv`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+        )
+      );
+
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      // Combine all results
+      const allResults = [
+        ...(firstPage.results || []),
+        ...remainingPages.flatMap(data => data?.results || [])
+      ];
+
+      const uniqueResults = Array.from(
+        new Map(allResults.map((show: any) => [show.id, show])).values()
+      );
+
+      const transformedShows = uniqueResults.map((show: any) => ({
+        ...show,
+        poster_url: show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : null,
+        backdrop_url: show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null,
+        year: show.first_air_date ? show.first_air_date.split('-')[0] : null
+      }));
+
+      setFilterCache(prev => ({
+        ...prev,
+        [cacheKey]: { shows: transformedShows, totalResults }
+      }));
+
+      setAllShows(transformedShows);
+      setAllShowsTotalPages(totalPages);
+      setAllShowsPage(totalPages);
+      setAllShowsTotalResults(totalResults);
+    } catch (error) {
+      console.error('Failed to load company shows:', error);
+      if (currentRequestId === requestIdRef.current) {
+        setAllShows([]);
+      }
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
+    }
+  };
+
+  const handleCreatorSelect = async (personId: number | null, name: string) => {
+    if (!personId) {
+      setSelectedCreator(null);
+      setAllShows([]);
+      return;
+    }
+
+    setSelectedCollection(null);
+    setSelectedCompany(null);
+    setSelectedActor(null);
+    setShowSearchQuery('');
+
+    setSelectedCreator({ id: personId, name });
+
+    const cacheKey = `creator:${personId}`;
+    if (filterCache[cacheKey]) {
+      setAllShows(filterCache[cacheKey].shows);
+      setAllShowsTotalPages(1);
+      setAllShowsPage(1);
+      setAllShowsTotalResults(filterCache[cacheKey].totalResults);
+      return;
+    }
+
+    setAllShows([]);
+    setAllShowsPage(1);
+    setAllShowsTotalPages(1);
+    setAdvancedFilterLoading(true);
+
+    const currentRequestId = ++requestIdRef.current;
+
+    try {
+      const res = await fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=crew&type=tv`, { credentials: 'include' });
+
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+
+        const transformedShows = (data.results || []).map((show: any) => ({
+          ...show,
+          poster_url: show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : null,
+          backdrop_url: show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null,
+          year: show.first_air_date ? show.first_air_date.split('-')[0] : null
+        }));
+
+        setFilterCache(prev => ({
+          ...prev,
+          [cacheKey]: { shows: transformedShows, totalResults: transformedShows.length }
+        }));
+
+        setAllShows(transformedShows);
+        setAllShowsTotalPages(1);
+        setAllShowsPage(1);
+        setAllShowsTotalResults(transformedShows.length);
+      }
+    } catch (error) {
+      console.error('Failed to load creator shows:', error);
+      if (currentRequestId === requestIdRef.current) {
+        setAllShows([]);
+      }
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
+    }
+  };
+
+  const handleActorSelect = async (personId: number | null, name: string) => {
+    if (!personId) {
+      setSelectedActor(null);
+      setAllShows([]);
+      return;
+    }
+
+    setSelectedCollection(null);
+    setSelectedCompany(null);
+    setSelectedCreator(null);
+    setShowSearchQuery('');
+
+    setSelectedActor({ id: personId, name });
+
+    const cacheKey = `actor:${personId}`;
+    if (filterCache[cacheKey]) {
+      setAllShows(filterCache[cacheKey].shows);
+      setAllShowsTotalPages(Math.ceil(filterCache[cacheKey].shows.length / 20));
+      setAllShowsPage(5);
+      setAllShowsTotalResults(filterCache[cacheKey].totalResults);
+      return;
+    }
+
+    setAllShows([]);
+    setAllShowsPage(1);
+    setAdvancedFilterLoading(true);
+
+    const currentRequestId = ++requestIdRef.current;
+
+    try {
+      const pages = await Promise.all([1, 2, 3, 4, 5].map(page =>
+        fetch(`${API_BASE}/tmdb/discover/person/${personId}?role=cast&page=${page}&type=tv`, { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+      ));
+
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      const allResults = pages.flatMap(data => data?.results || []);
+      const totalResults = pages[0]?.total_results || 0;
+      const totalPages = pages[0]?.total_pages || 1;
+
+      const uniqueResults = Array.from(
+        new Map(allResults.map((show: any) => [show.id, show])).values()
+      );
+
+      const transformedShows = uniqueResults.map((show: any) => ({
+        ...show,
+        poster_url: show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : null,
+        backdrop_url: show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null,
+        year: show.first_air_date ? show.first_air_date.split('-')[0] : null
+      }));
+
+      setFilterCache(prev => ({
+        ...prev,
+        [cacheKey]: { shows: transformedShows, totalResults }
+      }));
+
+      setAllShows(transformedShows);
+      setAllShowsTotalPages(totalPages);
+      setAllShowsPage(5);
+      setAllShowsTotalResults(totalResults);
+    } catch (error) {
+      console.error('Failed to load actor shows:', error);
+      if (currentRequestId === requestIdRef.current) {
+        setAllShows([]);
+      }
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setAdvancedFilterLoading(false);
+      }
+    }
   };
 
   const fetchGenres = async () => {
@@ -491,7 +1006,8 @@ export default function TVShows() {
       yearTo: null,
       sortBy: 'popularity.desc',
       selectedGenres: [],
-      excludeGenres: []
+      excludeGenres: [],
+      originCountries: []
     });
     await fetchAllShows(1, 'all-shows');
   };
@@ -525,8 +1041,14 @@ export default function TVShows() {
 
   // Auto-apply filters when they change (skip initial mount)
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    // Skip if we're restoring state from localStorage
+    if (isRestoring.current || isInitialMount.current) {
+      return;
+    }
+
+    // Skip loading if advanced filter OR search is active
+    const hasAdvancedFilter = selectedCollection || selectedCompany || selectedCreator || selectedActor || showSearchQuery.trim() !== '';
+    if (hasAdvancedFilter) {
       return;
     }
 
@@ -677,14 +1199,34 @@ export default function TVShows() {
 
   // Infinite scroll - consolidated into single hook to avoid conflicts
   const hasMoreGenre = viewMode === 'genre' && genreCurrentPage < genreTotalPages;
-  const hasMoreAllShows = (viewMode === 'all-shows' || viewMode === 'top-rated') && allShowsPage < allShowsTotalPages;
-  const hasMore = hasMoreGenre || hasMoreAllShows;
-  const isLoadingAny = genreLoading || allShowsLoading || loadingMultiplePages;
+
+  // Check if advanced filters are active (Collection/Creator/Actor/Company - these disable infinite scroll)
+  const hasAdvancedFilter = selectedCollection || selectedCompany || selectedCreator || selectedActor;
+
+  // Search has its own pagination - enable infinite scroll for search when there are more pages
+  const hasMoreSearch = showSearchQuery.trim() !== '' && allShowsPage < allShowsTotalPages;
+
+  // Only enable infinite scroll for all-shows/top-rated when NOT searching or filtering
+  // (Search has its own hasMoreSearch check above)
+  const hasMoreAllShows = !hasAdvancedFilter &&
+    showSearchQuery.trim() === '' && // No search active
+    (viewMode === 'all-shows' || viewMode === 'top-rated') &&
+    allShowsPage < allShowsTotalPages;
+
+  const hasMore = hasMoreGenre || hasMoreAllShows || hasMoreSearch;
+  const isLoadingAny = genreLoading || allShowsLoading || loadingMultiplePages || advancedFilterLoading;
 
   const handleLoadMore = () => {
+    // Safety check: never load more if advanced filters are active
+    if (hasAdvancedFilter) {
+      return;
+    }
+
     if (viewMode === 'genre' && hasMoreGenre && !genreLoading) {
       loadMoreGenreShows();
     } else if ((viewMode === 'all-shows' || viewMode === 'top-rated') && hasMoreAllShows && !allShowsLoading && !loadingMultiplePages) {
+      loadMoreAllShows();
+    } else if (showSearchQuery.trim() !== '' && hasMoreSearch && !allShowsLoading && !loadingMultiplePages) {
       loadMoreAllShows();
     }
   };
@@ -814,6 +1356,66 @@ export default function TVShows() {
         }
       }
     }, 100);
+  };
+
+  // Sonarr Integration
+  const addToSonarr = async (show: TVShow) => {
+    setAddingToSonarr(true);
+    setSonarrMessage(null);
+
+    try {
+      // First, get quality profiles and root folders
+      const profilesRes = await fetch(`${API_BASE}/sonarr/quality-profiles`, {
+        credentials: 'include'
+      });
+      const foldersRes = await fetch(`${API_BASE}/sonarr/root-folders`, {
+        credentials: 'include'
+      });
+
+      if (!profilesRes.ok || !foldersRes.ok) {
+        throw new Error('Failed to fetch Sonarr configuration');
+      }
+
+      const profiles = await profilesRes.json();
+      const folders = await foldersRes.json();
+
+      if (profiles.length === 0 || folders.length === 0) {
+        throw new Error('Please configure quality profiles and root folders in Sonarr first');
+      }
+
+      // Use first quality profile and root folder (user can change in Sonarr UI later)
+      const qualityProfileId = profiles[0].id;
+      const rootFolderPath = folders[0].path;
+
+      // Add show to Sonarr
+      const response = await fetch(`${API_BASE}/sonarr/series`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: show.name || show.title,
+          tvdbId: show.id,
+          qualityProfileId,
+          rootFolderPath,
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to add series to Sonarr');
+      }
+
+      const data = await response.json();
+      setSonarrMessage(`✅ Added "${show.name || show.title}" to Sonarr! It will be downloaded automatically.`);
+      setTimeout(() => setSonarrMessage(null), 5000);
+    } catch (error: any) {
+      console.error('Failed to add to Sonarr:', error);
+      setSonarrMessage(`❌ ${error.message}`);
+    } finally {
+      setAddingToSonarr(false);
+    }
   };
 
   const handleDownload = async (show: TVShow) => {
@@ -1139,22 +1741,7 @@ export default function TVShows() {
                  'TV Shows'}
               </h1>
             </div>
-            <div className="flex items-center gap-3">
-            </div>
           </div>
-
-          <form onSubmit={handleSearch}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search TV shows..."
-                className="w-full bg-gray-800 text-white pl-10 pr-4 py-3 rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-          </form>
         </div>
       </div>
 
@@ -1170,7 +1757,7 @@ export default function TVShows() {
             </div>
           ) : searchResults.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {searchResults.map(show => (
+              {searchResults.filter(show => show.poster_url).map(show => (
                 <TVShowCard key={show.id} show={show} />
               ))}
             </div>
@@ -1293,7 +1880,7 @@ export default function TVShows() {
           ) : (
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {genreShows.map(show => (
+                {genreShows.filter(show => show.poster_url).map(show => (
                   <TVShowCard key={show.id} show={show} />
                 ))}
               </div>
@@ -1319,23 +1906,87 @@ export default function TVShows() {
       {/* All Shows View */}
       {viewMode === 'all-shows' && (
         <div className="max-w-7xl mx-auto px-8 py-8 space-y-6">
-          {/* Filters Toggle */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setShowAllShowsFilters(!showAllShowsFilters)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              {showAllShowsFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
-            <div className="text-sm text-gray-400">
-              {allShows.length} TV shows loaded • Page {allShowsPage}/{allShowsTotalPages}
-            </div>
+          {/* Advanced Discovery - Always Visible */}
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-3">Advanced Discovery</h3>
+            <AdvancedFiltersTV
+              onCollectionSelect={handleCollectionSelect}
+              onCompanySelect={handleCompanySelect}
+              onCreatorSelect={handleCreatorSelect}
+              onActorSelect={handleActorSelect}
+              onShowSearch={handleShowSearch}
+              onClearAll={clearAllAdvancedFilters}
+              selectedCollection={selectedCollection}
+              selectedCompany={selectedCompany}
+              selectedCreator={selectedCreator}
+              selectedActor={selectedActor}
+              showSearchQuery={showSearchQuery}
+            />
           </div>
 
-          {/* Filter Panel */}
+          {/* Show Additional Filters Button */}
+          {!showAllShowsFilters && (
+            <button
+              onClick={() => setShowAllShowsFilters(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-gray-300 font-medium"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Show Additional Filters
+            </button>
+          )}
+
+          {/* Additional Filters Panel - Collapsible */}
           {showAllShowsFilters && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              {/* Hide Filters Button & Reset Button */}
+              <div className="flex items-center justify-start gap-3 mb-4">
+                <button
+                  onClick={() => setShowAllShowsFilters(false)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300 font-medium"
+                >
+                  <X className="w-4 h-4" />
+                  Hide Additional Filters
+                </button>
+                <button
+                  onClick={() => {
+                    setAllShowsFilters({
+                      minRating: 0,
+                      minVotes: 0,
+                      yearFrom: null,
+                      yearTo: null,
+                      sortBy: 'popularity.desc',
+                      selectedGenres: [],
+                      excludeGenres: [],
+                      originCountries: []
+                    });
+                    setActivePreset('all-shows');
+                    loadManyPages(1, 10, 'all-shows');
+                  }}
+                  disabled={
+                    allShowsFilters.minRating === 0 &&
+                    allShowsFilters.minVotes === 0 &&
+                    !allShowsFilters.yearFrom &&
+                    !allShowsFilters.yearTo &&
+                    allShowsFilters.selectedGenres.length === 0 &&
+                    allShowsFilters.excludeGenres.length === 0 &&
+                    allShowsFilters.originCountries.length === 0
+                  }
+                  className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors font-medium ${
+                    allShowsFilters.minRating === 0 &&
+                    allShowsFilters.minVotes === 0 &&
+                    !allShowsFilters.yearFrom &&
+                    !allShowsFilters.yearTo &&
+                    allShowsFilters.selectedGenres.length === 0 &&
+                    allShowsFilters.excludeGenres.length === 0 &&
+                    allShowsFilters.originCountries.length === 0
+                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  Reset All Filters
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {/* Quick Filters */}
                 <div className="col-span-full">
@@ -1343,8 +1994,31 @@ export default function TVShows() {
                   <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() => {
+                        setAllShowsFilters({
+                          minRating: 0,
+                          minVotes: 0,
+                          excludeGenres: [],
+                          selectedGenres: [],
+                          yearFrom: null,
+                          yearTo: null,
+                          sortBy: 'popularity.desc',
+                          originCountries: []
+                        });
+                        setActivePreset('all-shows');
+                        loadManyPages(1, 10, 'all-shows');
+                      }}
+                      className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                        activePreset === 'all-shows'
+                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white ring-2 ring-blue-400 shadow-lg shadow-blue-500/50 scale-105'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      📺 All Shows
+                    </button>
+                    <button
+                      onClick={() => {
                         if (activePreset === 'worth-watching') {
-                          // Deselect - reset to no filters
+                          // Deselect - reset to all shows
                           setAllShowsFilters({
                             minRating: 0,
                             minVotes: 0,
@@ -1355,18 +2029,18 @@ export default function TVShows() {
                             sortBy: 'popularity.desc',
                             originCountries: []
                           });
-                          setActivePreset(null);
+                          setActivePreset('all-shows');
                         } else {
                           // Select - apply preset
                           setAllShowsFilters({
                             minRating: 5.5,
-                            minVotes: 25,
-                            excludeGenres: [16, 10762, 10764, 10767],
+                            minVotes: 250,
+                            excludeGenres: [10762, 16],
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
                             sortBy: 'vote_average.desc',
-                            originCountries: []
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           });
                           setActivePreset('worth-watching');
                         }
@@ -1382,7 +2056,7 @@ export default function TVShows() {
                     <button
                       onClick={() => {
                         if (activePreset === 'quality') {
-                          // Deselect - reset to no filters
+                          // Deselect - reset to all shows
                           setAllShowsFilters({
                             minRating: 0,
                             minVotes: 0,
@@ -1393,18 +2067,18 @@ export default function TVShows() {
                             sortBy: 'popularity.desc',
                             originCountries: []
                           });
-                          setActivePreset(null);
+                          setActivePreset('all-shows');
                         } else {
                           // Select - apply preset
                           setAllShowsFilters({
                             minRating: 6.5,
-                            minVotes: 50,
-                            excludeGenres: [16, 10762, 10764, 10767],
+                            minVotes: 500,
+                            excludeGenres: [10762, 16],
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
                             sortBy: 'vote_average.desc',
-                            originCountries: []
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           });
                           setActivePreset('quality');
                         }
@@ -1420,7 +2094,7 @@ export default function TVShows() {
                     <button
                       onClick={() => {
                         if (activePreset === 'elite') {
-                          // Deselect - reset to no filters
+                          // Deselect - reset to all shows
                           setAllShowsFilters({
                             minRating: 0,
                             minVotes: 0,
@@ -1431,18 +2105,18 @@ export default function TVShows() {
                             sortBy: 'popularity.desc',
                             originCountries: []
                           });
-                          setActivePreset(null);
+                          setActivePreset('all-shows');
                         } else {
                           // Select - apply preset
                           setAllShowsFilters({
                             minRating: 7.5,
-                            minVotes: 100,
-                            excludeGenres: [16, 10762, 10764, 10767],
+                            minVotes: 1000,
+                            excludeGenres: [10762, 16],
                             selectedGenres: [],
                             yearFrom: null,
                             yearTo: null,
                             sortBy: 'vote_average.desc',
-                            originCountries: []
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           });
                           setActivePreset('elite');
                         }
@@ -1458,43 +2132,51 @@ export default function TVShows() {
                   </div>
                 </div>
 
-                {/* Additional Filters */}
+                {/* Content Filters */}
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-gray-400 mb-3">Additional Filters</label>
+                  <label className="block text-sm font-medium text-gray-400 mb-3">Content Filters</label>
                   <div className="flex flex-wrap gap-3">
+                    {/* No Kids */}
                     <button
                       onClick={() => {
-                        setAllShowsFilters(prev => {
-                          const currentExclusions = [16, 10762, 10764, 10767];
-                          const hasAllExclusions = currentExclusions.every(id => prev.excludeGenres.includes(id));
-                          if (hasAllExclusions) {
-                            // Remove kids/anime exclusions (keep reality/talk)
-                            return {
-                              ...prev,
-                              excludeGenres: prev.excludeGenres.filter(id => id !== 16 && id !== 10762)
-                            };
-                          } else {
-                            // Add kids/anime exclusions
-                            const newExclusions = [...prev.excludeGenres];
-                            currentExclusions.forEach(id => {
-                              if (!newExclusions.includes(id)) newExclusions.push(id);
-                            });
-                            return {
-                              ...prev,
-                              excludeGenres: newExclusions
-                            };
-                          }
-                        });
+                        setAllShowsFilters(prev => ({
+                          ...prev,
+                          excludeGenres: prev.excludeGenres.includes(10762)
+                            ? prev.excludeGenres.filter(id => id !== 10762)
+                            : [...prev.excludeGenres, 10762]
+                        }));
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        allShowsFilters.excludeGenres.includes(16) && allShowsFilters.excludeGenres.includes(10762)
+                        allShowsFilters.excludeGenres.includes(10762)
                           ? 'bg-red-600 text-white ring-2 ring-red-300'
                           : 'bg-gray-700 text-gray-300 hover:bg-red-600'
                       }`}
+                      title="Exclude Kids shows"
                     >
-                      🚫 No Kids/Anime
+                      🚫 No Kids
                     </button>
 
+                    {/* No Anime */}
+                    <button
+                      onClick={() => {
+                        setAllShowsFilters(prev => ({
+                          ...prev,
+                          excludeGenres: prev.excludeGenres.includes(16)
+                            ? prev.excludeGenres.filter(id => id !== 16)
+                            : [...prev.excludeGenres, 16]
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        allShowsFilters.excludeGenres.includes(16)
+                          ? 'bg-red-600 text-white ring-2 ring-red-300'
+                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
+                      }`}
+                      title="Exclude Animation"
+                    >
+                      🚫 No Anime
+                    </button>
+
+                    {/* English Only */}
                     <button
                       onClick={() => {
                         setAllShowsFilters(prev => {
@@ -1526,20 +2208,65 @@ export default function TVShows() {
                   </div>
                 </div>
 
+                {/* Genre Multi-Select Dropdown */}
+                <div className="col-span-full">
+                  <details className="group">
+                    <summary className="cursor-pointer list-none">
+                      <div className="flex items-center justify-between bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors">
+                        <span className="text-sm font-medium text-gray-300">
+                          Genres {allShowsFilters.selectedGenres.length > 0 && `(${allShowsFilters.selectedGenres.length} selected)`}
+                        </span>
+                        <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </summary>
+                    <div className="mt-3 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        {genres.map(genre => {
+                          const isSelected = allShowsFilters.selectedGenres.includes(genre.id);
+                          return (
+                            <button
+                              key={genre.id}
+                              onClick={() => {
+                                setAllShowsFilters(prev => ({
+                                  ...prev,
+                                  selectedGenres: isSelected
+                                    ? prev.selectedGenres.filter(id => id !== genre.id)
+                                    : [...prev.selectedGenres, genre.id]
+                                }));
+                              }}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                isSelected
+                                  ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30 hover:bg-blue-900/50'
+                                  : 'bg-gray-700 text-gray-400 border border-gray-600 hover:bg-gray-600'
+                              }`}
+                            >
+                              {genre.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+
                 {/* Min Rating */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Min Rating: {allShowsFilters.minRating > 0 ? allShowsFilters.minRating.toFixed(1) : 'Any'}
                   </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="0.5"
-                    value={allShowsFilters.minRating}
-                    onChange={(e) => setAllShowsFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
-                    className="w-full accent-blue-600"
-                  />
+                  <div className="pt-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="0.5"
+                      value={allShowsFilters.minRating}
+                      onChange={(e) => setAllShowsFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
                 </div>
 
                 {/* Min Votes */}
@@ -1547,15 +2274,17 @@ export default function TVShows() {
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Min Votes: {allShowsFilters.minVotes > 0 ? allShowsFilters.minVotes : 'Any'}
                   </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="5000"
-                    step="100"
-                    value={allShowsFilters.minVotes}
-                    onChange={(e) => setAllShowsFilters(prev => ({ ...prev, minVotes: parseInt(e.target.value) }))}
-                    className="w-full accent-blue-600"
-                  />
+                  <div className="pt-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="5000"
+                      step="100"
+                      value={allShowsFilters.minVotes}
+                      onChange={(e) => setAllShowsFilters(prev => ({ ...prev, minVotes: parseInt(e.target.value) }))}
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
                 </div>
 
                 {/* Year Range */}
@@ -1583,70 +2312,6 @@ export default function TVShows() {
                   </div>
                 </div>
 
-                {/* Genre Multi-Select Dropdown */}
-                <div className="col-span-full">
-                  <details className="group">
-                    <summary className="cursor-pointer list-none">
-                      <div className="flex items-center justify-between bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors">
-                        <span className="text-sm font-medium text-gray-300">
-                          Genres (click to toggle • <span className="text-green-400">included</span> / <span className="text-red-400">excluded</span>)
-                        </span>
-                        <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </summary>
-                    <div className="mt-3 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                        {genres.map(genre => {
-                          const isExcluded = allShowsFilters.excludeGenres.includes(genre.id);
-                          return (
-                            <button
-                              key={genre.id}
-                              onClick={() => {
-                                setAllShowsFilters(prev => ({
-                                  ...prev,
-                                  excludeGenres: isExcluded
-                                    ? prev.excludeGenres.filter(id => id !== genre.id)
-                                    : [...prev.excludeGenres, genre.id]
-                                }));
-                              }}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
-                                isExcluded
-                                  ? 'bg-red-900/30 text-red-400 border border-red-500/30 hover:bg-red-900/50'
-                                  : 'bg-green-900/30 text-green-400 border border-green-500/30 hover:bg-green-900/50'
-                              }`}
-                            >
-                              {isExcluded && <span className="absolute top-1 right-1 text-xs">✕</span>}
-                              {genre.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </details>
-                </div>
-
-                {/* Reset Button */}
-                <div className="col-span-full">
-                  <button
-                    onClick={() => {
-                      setAllShowsFilters({
-                        minRating: 0,
-                        minVotes: 0,
-                        yearFrom: null,
-                        yearTo: null,
-                        sortBy: 'popularity.desc',
-                        selectedGenres: [],
-                        excludeGenres: [10763, 10767]
-                      });
-                      setActivePreset(null);
-                    }}
-                    className="w-full px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    Reset All Filters
-                  </button>
-                </div>
               </div>
             </div>
           )}
@@ -1704,9 +2369,16 @@ export default function TVShows() {
           ) : (
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {allShows.map(show => (
+                {allShows.filter(show => show.poster_url).map(show => (
                   <TVShowCard key={show.id} show={show} />
                 ))}
+              </div>
+
+              {/* Stats at bottom */}
+              <div className="flex items-center justify-center mt-6">
+                <div className="text-sm text-gray-400 bg-gray-800/50 px-6 py-3 rounded-lg border border-gray-700">
+                  {allShows.filter(show => show.poster_url).length} TV shows loaded • Page {allShowsPage}/{allShowsTotalPages}
+                </div>
               </div>
 
               {/* Loading indicator for infinite scroll */}
@@ -1765,9 +2437,16 @@ export default function TVShows() {
           ) : (
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {allShows.map(show => (
+                {allShows.filter(show => show.poster_url).map(show => (
                   <TVShowCard key={show.id} show={show} />
                 ))}
+              </div>
+
+              {/* Stats at bottom */}
+              <div className="flex items-center justify-center mt-6">
+                <div className="text-sm text-gray-400 bg-gray-800/50 px-6 py-3 rounded-lg border border-gray-700">
+                  {allShows.filter(show => show.poster_url).length} TV shows loaded • Page {allShowsPage}/{allShowsTotalPages}
+                </div>
               </div>
 
               {/* Loading indicator for infinite scroll */}
@@ -1827,21 +2506,61 @@ export default function TVShows() {
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   <span>{selectedShow.vote_average.toFixed(1)}/10</span>
                 </div>
-                {selectedShow.imdb_id && (
-                  <a
-                    href={`https://www.imdb.com/title/${selectedShow.imdb_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-                  >
-                    IMDb
-                  </a>
-                )}
+                <a
+                  href={selectedShow.imdb_id
+                    ? `https://www.imdb.com/title/${selectedShow.imdb_id}`
+                    : `https://www.imdb.com/find?q=${encodeURIComponent((selectedShow.name || selectedShow.title || '') + (selectedShow.year ? ` ${selectedShow.year}` : ''))}&s=tt`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded-full text-xs font-semibold transition-colors"
+                  title={selectedShow.imdb_id ? 'View on IMDb' : 'Search on IMDb'}
+                >
+                  IMDb
+                </a>
               </div>
 
               <p className="text-gray-300 mb-6">{selectedShow.overview}</p>
 
               <div className="space-y-4">
+                {/* Sonarr Message */}
+                {sonarrMessage && (
+                  <div className={`border rounded-lg p-4 ${
+                    sonarrMessage.includes('✅')
+                      ? 'bg-green-900/20 border-green-500/30'
+                      : 'bg-red-900/20 border-red-500/30'
+                  }`}>
+                    <p className={`text-sm ${
+                      sonarrMessage.includes('✅')
+                        ? 'text-green-300'
+                        : 'text-red-300'
+                    }`}>
+                      {sonarrMessage}
+                    </p>
+                  </div>
+                )}
+
+                {/* Add to Sonarr Button */}
+                {sonarrEnabled && (
+                  <button
+                    onClick={() => addToSonarr(selectedShow)}
+                    disabled={addingToSonarr}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
+                  >
+                    {addingToSonarr ? (
+                      <>
+                        <Loader className="w-6 h-6 animate-spin" />
+                        Adding to Sonarr...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-6 h-6" />
+                        Add to Sonarr (Auto-Download)
+                      </>
+                    )}
+                  </button>
+                )}
+
                 {/* Auto-Search Torrents Button */}
                 <button
                   onClick={() => searchTorrents(selectedShow)}

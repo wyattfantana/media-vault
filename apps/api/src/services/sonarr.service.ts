@@ -188,17 +188,25 @@ export class SonarrService {
     seasons?: Array<{ seasonNumber: number; monitored: boolean }>;
   }): Promise<SonarrSeries> {
     try {
+      // First, lookup the series to get complete metadata
+      // Try TVDB ID first
+      const lookupResponse = await this.client.get('/series/lookup', {
+        params: { term: `tvdb:${series.tvdbId}` }
+      });
+
+      if (!lookupResponse.data || lookupResponse.data.length === 0) {
+        throw new Error('Series not found in TVDB');
+      }
+
+      const seriesData = lookupResponse.data[0];
+
+      // Now add the series with complete metadata
       const response = await this.client.post('/series', {
-        title: series.title,
-        year: series.year,
-        tvdbId: series.tvdbId,
+        ...seriesData,
         qualityProfileId: series.qualityProfileId,
-        titleSlug: series.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        images: [],
         rootFolderPath: series.rootFolderPath,
         monitored: series.monitored !== false,
         seasonFolder: series.seasonFolder !== false,
-        seasons: series.seasons || [],
         addOptions: {
           searchForMissingEpisodes: series.searchForMissingEpisodes !== false,
         },

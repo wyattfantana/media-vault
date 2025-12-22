@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
+import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader, Plus } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
 import { searchCache } from '../utils/searchCache';
@@ -63,6 +63,11 @@ export default function Movies() {
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Radarr state
+  const [radarrEnabled, setRadarrEnabled] = useState(false);
+  const [addingToRadarr, setAddingToRadarr] = useState(false);
+  const [radarrMessage, setRadarrMessage] = useState<string | null>(null);
+
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
   const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
@@ -125,25 +130,32 @@ export default function Movies() {
   const [showGenreFilters, setShowGenreFilters] = useState(false);
 
   const isInitialMount = React.useRef(true);
+  const isRestoring = React.useRef(true); // Track if we're restoring state from localStorage
   const restoringScroll = React.useRef(false);
   const scrollPositionSaved = React.useRef(false);
 
   // Load movies on mount
   useEffect(() => {
+    console.log('[Movies Mount] Starting mount useEffect');
     fetchGenres();
     setShowAllMoviesFilters(true);
 
     // Try to restore browse state from sessionStorage
-    const savedBrowseState = sessionStorage.getItem('moviesBrowseState');
+    const savedBrowseState = localStorage.getItem('moviesBrowseState');
+    console.log('[Movies Mount] savedBrowseState exists:', !!savedBrowseState);
     if (savedBrowseState) {
       try {
         const { movies, page, totalPages, totalResults, viewMode: savedViewMode, scrollY } = JSON.parse(savedBrowseState);
+        console.log('[Movies Mount] Restoring browse state:', { movieCount: movies?.length, page, viewMode: savedViewMode });
         restoringScroll.current = true;
         setAllMovies(movies || []);
         setAllMoviesPage(page || 1);
         setAllMoviesTotalPages(totalPages || 1);
         setAllMoviesTotalResults(totalResults || 0);
         setViewMode(savedViewMode || 'all-movies');
+        // Ensure no loading states are active when restoring from cache
+        setAllMoviesLoading(false);
+        setLoadingMultiplePages(false);
 
         // Restore scroll position after a short delay to ensure content is rendered
         setTimeout(() => {
@@ -160,13 +172,55 @@ export default function Movies() {
 
     // Try to load saved filters from localStorage
     const savedFilters = localStorage.getItem('moviesFilters');
+    console.log('[Movies Mount] savedFilters exists:', !!savedFilters);
     if (savedFilters) {
       try {
         const parsed = JSON.parse(savedFilters);
+        console.log('[Movies Mount] Restoring filters:', parsed);
         setAllMoviesFilters(parsed);
-        setActivePreset('saved');
       } catch (e) {
         console.error('Failed to load saved filters:', e);
+      }
+    }
+
+    // Restore active preset
+    const savedPreset = localStorage.getItem('moviesActivePreset');
+    console.log('[Movies Mount] savedPreset:', savedPreset);
+    if (savedPreset) {
+      setActivePreset(savedPreset);
+    }
+
+    // Restore advanced filters
+    const savedAdvanced = localStorage.getItem('moviesAdvancedFilters');
+    if (savedAdvanced) {
+      try {
+        const { collection, company, director, actor } = JSON.parse(savedAdvanced);
+        if (collection) setSelectedCollection(collection);
+        if (company) setSelectedCompany(company);
+        if (director) setSelectedDirector(director);
+        if (actor) setSelectedActor(actor);
+      } catch (e) {
+        console.error('Failed to load advanced filters:', e);
+      }
+    }
+
+    // Restore filter panel state
+    const savedShowFilters = localStorage.getItem('moviesShowFilters');
+    if (savedShowFilters !== null) {
+      try {
+        setShowAllMoviesFilters(JSON.parse(savedShowFilters));
+      } catch (e) {
+        console.error('Failed to load show filters state:', e);
+      }
+    }
+
+    // Restore selected genre
+    const savedGenre = localStorage.getItem('moviesSelectedGenre');
+    if (savedGenre) {
+      try {
+        setSelectedGenre(JSON.parse(savedGenre));
+      } catch (e) {
+        console.error('Failed to load selected genre:', e);
       }
     }
 
@@ -178,7 +232,75 @@ export default function Movies() {
         loadMovies();
       }, 100);
     }
+
+    // Mark restoration complete - do this AFTER all state restoration is done
+    // This prevents the filter watch useEffect from triggering during restoration
+    setTimeout(() => {
+      console.log('[Movies Mount] Restoration complete');
+      isRestoring.current = false;
+      isInitialMount.current = false;
+    }, 100); // Small delay to ensure all React state updates have processed
   }, []);
+
+  // Check if Radarr is enabled
+  useEffect(() => {
+    const checkRadarrStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/preferences`, {
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const prefs = await res.json();
+          setRadarrEnabled(prefs.radarr_enabled || false);
+        }
+      } catch (error) {
+        console.error('Failed to check Radarr status:', error);
+      }
+    };
+    checkRadarrStatus();
+  }, []);
+
+  // Save filters to localStorage when they change (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    console.log('[Movies Save] Saving filters to localStorage');
+    localStorage.setItem('moviesFilters', JSON.stringify(allMoviesFilters));
+  }, [allMoviesFilters]);
+
+  // Save active preset to localStorage (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    if (activePreset) {
+      console.log('[Movies Save] Saving preset to localStorage:', activePreset);
+      localStorage.setItem('moviesActivePreset', activePreset);
+    }
+  }, [activePreset]);
+
+  // Save advanced filters to localStorage (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    const advancedFilters = {
+      collection: selectedCollection,
+      company: selectedCompany,
+      director: selectedDirector,
+      actor: selectedActor
+    };
+    localStorage.setItem('moviesAdvancedFilters', JSON.stringify(advancedFilters));
+  }, [selectedCollection, selectedCompany, selectedDirector, selectedActor]);
+
+  // Save filter panel state (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    localStorage.setItem('moviesShowFilters', JSON.stringify(showAllMoviesFilters));
+  }, [showAllMoviesFilters]);
+
+  // Save selected genre (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    if (selectedGenre) {
+      localStorage.setItem('moviesSelectedGenre', JSON.stringify(selectedGenre));
+    }
+  }, [selectedGenre]);
 
   // Load bookmarked movies
   useEffect(() => {
@@ -219,19 +341,24 @@ export default function Movies() {
 
   // Watch for filter changes and reload
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    console.log('[Filter Watch] Triggered. isRestoring:', isRestoring.current, 'isInitialMount:', isInitialMount.current);
+    // Skip if we're restoring state from localStorage
+    if (isRestoring.current || isInitialMount.current) {
+      console.log('[Filter Watch] Skipping - restoring state');
       return;
     }
 
     // Skip loading if advanced filter OR search is active
     const hasAdvancedFilter = selectedCollection || selectedCompany || selectedDirector || selectedActor || searchQuery.trim() !== '';
     if (hasAdvancedFilter) {
+      console.log('[Filter Watch] Skipping - advanced filter active');
       return;
     }
 
     if (viewMode === 'all-movies' || viewMode === 'top-rated') {
+      console.log('[Filter Watch] Will call loadManyPages in 300ms');
       const timeoutId = setTimeout(() => {
+        console.log('[Filter Watch] Calling loadManyPages NOW');
         loadManyPages(1, 3, viewMode, false); // Load 3 pages initially (~50 movies)
       }, 300);
 
@@ -252,7 +379,7 @@ export default function Movies() {
       scrollY: window.scrollY
     };
 
-    sessionStorage.setItem('moviesBrowseState', JSON.stringify(browseState));
+    localStorage.setItem('moviesBrowseState', JSON.stringify(browseState));
   }, [allMovies, allMoviesPage, allMoviesTotalPages, allMoviesTotalResults, viewMode]);
 
   // Save scroll position on scroll events
@@ -260,12 +387,12 @@ export default function Movies() {
     const saveScrollPosition = () => {
       if (restoringScroll.current) return;
 
-      const savedState = sessionStorage.getItem('moviesBrowseState');
+      const savedState = localStorage.getItem('moviesBrowseState');
       if (savedState) {
         try {
           const state = JSON.parse(savedState);
           state.scrollY = window.scrollY;
-          sessionStorage.setItem('moviesBrowseState', JSON.stringify(state));
+          localStorage.setItem('moviesBrowseState', JSON.stringify(state));
         } catch (e) {
           // Ignore parse errors
         }
@@ -805,8 +932,9 @@ export default function Movies() {
     const cacheKey = `company:${companyId}`;
     if (filterCache[cacheKey]) {
       setAllMovies(filterCache[cacheKey].movies);
-      setAllMoviesTotalPages(Math.ceil(filterCache[cacheKey].movies.length / 20));
-      setAllMoviesPage(3);
+      const totalPages = Math.ceil(filterCache[cacheKey].movies.length / 20);
+      setAllMoviesTotalPages(totalPages);
+      setAllMoviesPage(totalPages);
       setAllMoviesTotalResults(filterCache[cacheKey].totalResults);
       // Ensure infinite scroll is disabled (hasAdvancedFilter check handles this)
       return;
@@ -820,20 +948,40 @@ export default function Movies() {
     const currentRequestId = ++requestIdRef.current;
 
     try {
-      // Load first 3 pages (60 movies) immediately
-      const pages = await Promise.all([1, 2, 3].map(page =>
-        fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=${page}`, { credentials: 'include' })
-          .then(r => r.ok ? r.json() : null)
-      ));
+      // Fetch first page to get total_pages
+      const firstPageRes = await fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=1`, { credentials: 'include' });
 
       // Ignore stale responses
       if (currentRequestId !== requestIdRef.current) {
         return;
       }
 
-      const allResults = pages.flatMap(data => data?.results || []);
-      const totalResults = pages[0]?.total_results || 0;
-      const totalPages = pages[0]?.total_pages || 1;
+      if (!firstPageRes.ok) {
+        throw new Error('Failed to fetch first page');
+      }
+
+      const firstPage = await firstPageRes.json();
+      const totalPages = firstPage.total_pages || 1;
+      const totalResults = firstPage.total_results || 0;
+
+      // Load all remaining pages
+      const remainingPages = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) => i + 2).map(page =>
+          fetch(`${API_BASE}/tmdb/discover/company/${companyId}?page=${page}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+        )
+      );
+
+      // Ignore stale responses
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      // Combine all results
+      const allResults = [
+        ...(firstPage.results || []),
+        ...remainingPages.flatMap(data => data?.results || [])
+      ];
 
       // Deduplicate by movie ID
       const uniqueResults = Array.from(
@@ -855,7 +1003,7 @@ export default function Movies() {
 
       setAllMovies(transformedMovies);
       setAllMoviesTotalPages(totalPages);
-      setAllMoviesPage(3);
+      setAllMoviesPage(totalPages);
       setAllMoviesTotalResults(totalResults);
     } catch (error) {
       console.error('Failed to load company movies:', error);
@@ -1311,6 +1459,67 @@ export default function Movies() {
         }
       }
     }, 100);
+  };
+
+  // Radarr Integration
+  const addToRadarr = async (movie: Movie) => {
+    setAddingToRadarr(true);
+    setRadarrMessage(null);
+
+    try {
+      // First, get quality profiles and root folders
+      const profilesRes = await fetch(`${API_BASE}/radarr/quality-profiles`, {
+        credentials: 'include'
+      });
+      const foldersRes = await fetch(`${API_BASE}/radarr/root-folders`, {
+        credentials: 'include'
+      });
+
+      if (!profilesRes.ok || !foldersRes.ok) {
+        throw new Error('Failed to fetch Radarr configuration');
+      }
+
+      const profiles = await profilesRes.json();
+      const folders = await foldersRes.json();
+
+      if (profiles.length === 0 || folders.length === 0) {
+        throw new Error('Please configure quality profiles and root folders in Radarr first');
+      }
+
+      // Use first quality profile and root folder (user can change in Radarr UI later)
+      const qualityProfileId = profiles[0].id;
+      const rootFolderPath = folders[0].path;
+
+      // Add movie to Radarr
+      const response = await fetch(`${API_BASE}/radarr/movies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: movie.title,
+          year: parseInt(movie.year || '0'),
+          tmdbId: movie.id,
+          qualityProfileId,
+          rootFolderPath,
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to add movie to Radarr');
+      }
+
+      const data = await response.json();
+      setRadarrMessage(`✅ Added "${movie.title}" to Radarr! It will be downloaded automatically.`);
+      setTimeout(() => setRadarrMessage(null), 5000);
+    } catch (error: any) {
+      console.error('Failed to add to Radarr:', error);
+      setRadarrMessage(`❌ ${error.message}`);
+    } finally {
+      setAddingToRadarr(false);
+    }
   };
 
   const handleDownload = async (movie: Movie) => {
@@ -1978,7 +2187,9 @@ export default function Movies() {
                             ...prev,
                             minRating: 5.5,
                             minVotes: 250,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            excludeGenres: [10751, 16],
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           }));
                           setActivePreset('worth-watching');
 
@@ -2031,7 +2242,9 @@ export default function Movies() {
                             ...prev,
                             minRating: 6.5,
                             minVotes: 500,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            excludeGenres: [10751, 16],
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           }));
                           setActivePreset('quality');
 
@@ -2084,7 +2297,9 @@ export default function Movies() {
                             ...prev,
                             minRating: 7.5,
                             minVotes: 1000,
-                            sortBy: 'vote_average.desc'
+                            sortBy: 'vote_average.desc',
+                            excludeGenres: [10751, 16],
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           }));
                           setActivePreset('elite');
 
@@ -2150,26 +2365,6 @@ export default function Movies() {
                       title="Exclude Animation"
                     >
                       🚫 No Anime
-                    </button>
-
-                    {/* No Romance */}
-                    <button
-                      onClick={() => {
-                        setAllMoviesFilters(prev => ({
-                          ...prev,
-                          excludeGenres: prev.excludeGenres.includes(10749)
-                            ? prev.excludeGenres.filter(id => id !== 10749)
-                            : [...prev.excludeGenres, 10749]
-                        }));
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        allMoviesFilters.excludeGenres.includes(10749)
-                          ? 'bg-red-600 text-white ring-2 ring-red-300'
-                          : 'bg-gray-700 text-gray-300 hover:bg-red-600'
-                      }`}
-                      title="Exclude Romance"
-                    >
-                      🚫 No Romance
                     </button>
 
                     {/* English Only */}
@@ -2487,6 +2682,44 @@ export default function Movies() {
               <p className="text-gray-300 mb-6">{selectedMovie.overview}</p>
 
               <div className="space-y-4">
+                {/* Radarr Message */}
+                {radarrMessage && (
+                  <div className={`border rounded-lg p-4 ${
+                    radarrMessage.includes('✅')
+                      ? 'bg-green-900/20 border-green-500/30'
+                      : 'bg-red-900/20 border-red-500/30'
+                  }`}>
+                    <p className={`text-sm ${
+                      radarrMessage.includes('✅')
+                        ? 'text-green-300'
+                        : 'text-red-300'
+                    }`}>
+                      {radarrMessage}
+                    </p>
+                  </div>
+                )}
+
+                {/* Add to Radarr Button */}
+                {radarrEnabled && (
+                  <button
+                    onClick={() => addToRadarr(selectedMovie)}
+                    disabled={addingToRadarr}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
+                  >
+                    {addingToRadarr ? (
+                      <>
+                        <Loader className="w-6 h-6 animate-spin" />
+                        Adding to Radarr...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-6 h-6" />
+                        Add to Radarr (Auto-Download)
+                      </>
+                    )}
+                  </button>
+                )}
+
                 {/* Auto-Search Torrents Button */}
                 <button
                   onClick={() => searchTorrents(selectedMovie)}

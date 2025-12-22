@@ -112,6 +112,31 @@ preferencesRouter.put('/', requireAuth, async (req, res) => {
       download_directory,
       ytdlp_path,
       get_iplayer_path,
+
+      // VPN Preferences
+      vpn_enabled,
+      require_vpn_for_torrents,
+      vpn_auto_connect,
+      vpn_auto_bind_qbittorrent,
+      vpn_preferred_location,
+      vpn_kill_switch_enabled,
+
+      // *arr Services Integration
+      radarr_enabled,
+      radarr_host,
+      radarr_port,
+      radarr_api_key,
+      radarr_url_base,
+      sonarr_enabled,
+      sonarr_host,
+      sonarr_port,
+      sonarr_api_key,
+      sonarr_url_base,
+      prowlarr_enabled,
+      prowlarr_host,
+      prowlarr_port,
+      prowlarr_api_key,
+      prowlarr_url_base,
     } = req.body;
 
     // Build update object with only provided fields
@@ -151,6 +176,31 @@ preferencesRouter.put('/', requireAuth, async (req, res) => {
     if (download_directory !== undefined) updateFields.download_directory = download_directory;
     if (ytdlp_path !== undefined) updateFields.ytdlp_path = ytdlp_path;
     if (get_iplayer_path !== undefined) updateFields.get_iplayer_path = get_iplayer_path;
+
+    // VPN Preferences
+    if (vpn_enabled !== undefined) updateFields.vpn_enabled = vpn_enabled;
+    if (require_vpn_for_torrents !== undefined) updateFields.require_vpn_for_torrents = require_vpn_for_torrents;
+    if (vpn_auto_connect !== undefined) updateFields.vpn_auto_connect = vpn_auto_connect;
+    if (vpn_auto_bind_qbittorrent !== undefined) updateFields.vpn_auto_bind_qbittorrent = vpn_auto_bind_qbittorrent;
+    if (vpn_preferred_location !== undefined) updateFields.vpn_preferred_location = vpn_preferred_location;
+    if (vpn_kill_switch_enabled !== undefined) updateFields.vpn_kill_switch_enabled = vpn_kill_switch_enabled;
+
+    // *arr Services Integration
+    if (radarr_enabled !== undefined) updateFields.radarr_enabled = radarr_enabled;
+    if (radarr_host !== undefined) updateFields.radarr_host = radarr_host;
+    if (radarr_port !== undefined) updateFields.radarr_port = radarr_port;
+    if (radarr_api_key !== undefined) updateFields.radarr_api_key = radarr_api_key;
+    if (radarr_url_base !== undefined) updateFields.radarr_url_base = radarr_url_base;
+    if (sonarr_enabled !== undefined) updateFields.sonarr_enabled = sonarr_enabled;
+    if (sonarr_host !== undefined) updateFields.sonarr_host = sonarr_host;
+    if (sonarr_port !== undefined) updateFields.sonarr_port = sonarr_port;
+    if (sonarr_api_key !== undefined) updateFields.sonarr_api_key = sonarr_api_key;
+    if (sonarr_url_base !== undefined) updateFields.sonarr_url_base = sonarr_url_base;
+    if (prowlarr_enabled !== undefined) updateFields.prowlarr_enabled = prowlarr_enabled;
+    if (prowlarr_host !== undefined) updateFields.prowlarr_host = prowlarr_host;
+    if (prowlarr_port !== undefined) updateFields.prowlarr_port = prowlarr_port;
+    if (prowlarr_api_key !== undefined) updateFields.prowlarr_api_key = prowlarr_api_key;
+    if (prowlarr_url_base !== undefined) updateFields.prowlarr_url_base = prowlarr_url_base;
 
     // Check if preferences exist
     const existing = await AppDataSource

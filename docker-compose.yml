@@ -31,6 +31,7 @@ services:
     volumes:
       - ./data/radarr:/config
       - /mnt/d/MediaVault:/downloads
+      - /home/beerm/Downloads:/home/beerm/Downloads
     ports:
       - 7878:7878
     restart: unless-stopped
@@ -50,6 +51,7 @@ services:
     volumes:
       - ./data/sonarr:/config
       - /mnt/d/MediaVault:/downloads
+      - /home/beerm/Downloads:/home/beerm/Downloads
     ports:
       - 8989:8989
     restart: unless-stopped

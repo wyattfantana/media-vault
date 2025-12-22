@@ -168,13 +168,21 @@ export class RadarrService {
     searchForMovie?: boolean;
   }): Promise<RadarrMovie> {
     try {
+      // First, lookup the movie to get complete metadata
+      const lookupResponse = await this.client.get('/movie/lookup', {
+        params: { term: `tmdb:${movie.tmdbId}` }
+      });
+
+      if (!lookupResponse.data || lookupResponse.data.length === 0) {
+        throw new Error('Movie not found in TMDB');
+      }
+
+      const movieData = lookupResponse.data[0];
+
+      // Now add the movie with complete metadata
       const response = await this.client.post('/movie', {
-        title: movie.title,
-        year: movie.year,
-        tmdbId: movie.tmdbId,
+        ...movieData,
         qualityProfileId: movie.qualityProfileId,
-        titleSlug: `${movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${movie.year}`,
-        images: [],
         rootFolderPath: movie.rootFolderPath,
         monitored: movie.monitored !== false,
         addOptions: {
@@ -184,7 +192,9 @@ export class RadarrService {
       return response.data;
     } catch (error: any) {
       console.error('Failed to add movie to Radarr:', error);
-      throw new Error(error.response?.data?.message || 'Failed to add movie to Radarr');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw new Error(error.response?.data?.message || error.message || 'Failed to add movie to Radarr');
     }
   }
 
