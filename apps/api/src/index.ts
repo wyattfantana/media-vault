@@ -28,6 +28,9 @@ import { analyticsRouter } from './routes/analytics.js';
 import tmdbRouter from './routes/tmdb.js';
 import recommendationsRouter from './routes/recommendations.js';
 import { curatedListsRouter } from './routes/curated-lists.js';
+import { radarrRouter } from './routes/radarr.js';
+import { sonarrRouter } from './routes/sonarr.js';
+import { prowlarrRouter } from './routes/prowlarr.js';
 import { logger, httpLogger } from './logger.js';
 import { downloadWorker } from './workers/download.worker.js';
 import { Pool } from 'pg';
@@ -233,6 +236,9 @@ app.use('/api/v1/analytics', analyticsRouter);
 app.use('/api/v1/tmdb', tmdbRouter);
 app.use('/api/v1/recommendations', recommendationsRouter);
 app.use('/api/v1/curated-lists', curatedListsRouter);
+app.use('/api/v1/radarr', radarrRouter);
+app.use('/api/v1/sonarr', sonarrRouter);
+app.use('/api/v1/prowlarr', prowlarrRouter);
 
 // Legacy routes (redirect to v1 for backward compatibility)
 app.use('/api/clients', clientsRouter);

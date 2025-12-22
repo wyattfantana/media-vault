@@ -1,0 +1,72 @@
+# Recyclarr Configuration
+# Automatically syncs TRaSH guides to Radarr and Sonarr
+
+# Radarr Configuration
+radarr:
+  main:
+    base_url: http://radarr:7878
+    api_key: !env_var RADARR_API_KEY
+
+    # Quality Definitions - Optimized file sizes
+    quality_definition:
+      type: movie
+
+    # Quality Profiles
+    quality_profiles:
+      - name: HD-1080p
+        upgrade:
+          allowed: true
+          until_quality: Bluray-1080p
+        qualities:
+          - name: Bluray-1080p
+          - name: WEB-1080p
+          - name: HDTV-1080p
+
+      - name: Ultra-HD
+        upgrade:
+          allowed: true
+          until_quality: Bluray-2160p
+        qualities:
+          - name: Bluray-2160p
+          - name: WEB-2160p
+          - name: Bluray-1080p
+          - name: WEB-1080p
+
+# Sonarr Configuration
+sonarr:
+  main:
+    base_url: http://sonarr:8989
+    api_key: !env_var SONARR_API_KEY
+
+    # Quality Definitions - Optimized file sizes
+    quality_definition:
+      type: series
+
+    # Quality Profiles
+    quality_profiles:
+      - name: HD-1080p
+        upgrade:
+          allowed: true
+          until_quality: Bluray-1080p
+        qualities:
+          - name: Bluray-1080p
+          - name: WEB-1080p
+          - name: HDTV-1080p
+
+      - name: Ultra-HD
+        upgrade:
+          allowed: true
+          until_quality: Bluray-2160p
+        qualities:
+          - name: Bluray-2160p
+          - name: WEB-2160p
+          - name: Bluray-1080p
+          - name: WEB-1080p
+
+    # Release Profiles - TRaSH Guides recommendations
+    release_profiles:
+      # Prefer releases with these characteristics
+      - trash_ids:
+          # Streaming Services (preferred)
+          - d428eda85af1df8904b4bbe4fc2f537c  # WEB Tier 01
+          - afeb99e5db09290546f742dc4621a6be  # WEB Tier 02

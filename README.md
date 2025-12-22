@@ -200,6 +200,105 @@ MediaVault integrates with **Windows Mullvad VPN** for automatic torrent protect
 
 ---
 
+## 🤖 *arr Services Integration (Optional - Advanced Automation)
+
+MediaVault now integrates with the **\*arr stack** for automated movie and TV series management!
+
+**What are \*arr services?**
+- **Radarr** - Automatically finds, downloads, and organizes movies
+- **Sonarr** - Automatically finds, downloads, and organizes TV series
+- **Prowlarr** - Manages all your torrent indexers in one place
+- **Recyclarr** - Automatically syncs quality settings from TRaSH guides
+
+### Installation
+
+**1. Install Docker Compose (if not already installed):**
+
+```bash
+# For WSL2/Ubuntu
+sudo apt-get update
+sudo apt-get install docker-compose-plugin
+```
+
+**2. Start the \*arr services:**
+
+The start script will automatically start all \*arr services when you run:
+
+```bash
+~/start-mediavault.sh
+```
+
+**3. Configure each service:**
+
+After starting, visit each service's web interface to complete setup:
+
+- **Prowlarr** (http://localhost:9696) - Set up first
+  - Copy the API key from Settings > General
+  - Add indexers (Settings > Indexers > Add Indexer)
+  - Common indexers: 1337x, ThePirateBay, RARBG, etc.
+
+- **Radarr** (http://localhost:7878) - Movies
+  - Copy the API key from Settings > General
+  - Add a root folder: Settings > Media Management > Add Root Folder (`/downloads/Movies`)
+  - Set up quality profiles: Settings > Profiles
+
+- **Sonarr** (http://localhost:8989) - TV Series
+  - Copy the API key from Settings > General
+  - Add a root folder: Settings > Media Management > Add Root Folder (`/downloads/TV`)
+  - Set up quality profiles: Settings > Profiles
+
+**4. Connect Prowlarr to Radarr/Sonarr:**
+
+In Prowlarr:
+- Go to Settings > Apps > Add Application
+- Select Radarr or Sonarr
+- Enter the URL: `http://radarr:7878` or `http://sonarr:8989`
+- Paste the API key from step 3
+- Test and Save
+
+**5. Configure in MediaVault:**
+
+- Go to Settings in MediaVault
+- Scroll to the \*arr Services section
+- Enable each service and paste its API key
+- Save settings
+
+### How It Works
+
+Once configured, you can:
+
+1. **Browse movies/TV shows** in MediaVault's Discover page
+2. **Click "Add to Radarr"** or **"Add to Sonarr"** on any title
+3. The \*arr service will:
+   - Search your configured indexers
+   - Find the best quality release
+   - Download it via qBittorrent
+   - Organize it with proper naming (e.g., `Movie Title (2023).mkv`)
+   - Update Jellyfin automatically
+
+### Benefits
+
+- ✅ **Automatic quality selection** - Based on your preferences
+- ✅ **Proper file naming** - Ready for Jellyfin
+- ✅ **Upgrade handling** - Automatically replaces files when better quality is available
+- ✅ **Season monitoring** - Get new episodes automatically
+- ✅ **Failed download handling** - Automatically tries alternative releases
+- ✅ **Import management** - Moves and renames files automatically
+
+### Recyclarr (Quality Management)
+
+Recyclarr automatically applies community-recommended quality settings from [TRaSH Guides](https://trash-guides.info/).
+
+The configuration is pre-set in `data/recyclarr/recyclarr.yml` - just add your API keys and run:
+
+```bash
+docker exec recyclarr recyclarr sync
+```
+
+This will optimize your quality profiles for the best balance of quality and file size.
+
+---
+
 ## ⚙️ Managing Services
 
 MediaVault runs several services in the background. Here's how to control them:
