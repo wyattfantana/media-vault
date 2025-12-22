@@ -67,6 +67,11 @@ export default function Movies() {
   const [radarrEnabled, setRadarrEnabled] = useState(false);
   const [addingToRadarr, setAddingToRadarr] = useState(false);
   const [radarrMessage, setRadarrMessage] = useState<string | null>(null);
+  const [showQualityDialog, setShowQualityDialog] = useState(false);
+  const [qualityProfiles, setQualityProfiles] = useState<any[]>([]);
+  const [selectedQualityProfile, setSelectedQualityProfile] = useState<number | null>(null);
+  const [movieToAdd, setMovieToAdd] = useState<Movie | null>(null);
+  const [rootFolders, setRootFolders] = useState<any[]>([]);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -1486,11 +1491,34 @@ export default function Movies() {
         throw new Error('Please configure quality profiles and root folders in Radarr first');
       }
 
-      // Use first quality profile and root folder (user can change in Radarr UI later)
-      const qualityProfileId = profiles[0].id;
-      const rootFolderPath = folders[0].path;
+      // Store the profiles, folders, and movie, then show quality selection dialog
+      setQualityProfiles(profiles);
+      setRootFolders(folders);
+      setMovieToAdd(movie);
 
-      // Add movie to Radarr
+      // Default to HD-1080p if available, otherwise first profile
+      const defaultProfile = profiles.find((p: any) => p.name === 'HD-1080p') || profiles[0];
+      setSelectedQualityProfile(defaultProfile.id);
+
+      setShowQualityDialog(true);
+    } catch (error: any) {
+      console.error('Failed to load Radarr configuration:', error);
+      setRadarrMessage(`❌ ${error.message}`);
+    } finally {
+      setAddingToRadarr(false);
+    }
+  };
+
+  const confirmAddToRadarr = async () => {
+    if (!movieToAdd || !selectedQualityProfile) return;
+
+    setAddingToRadarr(true);
+    setShowQualityDialog(false);
+
+    try {
+      const rootFolderPath = rootFolders[0]?.path;
+
+      // Add movie to Radarr with selected quality
       const response = await fetch(`${API_BASE}/radarr/movies`, {
         method: 'POST',
         headers: {
@@ -1498,10 +1526,10 @@ export default function Movies() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          title: movie.title,
-          year: parseInt(movie.year || '0'),
-          tmdbId: movie.id,
-          qualityProfileId,
+          title: movieToAdd.title,
+          year: parseInt(movieToAdd.year || '0'),
+          tmdbId: movieToAdd.id,
+          qualityProfileId: selectedQualityProfile,
           rootFolderPath,
         })
       });
@@ -1512,13 +1540,14 @@ export default function Movies() {
       }
 
       const data = await response.json();
-      setRadarrMessage(`✅ Added "${movie.title}" to Radarr! It will be downloaded automatically.`);
+      setRadarrMessage(`✅ Added "${movieToAdd.title}" to Radarr! Downloading in ${qualityProfiles.find(p => p.id === selectedQualityProfile)?.name || 'selected quality'}...`);
       setTimeout(() => setRadarrMessage(null), 5000);
     } catch (error: any) {
       console.error('Failed to add to Radarr:', error);
       setRadarrMessage(`❌ ${error.message}`);
     } finally {
       setAddingToRadarr(false);
+      setMovieToAdd(null);
     }
   };
 
@@ -2971,6 +3000,68 @@ export default function Movies() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quality Selection Dialog */}
+      {showQualityDialog && movieToAdd && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-2xl border border-gray-700">
+            <h3 className="text-xl font-bold text-white mb-4">Select Quality for "{movieToAdd.title}"</h3>
+
+            <div className="space-y-3 mb-6">
+              {qualityProfiles.map((profile) => (
+                <button
+                  key={profile.id}
+                  onClick={() => setSelectedQualityProfile(profile.id)}
+                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                    selectedQualityProfile === profile.id
+                      ? 'border-blue-500 bg-blue-900/30'
+                      : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-white">{profile.name}</div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        {profile.name === 'HD-1080p' && 'Recommended - Best quality/size balance'}
+                        {profile.name === 'Ultra-HD' && '4K quality - Large file sizes'}
+                        {profile.name === 'HD-720p' && 'Good quality - Smaller files'}
+                        {profile.name === 'SD' && 'Low quality - Smallest files'}
+                        {!['HD-1080p', 'Ultra-HD', 'HD-720p', 'SD'].includes(profile.name) && 'Custom quality profile'}
+                      </div>
+                    </div>
+                    {selectedQualityProfile === profile.id && (
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowQualityDialog(false);
+                  setMovieToAdd(null);
+                }}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmAddToRadarr}
+                disabled={!selectedQualityProfile || addingToRadarr}
+                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                {addingToRadarr ? 'Adding...' : 'Add to Radarr'}
+              </button>
             </div>
           </div>
         </div>
