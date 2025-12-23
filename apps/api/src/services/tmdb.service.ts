@@ -211,7 +211,7 @@ export class TMDBService {
   /**
    * Search for movies
    */
-  async searchMovies(query: string, page: number = 1, userId?: string): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
+  async searchMovies(query: string, page: number = 1, userId?: string, year?: number): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       const apiKey = await this.getApiKey(userId);
       const response = await axios.get(`${TMDB_BASE_URL}/search/movie`, {
@@ -219,6 +219,7 @@ export class TMDBService {
           api_key: apiKey,
           query,
           page,
+          year: year || undefined,
           include_adult: false
         }
       });
@@ -237,7 +238,7 @@ export class TMDBService {
   /**
    * Search for TV shows
    */
-  async searchTVShows(query: string, page: number = 1, userId?: string): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
+  async searchTVShows(query: string, page: number = 1, userId?: string, year?: number): Promise<{ results: TMDBTVShow[]; total_pages: number; total_results: number }> {
     try {
       const apiKey = await this.getApiKey(userId);
       const response = await axios.get(`${TMDB_BASE_URL}/search/tv`, {
@@ -245,6 +246,7 @@ export class TMDBService {
           api_key: apiKey,
           query,
           page,
+          first_air_date_year: year || undefined,
           include_adult: false
         }
       });
@@ -902,10 +904,10 @@ export class TMDBService {
   }
 
   /**
-   * Find thumbnail for a title (searches both movies and TV shows)
-   * Returns the best match thumbnail URL or null if not found
+   * Find TMDB media info for a title (searches both movies and TV shows)
+   * Returns {tmdb_id, tmdb_media_type, poster_url, title} or null if not found
    */
-  async findThumbnailForTitle(title: string, userId?: string): Promise<string | null> {
+  async findMediaForTitle(title: string, userId?: string): Promise<{ tmdb_id: number; tmdb_media_type: 'movie' | 'tv'; poster_url: string | null; title: string } | null> {
     const apiKey = await this.getApiKey(userId);
     if (!apiKey) {
       return null;
@@ -926,17 +928,22 @@ export class TMDBService {
         // Clean up title - remove common torrent indicators
         cleanTitle = title
         .replace(/\.(mkv|mp4|avi|mov|wmv|flv|webm)$/i, '') // Remove extensions
-        .replace(/\b(720p|1080p|2160p|4k|HDTV|WEB-DL|BluRay|BRRip|WEBRip|x264|x265|HEVC|AAC|AC3|DTS|H\.?265|H\.?264)\b/gi, '') // Remove quality indicators
-        .replace(/\b(YIFY|YTS|RARBG|ETRG|Ozlem|EAC3)\b/gi, '') // Remove release groups
+        .replace(/\b(720p|1080p|2160p|4k|HDTV|WEB[-_. ]?DL|BluRay|BRRip|WEBRip|HDRip|DVDRip|x264|x265|HEVC|AAC|AC3|DTS|H\.?265|H\.?264|DDP5\.1|DD5\.1|Atmos)\b/gi, '') // Remove quality indicators
+        .replace(/\b(YIFY|YTS|RARBG|ETRG|Ozlem|EAC3|RBG|SeeHD)\b/gi, '') // Remove release groups
         .replace(/\d+(\.\d+)?\s?(GB|MB|KB)/gi, '') // Remove file sizes
+        .replace(/\bS\d{2}E?\d{0,2}\b/gi, '') // Remove season/episode tags
         .replace(/\bS\d{2}(-S\d{2})?\b/gi, '') // Remove season ranges like S01-S26
         .replace(/\b(ongoing)\b/gi, '') // Remove "ongoing"
         .replace(/\[.*?\]/g, '') // Remove [tags]
         .replace(/\((?!.*\d{4}).*?\)/g, '') // Remove (tags) but keep (year) - only remove if no 4-digit number inside
         .replace(/\(\s*\)/g, '') // Remove empty parentheses
-        .replace(/\s*-\s*$/gi, '') // Remove trailing dashes
-        .replace(/\s*-\s*-\s*/g, ' - ') // Normalize multiple dashes to single
+        .replace(/\(?(19\d{2}|20\d{2})\)?/g, '') // Remove year from title (we pass year separately)
+        .replace(/[._]+/g, ' ') // Replace separators with spaces
+        .replace(/\s*-\s*/g, ' ') // Remove dash separators
         .replace(/\s+/g, ' ') // Normalize spaces
+        .trim()
+        .replace(/[-:]+$/g, '') // Remove trailing punctuation
+        .replace(/\s+/g, ' ')
         .trim();
       }
 
@@ -945,52 +952,70 @@ export class TMDBService {
 
       if (isTVShow) {
         // Search TV shows first for TV content
-        const tvResults = await this.searchTVShows(cleanTitle, 1, userId);
+        const tvResults = await this.searchTVShows(cleanTitle, 1, userId, year || undefined);
         if (tvResults.results.length > 0) {
           const bestMatch = year
             ? tvResults.results.find(tv => tv.first_air_date && tv.first_air_date.startsWith(year.toString()))
             : tvResults.results[0];
 
           const show = bestMatch || tvResults.results[0];
-          if (show.poster_path) {
-            return this.getImageUrl(show.poster_path, 'w200');
-          }
+          return {
+            tmdb_id: show.id,
+            tmdb_media_type: 'tv',
+            poster_url: show.poster_path ? this.getImageUrl(show.poster_path, 'w200') : null,
+            title: show.name
+          };
         }
       }
 
       // Search movies (or fallback if TV didn't find anything)
-      const movieResults = await this.searchMovies(cleanTitle, 1, userId);
+      const movieResults = await this.searchMovies(cleanTitle, 1, userId, year || undefined);
       if (movieResults.results.length > 0) {
         const bestMatch = year
           ? movieResults.results.find(m => m.release_date && m.release_date.startsWith(year.toString()))
           : movieResults.results[0];
 
         const movie = bestMatch || movieResults.results[0];
-        if (movie.poster_path) {
-          return this.getImageUrl(movie.poster_path, 'w200');
-        }
+        return {
+          tmdb_id: movie.id,
+          tmdb_media_type: 'movie',
+          poster_url: movie.poster_path ? this.getImageUrl(movie.poster_path, 'w200') : null,
+          title: movie.title
+        };
       }
 
       // If movie search failed and we haven't tried TV yet, try it now
       if (!isTVShow) {
-        const tvResults = await this.searchTVShows(cleanTitle, 1, userId);
+        const tvResults = await this.searchTVShows(cleanTitle, 1, userId, year || undefined);
         if (tvResults.results.length > 0) {
           const bestMatch = year
             ? tvResults.results.find(tv => tv.first_air_date && tv.first_air_date.startsWith(year.toString()))
             : tvResults.results[0];
 
           const show = bestMatch || tvResults.results[0];
-          if (show.poster_path) {
-            return this.getImageUrl(show.poster_path, 'w200');
-          }
+          return {
+            tmdb_id: show.id,
+            tmdb_media_type: 'tv',
+            poster_url: show.poster_path ? this.getImageUrl(show.poster_path, 'w200') : null,
+            title: show.name
+          };
         }
       }
 
       return null;
     } catch (error) {
-      console.error('[TMDB] Error finding thumbnail for title:', title, error);
+      console.error('[TMDB] Error finding media for title:', title, error);
       return null;
     }
+  }
+
+  /**
+   * Find thumbnail for a title (searches both movies and TV shows)
+   * Returns the best match thumbnail URL or null if not found
+   */
+  async findThumbnailForTitle(title: string, userId?: string): Promise<string | null> {
+    const media = await this.findMediaForTitle(title, userId);
+    return media?.poster_url || null;
   }
 }
 

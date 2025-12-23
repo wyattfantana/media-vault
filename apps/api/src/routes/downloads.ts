@@ -6,6 +6,7 @@ import { qbittorrentService, QBittorrentService } from '../services/qbittorrent.
 import { vpnService } from '../services/vpn.service.js';
 import { jellyfinFormatter } from '../services/jellyfin-formatter.service.js';
 import { jellyfinService } from '../services/jellyfin.service.js';
+import { tmdbService } from '../services/tmdb.service.js';
 import { AppDataSource } from '../data-source.js';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -54,35 +55,51 @@ downloadsRouter.get('/', requireAuth, async (req, res) => {
       .where('d.user_id = :userId', { userId })
       .getRawOne();
 
-    // Enrich torrent downloads with real-time stats from qBittorrent
+    // Enrich downloads with real-time stats and thumbnails
     const enrichedDownloads = await Promise.all(downloads.map(async (download) => {
+      let enriched = { ...download };
+
+      // Add qBittorrent torrent info
       if (download.downloader === 'qbittorrent' && download.metadata?.torrentHash) {
         try {
           const torrents = await qbittorrentService.getTorrents();
           const torrent = torrents.find(t => t.hash === download.metadata.torrentHash);
 
           if (torrent) {
-            return {
-              ...download,
-              torrentInfo: {
-                dlspeed: torrent.dlspeed,
-                upspeed: torrent.upspeed,
-                eta: torrent.eta,
-                num_seeds: torrent.num_seeds,
-                num_leechs: torrent.num_leechs,
-                state: torrent.state,
-                size: torrent.size,
-                downloaded: torrent.downloaded,
-                uploaded: torrent.uploaded,
-                ratio: torrent.ratio
-              }
+            enriched.torrentInfo = {
+              dlspeed: torrent.dlspeed,
+              upspeed: torrent.upspeed,
+              eta: torrent.eta,
+              num_seeds: torrent.num_seeds,
+              num_leechs: torrent.num_leechs,
+              state: torrent.state,
+              size: torrent.size,
+              downloaded: torrent.downloaded,
+              uploaded: torrent.uploaded,
+              ratio: torrent.ratio
             };
           }
         } catch (err) {
           console.error('Failed to get torrent info:', err);
         }
       }
-      return download;
+
+      // Add TMDB thumbnail if we have tmdb_id
+      if (download.tmdb_id && download.tmdb_media_type && !download.thumbnail) {
+        try {
+          const posterPath = download.tmdb_media_type === 'movie'
+            ? (await tmdbService.getMovieDetails(download.tmdb_id, userId))?.poster_path
+            : (await tmdbService.getTVShowDetails(download.tmdb_id, userId))?.poster_path;
+
+          if (posterPath) {
+            enriched.thumbnail = tmdbService.getImageUrl(posterPath, 'w200');
+          }
+        } catch (err) {
+          console.error('Failed to get TMDB thumbnail:', err);
+        }
+      }
+
+      return enriched;
     }));
 
     res.json({
@@ -189,8 +206,10 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
           // For iPlayer, we'll need the PID
           const pidMatch = url.match(/[a-z0-9]{8}/i);
           if (pidMatch) {
-            // Use search instead of getProgrammeInfo to get thumbnail
-            const programmes = await getIPlayerService.search(pidMatch[0]);
+            let programmes = await getIPlayerService.getProgrammeInfo(pidMatch[0]);
+            if (programmes.length === 0) {
+              programmes = await getIPlayerService.search(pidMatch[0]);
+            }
             if (programmes.length > 0) {
               const prog = programmes[0];
               title = `${prog.name} - ${prog.episode}`;

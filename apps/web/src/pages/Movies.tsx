@@ -44,7 +44,6 @@ export default function Movies() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState('');
   const requestIdRef = useRef(0); // Track request IDs to prevent race conditions
   const [viewMode, setViewMode] = useState<ViewMode>('all-movies');
   const [showFormatPreview, setShowFormatPreview] = useState(false);
@@ -61,10 +60,9 @@ export default function Movies() {
   const [torrentResults, setTorrentResults] = useState<any[]>([]);
   const [searchingTorrents, setSearchingTorrents] = useState(false);
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
-  const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Radarr state
-  const [radarrEnabled, setRadarrEnabled] = useState(false);
+  // Prowlarr state (for torrent search)
+  const [prowlarrEnabled, setProwlarrEnabled] = useState(false);
   const [addingToRadarr, setAddingToRadarr] = useState(false);
   const [radarrMessage, setRadarrMessage] = useState<string | null>(null);
   const [showQualityDialog, setShowQualityDialog] = useState(false);
@@ -72,6 +70,10 @@ export default function Movies() {
   const [selectedQualityProfile, setSelectedQualityProfile] = useState<number | null>(null);
   const [movieToAdd, setMovieToAdd] = useState<Movie | null>(null);
   const [rootFolders, setRootFolders] = useState<any[]>([]);
+  const [showTorrentBrowser, setShowTorrentBrowser] = useState(false);
+  const [availableReleases, setAvailableReleases] = useState<any[]>([]);
+  const [loadingReleases, setLoadingReleases] = useState(false);
+  const [selectedRelease, setSelectedRelease] = useState<any | null>(null);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -256,10 +258,10 @@ export default function Movies() {
         });
         if (res.ok) {
           const prefs = await res.json();
-          setRadarrEnabled(prefs.radarr_enabled || false);
+          setProwlarrEnabled(prefs.prowlarr_enabled || false);
         }
       } catch (error) {
-        console.error('Failed to check Radarr status:', error);
+        console.error('Failed to check Prowlarr status:', error);
       }
     };
     checkRadarrStatus();
@@ -1383,20 +1385,6 @@ export default function Movies() {
     performSearch(searchQuery);
   };
 
-  const search1337x = (movie: Movie) => {
-    const query = encodeURIComponent(`${movie.title} ${movie.year || ''}`);
-    window.open(`https://1337x.to/search/${query}/1/`, '_blank');
-  };
-
-  const searchPirateBay = (movie: Movie) => {
-    const query = encodeURIComponent(`${movie.title} ${movie.year || ''}`);
-    window.open(`https://thepiratebay.org/search.php?q=${query}`, '_blank');
-  };
-
-  const searchExtTo = (movie: Movie) => {
-    const query = encodeURIComponent(`${movie.title} ${movie.year || ''}`);
-    window.open(`https://ext.to/search?q=${query}`, '_blank');
-  };
 
   const searchTorrents = async (movie: Movie) => {
     // Clean up title for better torrent search results
@@ -1449,22 +1437,6 @@ export default function Movies() {
     }
   };
 
-  const selectTorrent = (magnet: string) => {
-    setDownloadUrl(magnet);
-    setTorrentResults([]);
-    // Auto-scroll to very bottom of modal
-    setTimeout(() => {
-      const button = downloadButtonRef.current;
-      if (button) {
-        // Find the scrollable modal container
-        const modal = button.closest('.overflow-y-auto, .overflow-auto');
-        if (modal) {
-          // Scroll to very bottom
-          modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' });
-        }
-      }
-    }, 100);
-  };
 
   // Radarr Integration
   const addToRadarr = async (movie: Movie) => {
@@ -1587,6 +1559,79 @@ export default function Movies() {
     }
   };
 
+  const browseTorrents = async () => {
+    if (!selectedMovie) return;
+
+    setLoadingReleases(true);
+    setAvailableReleases([]);
+
+    try {
+      // Search Prowlarr directly with movie title and year
+      const searchQuery = `${selectedMovie.title} ${selectedMovie.year}`;
+      const releasesResponse = await fetch(`${API_BASE}/prowlarr/search?query=${encodeURIComponent(searchQuery)}&type=movie`, {
+        credentials: 'include'
+      });
+
+      if (!releasesResponse.ok) {
+        throw new Error('Failed to search torrents');
+      }
+
+      const releases = await releasesResponse.json();
+
+      // Map Prowlarr results to expected format
+      const formattedReleases = releases.map((r: any) => ({
+        guid: r.guid,
+        title: r.title,
+        indexerId: r.indexerId,
+        indexer: r.indexer,
+        size: r.size,
+        seeders: r.seeders || 0,
+        leechers: r.leechers || 0,
+        magnetUrl: r.magnetUrl,
+        downloadUrl: r.downloadUrl,
+        publishDate: r.publishDate,
+      }));
+
+      setAvailableReleases(formattedReleases);
+    } catch (error: any) {
+      console.error('Failed to browse torrents:', error);
+      setRadarrMessage(`❌ ${error.message}`);
+      setAvailableReleases([]);
+    } finally {
+      setLoadingReleases(false);
+    }
+  };
+
+  const downloadSelectedRelease = async () => {
+    if (!selectedRelease || !selectedMovie) return;
+
+    setAddingToRadarr(true);
+
+    try {
+      await fetch(`${API_BASE}/radarr/releases/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          guid: selectedRelease.guid,
+          indexerId: selectedRelease.indexerId,
+        })
+      });
+
+      setRadarrMessage(`✅ Downloading "${selectedMovie.title}" - ${selectedRelease.title}`);
+      setSelectedRelease(null);
+      setAvailableReleases([]);
+      setTimeout(() => setRadarrMessage(null), 5000);
+    } catch (error: any) {
+      console.error('Failed to download release:', error);
+      setRadarrMessage(`❌ ${error.message}`);
+    } finally {
+      setAddingToRadarr(false);
+    }
+  };
+
   const handleDownload = async (movie: Movie) => {
     if (!downloadUrl.trim()) {
       alert('Please enter a download URL');
@@ -1693,7 +1738,6 @@ export default function Movies() {
       if (res.ok) {
         alert(`✓ Download queued: ${movie.title}`);
         setSelectedMovie(null);
-        setDownloadUrl('');
         setShowFormatPreview(false);
         setFormattedPath(null);
         setVpnConnected(false);
@@ -2701,7 +2745,6 @@ export default function Movies() {
             setVpnConnected(false);
             setTorrentResults([]);
             setTorrentSearchError(null);
-            setDownloadUrl('');
           }}
         >
           <div
@@ -2750,59 +2793,126 @@ export default function Movies() {
                 {/* Radarr Message */}
                 {radarrMessage && (
                   <div className={`border rounded-lg p-4 ${
-                    radarrMessage.includes('✅')
-                      ? 'bg-green-900/20 border-green-500/30'
-                      : 'bg-red-900/20 border-red-500/30'
+                    radarrMessage.includes('❌')
+                      ? 'bg-red-900/20 border-red-500/30'
+                      : 'bg-green-900/20 border-green-500/30'
                   }`}>
                     <p className={`text-sm ${
-                      radarrMessage.includes('✅')
-                        ? 'text-green-300'
-                        : 'text-red-300'
+                      radarrMessage.includes('❌')
+                        ? 'text-red-300'
+                        : 'text-green-300'
                     }`}>
                       {radarrMessage}
                     </p>
                   </div>
                 )}
 
-                {/* Add to Radarr Button */}
-                {radarrEnabled && (
+                {/* Download Button */}
+                {prowlarrEnabled && (
                   <button
-                    onClick={() => addToRadarr(selectedMovie)}
-                    disabled={addingToRadarr}
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
+                    onClick={() => browseTorrents()}
+                    disabled={loadingReleases}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
                   >
-                    {addingToRadarr ? (
+                    {loadingReleases ? (
                       <>
                         <Loader className="w-6 h-6 animate-spin" />
-                        Adding to Radarr...
+                        Loading Torrents...
                       </>
                     ) : (
                       <>
-                        <Plus className="w-6 h-6" />
-                        Add to Radarr (Auto-Download)
+                        <Download className="w-6 h-6" />
+                        Download
                       </>
                     )}
                   </button>
                 )}
 
-                {/* Auto-Search Torrents Button */}
-                <button
-                  onClick={() => searchTorrents(selectedMovie)}
-                  disabled={searchingTorrents}
-                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
-                >
-                  {searchingTorrents ? (
-                    <>
-                      <Loader className="w-6 h-6 animate-spin" />
-                      Searching Torrents...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-6 h-6" />
-                      Auto-Search (PirateBay)
-                    </>
-                  )}
-                </button>
+                {/* Radarr Torrent Results */}
+                {availableReleases.length > 0 && (
+                  <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <h3 className="text-lg font-semibold text-green-400 mb-3">
+                      Found {availableReleases.length} Torrents (sorted by seeds)
+                    </h3>
+                    <div className="space-y-2">
+                      {[...availableReleases]
+                        .sort((a, b) => (b.seeders || 0) - (a.seeders || 0))
+                        .map((release, index) => {
+                          const sizeInGB = release.size ? (release.size / 1073741824).toFixed(1) : 'Unknown';
+                          const seeders = release.seeders || 0;
+                          const leechers = release.leechers || 0;
+                          const indexer = release.indexer || 'Unknown';
+
+                          return (
+                            <div
+                              key={index}
+                              onClick={async () => {
+                                setSelectedRelease(release);
+                                setAddingToRadarr(true);
+                                // Show message immediately
+                                setRadarrMessage(`⏳ Downloading "${selectedMovie?.title}"`);
+
+                                try {
+                                  const response = await fetch(`${API_BASE}/torrents/download`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    credentials: 'include',
+                                    body: JSON.stringify({
+                                      magnetUrl: release.magnetUrl,
+                                      downloadUrl: release.downloadUrl,
+                                      title: release.title,
+                                      category: 'Movies',
+                                    })
+                                  });
+
+                                  if (response.ok) {
+                                    setRadarrMessage(`✅ Downloading "${selectedMovie?.title}"`);
+                                    setAvailableReleases([]);
+                                    setTimeout(() => setRadarrMessage(null), 5000);
+                                  } else if (response.status === 409) {
+                                    setRadarrMessage(`⚠️ This torrent is already in your downloads`);
+                                    setTimeout(() => setRadarrMessage(null), 5000);
+                                  } else {
+                                    const error = await response.json();
+                                    throw new Error(error.error || 'Failed to download');
+                                  }
+                                } catch (error: any) {
+                                  setRadarrMessage(`❌ ${error.message}`);
+                                } finally {
+                                  setAddingToRadarr(false);
+                                  setSelectedRelease(null);
+                                }
+                              }}
+                              className="bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 rounded-lg p-3 cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-white truncate mb-1">{release.title}</p>
+                                  <div className="flex items-center gap-3 text-xs text-gray-400">
+                                    <span className={`px-2 py-1 rounded ${
+                                      indexer.toLowerCase().includes('piratebay') || indexer.toLowerCase().includes('pirate bay') ? 'bg-purple-600/20 text-purple-400' :
+                                      indexer.toLowerCase().includes('1337x') ? 'bg-orange-600/20 text-orange-400' :
+                                      indexer.toLowerCase().includes('yts') ? 'bg-red-600/20 text-red-400' :
+                                      indexer.toLowerCase().includes('rarbg') ? 'bg-green-600/20 text-green-400' :
+                                      indexer.toLowerCase().includes('bitsearch') ? 'bg-cyan-600/20 text-cyan-400' :
+                                      'bg-indigo-600/20 text-indigo-400'
+                                    }`}>
+                                      {indexer.toLowerCase()}
+                                    </span>
+                                    <span>{sizeInGB} GB</span>
+                                    <span className="text-green-400 font-semibold">↑ {seeders}</span>
+                                    <span className="text-red-400">↓ {leechers}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Torrent Search Results */}
                 {torrentResults.length > 0 && (
@@ -2855,186 +2965,6 @@ export default function Movies() {
                     <p className="text-yellow-400 text-sm">{torrentSearchError}</p>
                   </div>
                 )}
-
-                {/* Manual Search (Fallback) */}
-                <div className="bg-gray-900/30 border border-gray-700 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Manual Search (Fallback)</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => search1337x(selectedMovie)}
-                      className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
-                    >
-                      <Search className="w-4 h-4" />
-                      1337x
-                    </button>
-                    <button
-                      onClick={() => searchExtTo(selectedMovie)}
-                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
-                    >
-                      <Search className="w-4 h-4" />
-                      Ext.to
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <input
-                    type="text"
-                    value={downloadUrl}
-                    onChange={(e) => setDownloadUrl(e.target.value)}
-                    placeholder="Paste video URL here..."
-                    className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none mb-3"
-                  />
-                  <button
-                    ref={downloadButtonRef}
-                    onClick={() => handleDownload(selectedMovie)}
-                    disabled={!downloadUrl.trim() || loadingFormat}
-                    className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                  >
-                    <Download className="w-5 h-5" />
-                    {loadingFormat ? 'Analyzing...' : 'Queue Download'}
-                  </button>
-
-                  {/* Inline Format Preview */}
-                  {showFormatPreview && (
-                    <div className="mt-4 space-y-4">
-                      {loadingFormat ? (
-                        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-                          <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
-                            <span className="text-gray-300">Analyzing filename and fetching metadata...</span>
-                          </div>
-                        </div>
-                      ) : formatError ? (
-                        <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4">
-                          <h4 className="text-red-400 font-semibold mb-2">Error</h4>
-                          <p className="text-gray-300 text-sm">{formatError}</p>
-                          <button
-                            onClick={() => handleDownload(selectedMovie)}
-                            className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      ) : formattedPath && (
-                        <div className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 border-2 border-blue-500/30 rounded-lg p-5 space-y-4">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-white">📁 Download Format Preview</h3>
-                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                              formattedPath.contentType === 'tv' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
-                              formattedPath.contentType === 'movie' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
-                              'bg-gray-500/30 text-gray-300 border border-gray-400/50'
-                            }`}>
-                              {formattedPath.contentType === 'tv' ? 'TV Show' : 'Movie'}
-                            </span>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Original Filename:</label>
-                            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                              <code className="text-sm text-gray-300 break-all">{formattedPath.originalName}</code>
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Formatted for Jellyfin:</label>
-                            <div className="bg-gray-800/50 border border-green-500/30 rounded-lg p-3">
-                              <pre className="text-sm font-mono text-green-300 whitespace-pre-wrap">
-                                {formattedPath.preview}
-                              </pre>
-                            </div>
-                          </div>
-
-                          {formattedPath.folderStructure && (
-                            <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                              <h4 className="text-sm font-semibold text-gray-400 mb-3">Metadata:</h4>
-                              <div className="grid grid-cols-2 gap-3 text-sm">
-                                {formattedPath.folderStructure.movieName && (
-                                  <div>
-                                    <span className="text-gray-500">Movie:</span>
-                                    <span className="ml-2 font-medium text-gray-300">{formattedPath.folderStructure.movieName}</span>
-                                  </div>
-                                )}
-                                {formattedPath.folderStructure.year && (
-                                  <div>
-                                    <span className="text-gray-500">Year:</span>
-                                    <span className="ml-2 font-medium text-gray-300">{formattedPath.folderStructure.year}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {showFormatPreview && formattedPath && !loadingFormat && !formatError && (
-                    <div className="mt-4 space-y-4">
-                      {/* VPN Status Check */}
-                      <div className={`border rounded-lg p-4 ${
-                        checkingVpn ? 'bg-gray-900/30 border-gray-500/50' :
-                        vpnConnected ? 'bg-green-900/30 border-green-500/50' :
-                        'bg-red-900/30 border-red-500/50'
-                      }`}>
-                        <div className="flex items-center gap-3">
-                          {checkingVpn ? (
-                            <>
-                              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                              <span className="text-gray-300 font-medium text-sm">
-                                Checking VPN status...
-                              </span>
-                            </>
-                          ) : vpnConnected ? (
-                            <>
-                              <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                              <span className="text-green-300 font-medium text-sm">
-                                VPN Connected - Ready to download
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </div>
-                              <span className="text-red-300 font-medium text-sm">
-                                VPN Disconnected - Please enable VPN to download
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Buttons */}
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => submitDownload(selectedMovie)}
-                          disabled={!vpnConnected || checkingVpn}
-                          className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
-                        >
-                          <Download className="w-5 h-5" />
-                          Confirm Download
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowFormatPreview(false);
-                            setFormattedPath(null);
-                            setVpnConnected(false);
-                          }}
-                          className="px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           </div>
@@ -3044,24 +2974,24 @@ export default function Movies() {
       {/* Quality Selection Dialog */}
       {showQualityDialog && movieToAdd && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-2xl border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Select Quality for "{movieToAdd.title}"</h3>
+          <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-white mb-3">Select Quality for "{movieToAdd.title}"</h3>
 
-            <div className="space-y-3 mb-6">
+            <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
               {qualityProfiles.map((profile) => (
                 <button
                   key={profile.id}
                   onClick={() => setSelectedQualityProfile(profile.id)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
                     selectedQualityProfile === profile.id
                       ? 'border-blue-500 bg-blue-900/30'
                       : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-white">{profile.name}</div>
-                      <div className="text-sm text-gray-400 mt-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-white text-sm">{profile.name}</div>
+                      <div className="text-xs text-gray-400 mt-0.5 truncate">
                         {profile.name === 'HD-1080p' && 'Recommended - Best quality/size balance'}
                         {profile.name === 'Ultra-HD' && '4K quality - Large file sizes'}
                         {profile.name === 'HD-720p' && 'Good quality - Smaller files'}
@@ -3070,8 +3000,8 @@ export default function Movies() {
                       </div>
                     </div>
                     {selectedQualityProfile === profile.id && (
-                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 ml-2">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
@@ -3081,23 +3011,112 @@ export default function Movies() {
               ))}
             </div>
 
+            {/* Browse Torrents Button */}
+            <button
+              onClick={browseTorrents}
+              disabled={!selectedQualityProfile || loadingReleases}
+              className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-3"
+            >
+              {loadingReleases ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Browse Torrents
+                </>
+              )}
+            </button>
+
+            {/* Torrent Search Results - Inline dropdown */}
+            {availableReleases.length > 0 && (
+              <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-3 mb-3 max-h-64 overflow-y-auto">
+                <h3 className="text-sm font-semibold text-green-400 mb-2">
+                  Found {availableReleases.length} Torrents (sorted by seeds)
+                </h3>
+                <div className="space-y-2">
+                  {[...availableReleases]
+                    .sort((a, b) => (b.seeders || 0) - (a.seeders || 0))
+                    .map((release, index) => {
+                      const sizeInGB = release.size ? (release.size / 1073741824).toFixed(1) : 'Unknown';
+                      const quality = release.quality?.quality?.name || 'Unknown';
+                      const seeders = release.seeders || 0;
+                      const leechers = release.leechers || 0;
+                      const indexer = release.indexer || 'Unknown';
+
+                      return (
+                        <div
+                          key={index}
+                          onClick={() => setSelectedRelease(release)}
+                          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 rounded-lg p-2 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-white truncate mb-1">{release.title}</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+                                <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                  indexer.toLowerCase().includes('piratebay') || indexer.toLowerCase().includes('pirate bay') ? 'bg-purple-600/20 text-purple-400' :
+                                  indexer.toLowerCase().includes('1337x') ? 'bg-orange-600/20 text-orange-400' :
+                                  indexer.toLowerCase().includes('yts') ? 'bg-red-600/20 text-red-400' :
+                                  indexer.toLowerCase().includes('rarbg') ? 'bg-green-600/20 text-green-400' :
+                                  indexer.toLowerCase().includes('bitsearch') ? 'bg-cyan-600/20 text-cyan-400' :
+                                  'bg-indigo-600/20 text-indigo-400'
+                                }`}>
+                                  {indexer.toLowerCase()}
+                                </span>
+                                {quality && (
+                                  <span className="px-1.5 py-0.5 bg-blue-600/20 text-blue-400 rounded text-xs">{quality}</span>
+                                )}
+                                <span className="text-xs">{sizeInGB} GB</span>
+                                <span className="text-green-400 font-semibold text-xs">↑ {seeders}</span>
+                                <span className="text-red-400 text-xs">↓ {leechers}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
             <div className="flex gap-3">
               <button
                 onClick={() => {
                   setShowQualityDialog(false);
                   setMovieToAdd(null);
+                  setSelectedRelease(null);
+                  setAvailableReleases([]);
                 }}
                 className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
-              <button
-                onClick={confirmAddToRadarr}
-                disabled={!selectedQualityProfile || addingToRadarr}
-                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-              >
-                {addingToRadarr ? 'Adding...' : 'Add to Radarr'}
-              </button>
+              {selectedRelease ? (
+                <button
+                  onClick={downloadSelectedRelease}
+                  disabled={addingToRadarr}
+                  className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  {addingToRadarr ? 'Downloading...' : 'Download Selected'}
+                </button>
+              ) : (
+                <button
+                  onClick={confirmAddToRadarr}
+                  disabled={!selectedQualityProfile || addingToRadarr}
+                  className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  {addingToRadarr ? 'Adding...' : 'Add to Radarr'}
+                </button>
+              )}
             </div>
           </div>
         </div>

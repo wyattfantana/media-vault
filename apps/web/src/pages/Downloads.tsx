@@ -38,8 +38,6 @@ interface DownloadStats {
 
 export function Downloads() {
   const [downloads, setDownloads] = useState<Download[]>([]);
-  const [radarrQueue, setRadarrQueue] = useState<any[]>([]);
-  const [sonarrQueue, setSonarrQueue] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewDownload, setShowNewDownload] = useState(false);
   const [newDownloadUrl, setNewDownloadUrl] = useState('');
@@ -67,34 +65,6 @@ export function Downloads() {
         const data = await res.json();
         setDownloads(data.downloads || []);
       }
-
-      // Fetch Radarr queue
-      try {
-        const radarrRes = await fetch(`${API_BASE}/radarr/queue`, {
-          credentials: 'include'
-        });
-        if (radarrRes.ok) {
-          const radarrData = await radarrRes.json();
-          setRadarrQueue(radarrData || []);
-        }
-      } catch (err) {
-        // Radarr might not be configured, that's okay
-        setRadarrQueue([]);
-      }
-
-      // Fetch Sonarr queue
-      try {
-        const sonarrRes = await fetch(`${API_BASE}/sonarr/queue`, {
-          credentials: 'include'
-        });
-        if (sonarrRes.ok) {
-          const sonarrData = await sonarrRes.json();
-          setSonarrQueue(sonarrData || []);
-        }
-      } catch (err) {
-        // Sonarr might not be configured, that's okay
-        setSonarrQueue([]);
-      }
     } catch (err) {
       console.error('Failed to fetch downloads:', err);
     } finally {
@@ -103,9 +73,9 @@ export function Downloads() {
   };
 
   const stats: DownloadStats = {
-    total: downloads.length + radarrQueue.length + sonarrQueue.length,
+    total: downloads.length,
     pending: downloads.filter(d => d.status === 'pending').length,
-    downloading: downloads.filter(d => d.status === 'downloading').length + radarrQueue.length + sonarrQueue.length,
+    downloading: downloads.filter(d => d.status === 'downloading').length,
     completed: downloads.filter(d => d.status === 'completed').length,
     failed: downloads.filter(d => d.status === 'failed').length,
     cancelled: downloads.filter(d => d.status === 'cancelled').length
@@ -114,6 +84,19 @@ export function Downloads() {
   const filteredDownloads = statusFilter === 'all'
     ? downloads
     : downloads.filter(d => d.status === statusFilter);
+
+  // Calculate real progress for downloads
+  const getProgress = (download: Download): number => {
+    // For qBittorrent downloads with live torrent info, calculate from actual data
+    if (download.downloader === 'qbittorrent' && download.torrentInfo) {
+      const { downloaded, size } = download.torrentInfo;
+      if (size > 0) {
+        return Math.round((downloaded / size) * 100);
+      }
+    }
+    // Otherwise use the database progress value
+    return download.progress || 0;
+  };
 
   const handleClearCompleted = async () => {
     const confirmMsg = `Clear all completed downloads?\n\nThis will:\n• Remove all completed downloads from your queue\n• Delete all downloaded files from your storage\n• Delete any related files (subtitles, metadata, etc.)\n• Refresh your Jellyfin media server\n\nThis action cannot be undone.`;
@@ -563,12 +546,12 @@ export function Downloads() {
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
                     <span>Downloading...</span>
-                    <span>{download.progress}%</span>
+                    <span>{getProgress(download)}%</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full transition-all"
-                      style={{ width: `${download.progress}%` }}
+                      style={{ width: `${getProgress(download)}%` }}
                     />
                   </div>
                 </div>
@@ -718,12 +701,12 @@ export function Downloads() {
                     {download.status === 'downloading' ? (
                       <div className="w-32">
                         <div className="flex items-center justify-between text-xs text-gray-300 mb-1">
-                          <span>{download.progress}%</span>
+                          <span>{getProgress(download)}%</span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-2">
                           <div
                             className="bg-blue-600 h-2 rounded-full transition-all"
-                            style={{ width: `${download.progress}%` }}
+                            style={{ width: `${getProgress(download)}%` }}
                           />
                         </div>
                       </div>
@@ -751,104 +734,6 @@ export function Downloads() {
                         {download.status === 'downloading' ? 'Cancel' : 'Delete'}
                       </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-
-              {/* Radarr Queue Items */}
-              {radarrQueue.map((item: any) => (
-                <tr key={`radarr-${item.id}`} className="hover:bg-gray-800/50 bg-blue-900/10">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3 max-w-md">
-                      {item.movie?.images?.find((img: any) => img.coverType === 'poster')?.remoteUrl && (
-                        <img
-                          src={item.movie.images.find((img: any) => img.coverType === 'poster').remoteUrl}
-                          alt={item.title}
-                          className="w-12 h-18 object-contain rounded bg-gray-700"
-                        />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-100 truncate">
-                          {item.title}
-                        </p>
-                        <p className="text-xs text-blue-400">
-                          via Radarr • {item.quality?.quality?.name || 'Unknown quality'}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs rounded bg-blue-900/50 text-blue-300">
-                      {item.status || 'Downloading'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="w-32">
-                      <div className="flex items-center justify-between text-xs text-gray-300 mb-1">
-                        <span>{item.sizeleft && item.size ? Math.round((1 - item.sizeleft / item.size) * 100) : 0}%</span>
-                      </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${item.sizeleft && item.size ? (1 - item.sizeleft / item.size) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-300 whitespace-nowrap">
-                    Radarr/qBittorrent
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-xs text-gray-400">Managed by Radarr</span>
-                  </td>
-                </tr>
-              ))}
-
-              {/* Sonarr Queue Items */}
-              {sonarrQueue.map((item: any) => (
-                <tr key={`sonarr-${item.id}`} className="hover:bg-gray-800/50 bg-purple-900/10">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3 max-w-md">
-                      {item.series?.images?.find((img: any) => img.coverType === 'poster')?.remoteUrl && (
-                        <img
-                          src={item.series.images.find((img: any) => img.coverType === 'poster').remoteUrl}
-                          alt={item.title}
-                          className="w-12 h-18 object-contain rounded bg-gray-700"
-                        />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-100 truncate">
-                          {item.title}
-                        </p>
-                        <p className="text-xs text-purple-400">
-                          via Sonarr • {item.quality?.quality?.name || 'Unknown quality'}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs rounded bg-purple-900/50 text-purple-300">
-                      {item.status || 'Downloading'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="w-32">
-                      <div className="flex items-center justify-between text-xs text-gray-300 mb-1">
-                        <span>{item.sizeleft && item.size ? Math.round((1 - item.sizeleft / item.size) * 100) : 0}%</span>
-                      </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2">
-                        <div
-                          className="bg-purple-600 h-2 rounded-full transition-all"
-                          style={{ width: `${item.sizeleft && item.size ? (1 - item.sizeleft / item.size) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-300 whitespace-nowrap">
-                    Sonarr/qBittorrent
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-xs text-gray-400">Managed by Sonarr</span>
                   </td>
                 </tr>
               ))}

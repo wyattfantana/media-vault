@@ -63,8 +63,8 @@ export default function TVShows() {
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Sonarr state
-  const [sonarrEnabled, setSonarrEnabled] = useState(false);
+  // Prowlarr state (for torrent search)
+  const [prowlarrEnabled, setProwlarrEnabled] = useState(false);
   const [addingToSonarr, setAddingToSonarr] = useState(false);
   const [sonarrMessage, setSonarrMessage] = useState<string | null>(null);
   const [showQualityDialog, setShowQualityDialog] = useState(false);
@@ -258,10 +258,10 @@ export default function TVShows() {
         });
         if (res.ok) {
           const prefs = await res.json();
-          setSonarrEnabled(prefs.sonarr_enabled || false);
+          setProwlarrEnabled(prefs.prowlarr_enabled || false);
         }
       } catch (error) {
-        console.error('Failed to check Sonarr status:', error);
+        console.error('Failed to check Prowlarr status:', error);
       }
     };
     checkSonarrStatus();
@@ -2569,28 +2569,8 @@ export default function TVShows() {
                   </div>
                 )}
 
-                {/* Add to Sonarr Button */}
-                {sonarrEnabled && (
-                  <button
-                    onClick={() => addToSonarr(selectedShow)}
-                    disabled={addingToSonarr}
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
-                  >
-                    {addingToSonarr ? (
-                      <>
-                        <Loader className="w-6 h-6 animate-spin" />
-                        Adding to Sonarr...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-6 h-6" />
-                        Add to Sonarr (Auto-Download)
-                      </>
-                    )}
-                  </button>
-                )}
 
-                {/* Auto-Search Torrents Button */}
+                {/* Download Button */}
                 <button
                   onClick={() => searchTorrents(selectedShow)}
                   disabled={searchingTorrents}
@@ -2603,8 +2583,8 @@ export default function TVShows() {
                     </>
                   ) : (
                     <>
-                      <Search className="w-6 h-6" />
-                      Auto-Search (PirateBay)
+                      <Download className="w-6 h-6" />
+                      Download
                     </>
                   )}
                 </button>

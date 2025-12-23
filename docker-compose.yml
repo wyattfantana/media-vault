@@ -20,62 +20,62 @@ services:
       - 8.8.8.8
       - 8.8.4.4
 
-  # Radarr - Movie automation
-  radarr:
-    image: lscr.io/linuxserver/radarr:latest
-    container_name: radarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - ./data/radarr:/config
-      - /mnt/d/MediaVault:/downloads
-      - /home/beerm/Downloads:/home/beerm/Downloads
-    ports:
-      - 7878:7878
-    restart: unless-stopped
-    networks:
-      - mediavault
-    depends_on:
-      - prowlarr
+  # Radarr/Sonarr/Recyclarr removed - MediaVault now uses Prowlarr + qBittorrent directly
+  # Uncomment below if you want automatic monitoring and quality upgrades
 
-  # Sonarr - TV series automation
-  sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
-    container_name: sonarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - ./data/sonarr:/config
-      - /mnt/d/MediaVault:/downloads
-      - /home/beerm/Downloads:/home/beerm/Downloads
-    ports:
-      - 8989:8989
-    restart: unless-stopped
-    networks:
-      - mediavault
-    depends_on:
-      - prowlarr
+  # radarr:
+  #   image: lscr.io/linuxserver/radarr:latest
+  #   container_name: radarr
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=Etc/UTC
+  #   volumes:
+  #     - ./data/radarr:/config
+  #     - /mnt/d/MediaVault:/downloads
+  #     - /home/beerm/Downloads:/home/beerm/Downloads
+  #   ports:
+  #     - 7878:7878
+  #   restart: unless-stopped
+  #   networks:
+  #     - mediavault
+  #   depends_on:
+  #     - prowlarr
 
-  # Recyclarr - Automatically sync TRaSH guides to Sonarr/Radarr
-  recyclarr:
-    image: ghcr.io/recyclarr/recyclarr:latest
-    container_name: recyclarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - ./data/recyclarr:/config
-    restart: unless-stopped
-    networks:
-      - mediavault
-    depends_on:
-      - radarr
-      - sonarr
+  # sonarr:
+  #   image: lscr.io/linuxserver/sonarr:latest
+  #   container_name: sonarr
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=Etc/UTC
+  #   volumes:
+  #     - ./data/sonarr:/config
+  #     - /mnt/d/MediaVault:/downloads
+  #     - /home/beerm/Downloads:/home/beerm/Downloads
+  #   ports:
+  #     - 8989:8989
+  #   restart: unless-stopped
+  #   networks:
+  #     - mediavault
+  #   depends_on:
+  #     - prowlarr
+
+  # recyclarr:
+  #   image: ghcr.io/recyclarr/recyclarr:latest
+  #   container_name: recyclarr
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=Etc/UTC
+  #   volumes:
+  #     - ./data/recyclarr:/config
+  #   restart: unless-stopped
+  #   networks:
+  #     - mediavault
+  #   depends_on:
+  #     - radarr
+  #     - sonarr
 
 networks:
   mediavault:

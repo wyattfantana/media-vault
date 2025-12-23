@@ -450,7 +450,7 @@ export function Settings() {
   const tabs = [
     { key: 'vpn' as TabKey, label: 'VPN', icon: ShieldCheck },
     { key: 'jellyfin' as TabKey, label: 'Jellyfin', icon: Server },
-    { key: 'arr' as TabKey, label: '*arr Services', icon: Film },
+    { key: 'arr' as TabKey, label: 'Torrents', icon: Film },
     { key: 'storage' as TabKey, label: 'Storage', icon: HardDrive },
     { key: 'privacy' as TabKey, label: 'Advanced', icon: Shield },
   ];
@@ -787,9 +787,9 @@ export function Settings() {
         {activeTab === 'arr' && (
           <div className="space-y-6">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2">*arr Services Integration</h2>
+              <h2 className="text-xl font-semibold mb-2">Torrent Search Configuration</h2>
               <p className="text-sm text-gray-400">
-                Configure Radarr, Sonarr, and Prowlarr for automated movie and TV series downloads
+                Configure Prowlarr to search torrents across multiple indexers for movies and TV shows
               </p>
             </div>
 
@@ -827,186 +827,6 @@ export function Settings() {
               <p className="text-sm text-blue-300 mt-2">
                 Access points: <a href="http://localhost:7878" target="_blank" rel="noopener noreferrer" className="underline">Radarr</a> | <a href="http://localhost:8989" target="_blank" rel="noopener noreferrer" className="underline">Sonarr</a> | <a href="http://localhost:9696" target="_blank" rel="noopener noreferrer" className="underline">Prowlarr</a>
               </p>
-            </div>
-
-            {/* Radarr Configuration */}
-            <div className="border border-gray-700 rounded-lg p-6 space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Film className="w-6 h-6 text-blue-400" />
-                  <h3 className="text-lg font-semibold">Radarr (Movies)</h3>
-                </div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={preferences.radarr_enabled}
-                    onChange={(e) => updatePreference('radarr_enabled', e.target.checked)}
-                    className="w-4 h-4 accent-blue-600"
-                  />
-                  <span className="text-sm text-gray-300">Enabled</span>
-                </label>
-              </div>
-
-              {preferences.radarr_enabled && (
-                <div className="space-y-4 pl-9">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">Host</label>
-                      <input
-                        type="text"
-                        placeholder="localhost"
-                        value={preferences.radarr_host || ''}
-                        onChange={(e) => updatePreference('radarr_host', e.target.value || null)}
-                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">Port</label>
-                      <input
-                        type="number"
-                        placeholder="7878"
-                        value={preferences.radarr_port || ''}
-                        onChange={(e) => updatePreference('radarr_port', e.target.value ? parseInt(e.target.value) : null)}
-                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">API Key</label>
-                    <div className="relative">
-                      <input
-                        type={showRadarrKey ? 'text' : 'password'}
-                        placeholder="Your Radarr API key"
-                        value={preferences.radarr_api_key || ''}
-                        onChange={(e) => updatePreference('radarr_api_key', e.target.value || null)}
-                        className="w-full bg-gray-700 text-white px-3 py-2 pr-20 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none font-mono text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowRadarrKey(!showRadarrKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-2 py-1 bg-gray-600 rounded"
-                      >
-                        {showRadarrKey ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Find in Radarr → Settings → General → API Key
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">URL Base (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="/radarr"
-                      value={preferences.radarr_url_base || ''}
-                      onChange={(e) => updatePreference('radarr_url_base', e.target.value || null)}
-                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Only needed if Radarr runs on a URL base path
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={testRadarrConnection}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-                  >
-                    Test Connection
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Sonarr Configuration */}
-            <div className="border border-gray-700 rounded-lg p-6 space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Tv className="w-6 h-6 text-purple-400" />
-                  <h3 className="text-lg font-semibold">Sonarr (TV Series)</h3>
-                </div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={preferences.sonarr_enabled}
-                    onChange={(e) => updatePreference('sonarr_enabled', e.target.checked)}
-                    className="w-4 h-4 accent-purple-600"
-                  />
-                  <span className="text-sm text-gray-300">Enabled</span>
-                </label>
-              </div>
-
-              {preferences.sonarr_enabled && (
-                <div className="space-y-4 pl-9">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">Host</label>
-                      <input
-                        type="text"
-                        placeholder="localhost"
-                        value={preferences.sonarr_host || ''}
-                        onChange={(e) => updatePreference('sonarr_host', e.target.value || null)}
-                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">Port</label>
-                      <input
-                        type="number"
-                        placeholder="8989"
-                        value={preferences.sonarr_port || ''}
-                        onChange={(e) => updatePreference('sonarr_port', e.target.value ? parseInt(e.target.value) : null)}
-                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">API Key</label>
-                    <div className="relative">
-                      <input
-                        type={showSonarrKey ? 'text' : 'password'}
-                        placeholder="Your Sonarr API key"
-                        value={preferences.sonarr_api_key || ''}
-                        onChange={(e) => updatePreference('sonarr_api_key', e.target.value || null)}
-                        className="w-full bg-gray-700 text-white px-3 py-2 pr-20 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none font-mono text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowSonarrKey(!showSonarrKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-2 py-1 bg-gray-600 rounded"
-                      >
-                        {showSonarrKey ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Find in Sonarr → Settings → General → API Key
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">URL Base (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="/sonarr"
-                      value={preferences.sonarr_url_base || ''}
-                      onChange={(e) => updatePreference('sonarr_url_base', e.target.value || null)}
-                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Only needed if Sonarr runs on a URL base path
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={testSonarrConnection}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
-                  >
-                    Test Connection
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Prowlarr Configuration */}
