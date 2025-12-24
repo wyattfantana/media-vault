@@ -124,9 +124,17 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
 
     console.log(`[TorrentsAPI] Adding torrent to qBittorrent: ${title || 'Unknown'}`);
 
+    // Determine save path based on category
+    const categoryName = category || 'Movies';
+    const baseDownloadPath = process.env.DOWNLOAD_DIR || '/mnt/d/MediaVault';
+    const savePath = `${baseDownloadPath}/${categoryName}`;
+
+    console.log(`[TorrentsAPI] Save path: ${savePath}`);
+
     // Add torrent to qBittorrent
     const result = await qbittorrentService.addTorrent(url, {
-      category: category || 'Movies',
+      category: categoryName,
+      savePath: savePath,
       paused: false,
     });
 
@@ -159,12 +167,14 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
       // Try to match torrent title to TMDB
       let tmdbId: number | null = null;
       let tmdbMediaType: 'movie' | 'tv' | null = null;
+      let thumbnail: string | null = null;
       try {
         console.log(`[TorrentsAPI] Searching TMDB for: ${title}`);
         const tmdbMatch = await tmdbService.findMediaForTitle(title || '', userId);
         if (tmdbMatch) {
           tmdbId = tmdbMatch.tmdb_id;
           tmdbMediaType = tmdbMatch.tmdb_media_type;
+          thumbnail = tmdbMatch.poster_url;
           console.log(`[TorrentsAPI] TMDB match found: ${tmdbMatch.title} (${tmdbMediaType} ID: ${tmdbId})`);
         } else {
           console.log(`[TorrentsAPI] No TMDB match found for: ${title}`);
@@ -188,6 +198,7 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
           metadata: torrentHash ? { torrentHash, category } : { category },
           tmdb_id: tmdbId,
           tmdb_media_type: tmdbMediaType,
+          thumbnail: thumbnail,
           created_at: new Date(),
         })
         .execute();
