@@ -122,16 +122,6 @@ preferencesRouter.put('/', requireAuth, async (req, res) => {
       vpn_kill_switch_enabled,
 
       // *arr Services Integration
-      radarr_enabled,
-      radarr_host,
-      radarr_port,
-      radarr_api_key,
-      radarr_url_base,
-      sonarr_enabled,
-      sonarr_host,
-      sonarr_port,
-      sonarr_api_key,
-      sonarr_url_base,
       prowlarr_enabled,
       prowlarr_host,
       prowlarr_port,
@@ -186,16 +176,6 @@ preferencesRouter.put('/', requireAuth, async (req, res) => {
     if (vpn_kill_switch_enabled !== undefined) updateFields.vpn_kill_switch_enabled = vpn_kill_switch_enabled;
 
     // *arr Services Integration
-    if (radarr_enabled !== undefined) updateFields.radarr_enabled = radarr_enabled;
-    if (radarr_host !== undefined) updateFields.radarr_host = radarr_host;
-    if (radarr_port !== undefined) updateFields.radarr_port = radarr_port;
-    if (radarr_api_key !== undefined) updateFields.radarr_api_key = radarr_api_key;
-    if (radarr_url_base !== undefined) updateFields.radarr_url_base = radarr_url_base;
-    if (sonarr_enabled !== undefined) updateFields.sonarr_enabled = sonarr_enabled;
-    if (sonarr_host !== undefined) updateFields.sonarr_host = sonarr_host;
-    if (sonarr_port !== undefined) updateFields.sonarr_port = sonarr_port;
-    if (sonarr_api_key !== undefined) updateFields.sonarr_api_key = sonarr_api_key;
-    if (sonarr_url_base !== undefined) updateFields.sonarr_url_base = sonarr_url_base;
     if (prowlarr_enabled !== undefined) updateFields.prowlarr_enabled = prowlarr_enabled;
     if (prowlarr_host !== undefined) updateFields.prowlarr_host = prowlarr_host;
     if (prowlarr_port !== undefined) updateFields.prowlarr_port = prowlarr_port;

@@ -202,13 +202,10 @@ MediaVault integrates with **Windows Mullvad VPN** for automatic torrent protect
 
 ## 🤖 *arr Services Integration (Optional - Advanced Automation)
 
-MediaVault now integrates with the **\*arr stack** for automated movie and TV series management!
+MediaVault now integrates with **Prowlarr** for automated torrent indexing and search!
 
-**What are \*arr services?**
-- **Radarr** - Automatically finds, downloads, and organizes movies
-- **Sonarr** - Automatically finds, downloads, and organizes TV series
-- **Prowlarr** - Manages all your torrent indexers in one place
-- **Recyclarr** - Automatically syncs quality settings from TRaSH guides
+**What is Prowlarr?**
+- **Prowlarr** - Manages all your torrent indexers in one place, providing unified search across multiple torrent sites
 
 ### Installation
 
@@ -220,47 +217,28 @@ sudo apt-get update
 sudo apt-get install docker-compose-plugin
 ```
 
-**2. Start the \*arr services:**
+**2. Start Prowlarr:**
 
-The start script will automatically start all \*arr services when you run:
+The start script will automatically start Prowlarr when you run:
 
 ```bash
 ~/start-mediavault.sh
 ```
 
-**3. Configure each service:**
+**3. Configure Prowlarr:**
 
-After starting, visit each service's web interface to complete setup:
+After starting, visit Prowlarr's web interface to complete setup:
 
-- **Prowlarr** (http://localhost:9696) - Set up first
+- **Prowlarr** (http://localhost:9696)
   - Copy the API key from Settings > General
   - Add indexers (Settings > Indexers > Add Indexer)
-  - Common indexers: 1337x, ThePirateBay, RARBG, etc.
+  - Common indexers: 1337x, ThePirateBay, TorrentGalaxy, etc.
 
-- **Radarr** (http://localhost:7878) - Movies
-  - Copy the API key from Settings > General
-  - Add a root folder: Settings > Media Management > Add Root Folder (`/downloads/Movies`)
-  - Set up quality profiles: Settings > Profiles
-
-- **Sonarr** (http://localhost:8989) - TV Series
-  - Copy the API key from Settings > General
-  - Add a root folder: Settings > Media Management > Add Root Folder (`/downloads/TV`)
-  - Set up quality profiles: Settings > Profiles
-
-**4. Connect Prowlarr to Radarr/Sonarr:**
-
-In Prowlarr:
-- Go to Settings > Apps > Add Application
-- Select Radarr or Sonarr
-- Enter the URL: `http://radarr:7878` or `http://sonarr:8989`
-- Paste the API key from step 3
-- Test and Save
-
-**5. Configure in MediaVault:**
+**4. Configure in MediaVault:**
 
 - Go to Settings in MediaVault
-- Scroll to the \*arr Services section
-- Enable each service and paste its API key
+- Scroll to the Torrent Indexer section
+- Enable Prowlarr and paste its API key
 - Save settings
 
 ### How It Works
@@ -268,13 +246,13 @@ In Prowlarr:
 Once configured, you can:
 
 1. **Browse movies/TV shows** in MediaVault's Discover page
-2. **Click "Add to Radarr"** or **"Add to Sonarr"** on any title
-3. The \*arr service will:
-   - Search your configured indexers
-   - Find the best quality release
-   - Download it via qBittorrent
-   - Organize it with proper naming (e.g., `Movie Title (2023).mkv`)
-   - Update Jellyfin automatically
+2. **Click "Download"** on any title
+3. **Select quality and torrent** from the search results
+4. MediaVault will:
+   - Search all configured indexers via Prowlarr
+   - Display results with quality, seeds, size, and indexer info
+   - Download selected torrent directly via qBittorrent
+   - Track download progress in the Downloads page
 
 ### Benefits
 

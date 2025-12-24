@@ -72,16 +72,6 @@ interface UserPreferences {
   vpn_kill_switch_enabled: boolean;
 
   // *arr Services Integration
-  radarr_enabled: boolean;
-  radarr_host: string | null;
-  radarr_port: number | null;
-  radarr_api_key: string | null;
-  radarr_url_base: string | null;
-  sonarr_enabled: boolean;
-  sonarr_host: string | null;
-  sonarr_port: number | null;
-  sonarr_api_key: string | null;
-  sonarr_url_base: string | null;
   prowlarr_enabled: boolean;
   prowlarr_host: string | null;
   prowlarr_port: number | null;
@@ -138,8 +128,6 @@ export function Settings() {
   const [saveMessage, setSaveMessage] = useState('');
   const [vpnMessage, setVpnMessage] = useState('');
   const [arrMessage, setArrMessage] = useState('');
-  const [showRadarrKey, setShowRadarrKey] = useState(false);
-  const [showSonarrKey, setShowSonarrKey] = useState(false);
   const [showProwlarrKey, setShowProwlarrKey] = useState(false);
 
   useEffect(() => {
@@ -354,46 +342,6 @@ export function Settings() {
   };
 
   // *arr Services Functions
-  const testRadarrConnection = async () => {
-    setArrMessage('Testing Radarr connection...');
-    try {
-      const res = await fetch(`${API_BASE}/radarr/status`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setArrMessage(`✅ Radarr connected! Version: ${data.version}`);
-        setTimeout(() => setArrMessage(''), 5000);
-      } else {
-        const error = await res.json();
-        setArrMessage(`❌ Radarr connection failed: ${error.message || 'Unknown error'}`);
-      }
-    } catch (err: any) {
-      console.error('Failed to test Radarr:', err);
-      setArrMessage(`❌ Radarr connection failed: ${err.message}`);
-    }
-  };
-
-  const testSonarrConnection = async () => {
-    setArrMessage('Testing Sonarr connection...');
-    try {
-      const res = await fetch(`${API_BASE}/sonarr/status`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setArrMessage(`✅ Sonarr connected! Version: ${data.version}`);
-        setTimeout(() => setArrMessage(''), 5000);
-      } else {
-        const error = await res.json();
-        setArrMessage(`❌ Sonarr connection failed: ${error.message || 'Unknown error'}`);
-      }
-    } catch (err: any) {
-      console.error('Failed to test Sonarr:', err);
-      setArrMessage(`❌ Sonarr connection failed: ${err.message}`);
-    }
-  };
-
   const testProwlarrConnection = async () => {
     setArrMessage('Testing Prowlarr connection...');
     try {
@@ -817,15 +765,13 @@ export function Settings() {
             {/* Info Box */}
             <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
               <p className="text-sm text-blue-300 mb-2">
-                <strong>🎬 Automated Media Management:</strong>
+                <strong>🎬 Torrent Indexer Management:</strong>
               </p>
-              <ul className="text-sm text-blue-300 space-y-1 ml-4">
-                <li><strong>Radarr:</strong> Automatically finds and downloads movies</li>
-                <li><strong>Sonarr:</strong> Automatically finds and downloads TV series</li>
-                <li><strong>Prowlarr:</strong> Manages torrent indexers for both services</li>
-              </ul>
+              <p className="text-sm text-blue-300">
+                <strong>Prowlarr:</strong> Manages torrent indexers and provides search capabilities across multiple torrent sites. MediaVault uses Prowlarr to search for movies and TV shows, then downloads them directly via qBittorrent.
+              </p>
               <p className="text-sm text-blue-300 mt-2">
-                Access points: <a href="http://localhost:7878" target="_blank" rel="noopener noreferrer" className="underline">Radarr</a> | <a href="http://localhost:8989" target="_blank" rel="noopener noreferrer" className="underline">Sonarr</a> | <a href="http://localhost:9696" target="_blank" rel="noopener noreferrer" className="underline">Prowlarr</a>
+                Access point: <a href="http://localhost:9696" target="_blank" rel="noopener noreferrer" className="underline">Prowlarr</a>
               </p>
             </div>
 

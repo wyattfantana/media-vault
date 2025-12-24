@@ -1580,23 +1580,22 @@ Based on Settings system completion and identified gaps:
 
 ### Lower Priority (Automation Stack)
 
-9. **Full Media Automation with Sonarr/Radarr/Bazarr** ⏸️ DEFERRED
-   - **Goal**: Complete "set it and forget it" media automation
+9. **Enhanced Subtitle Management with Bazarr** ⏸️ DEFERRED
+   - **Goal**: Automated subtitle downloading for all media
    - **Components**:
-     - Sonarr - Automated TV show downloading (monitors RSS, auto-downloads new episodes)
-     - Radarr - Automated movie downloading (monitors releases, auto-downloads)
      - Bazarr - Automated subtitle downloading (unlimited sources, no rate limits)
+     - Integrates with Jellyfin to detect missing subtitles
    - **Setup Steps**:
-     1. Install Sonarr + Radarr via Docker containers
-     2. Configure both to scan existing media folders (`/mnt/d/MediaVault/TV Shows`, `/mnt/d/MediaVault/Movies`)
-     3. Connect to qBittorrent for automatic torrent management
-     4. Configure Bazarr to integrate with Sonarr/Radarr
-     5. Set up subtitle providers (OpenSubtitles, Subscene, Supersubtitles)
-     6. Configure quality profiles and folder organization
-     7. Set up automatic library scans in Jellyfin
+     1. Install Bazarr via Docker container
+     2. Configure to scan existing media folders (`/mnt/d/MediaVault/TV Shows`, `/mnt/d/MediaVault/Movies`)
+     3. Connect to Jellyfin for library monitoring
+     4. Set up subtitle providers (OpenSubtitles, Subscene, Supersubtitles)
+     5. Configure automatic subtitle downloading preferences
+     6. Set up quality profiles for subtitle languages
    - **Benefits**:
-     - Automatically download new episodes when they air
      - Automatically fetch subtitles for all media (no daily limits)
+     - High-quality subtitle sources
+     - Subtitle synchronization and fixing
      - Automatic organization and renaming
      - Quality upgrades (720p → 1080p automatically when available)
      - Track ongoing shows without manual checks

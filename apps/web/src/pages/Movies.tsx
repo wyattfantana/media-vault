@@ -63,18 +63,13 @@ export default function Movies() {
 
   // Prowlarr state (for torrent search)
   const [prowlarrEnabled, setProwlarrEnabled] = useState(false);
-  const [addingToRadarr, setAddingToRadarr] = useState(false);
-  const [radarrMessage, setRadarrMessage] = useState<string | null>(null);
-  const [showQualityDialog, setShowQualityDialog] = useState(false);
-  const [qualityProfiles, setQualityProfiles] = useState<any[]>([]);
-  const [selectedQualityProfile, setSelectedQualityProfile] = useState<number | null>(null);
-  const [movieToAdd, setMovieToAdd] = useState<Movie | null>(null);
-  const [rootFolders, setRootFolders] = useState<any[]>([]);
   const [showTorrentBrowser, setShowTorrentBrowser] = useState(false);
   const [availableReleases, setAvailableReleases] = useState<any[]>([]);
   const [loadingReleases, setLoadingReleases] = useState(false);
   const [selectedRelease, setSelectedRelease] = useState<any | null>(null);
   const [qualityFilter, setQualityFilter] = useState<string>('1080p');
+  const [downloadingTorrent, setDownloadingTorrent] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -250,9 +245,9 @@ export default function Movies() {
     }, 100); // Small delay to ensure all React state updates have processed
   }, []);
 
-  // Check if Radarr is enabled
+  // Check if Prowlarr is enabled
   useEffect(() => {
-    const checkRadarrStatus = async () => {
+    const checkProwlarrStatus = async () => {
       try {
         const res = await fetch(`${API_BASE}/preferences`, {
           credentials: 'include'
@@ -265,7 +260,7 @@ export default function Movies() {
         console.error('Failed to check Prowlarr status:', error);
       }
     };
-    checkRadarrStatus();
+    checkProwlarrStatus();
   }, []);
 
   // Save filters to localStorage when they change (skip during restoration)
@@ -1439,127 +1434,6 @@ export default function Movies() {
   };
 
 
-  // Radarr Integration
-  const addToRadarr = async (movie: Movie) => {
-    setAddingToRadarr(true);
-    setRadarrMessage(null);
-
-    try {
-      // Check if movie already exists in Radarr
-      const existingRes = await fetch(`${API_BASE}/radarr/movies`, {
-        credentials: 'include'
-      });
-
-      if (existingRes.ok) {
-        const existingMovies = await existingRes.json();
-        const duplicate = existingMovies.find((m: any) => m.tmdbId === movie.id);
-
-        if (duplicate) {
-          const hasFile = duplicate.hasFile || duplicate.movieFileId > 0;
-          const quality = duplicate.movieFile?.quality?.quality?.name || 'Unknown';
-
-          if (hasFile) {
-            setRadarrMessage(`⚠️  "${movie.title}" is already in your library (${quality}). Want to search for an upgrade?`);
-            // TODO: Add upgrade button
-            setAddingToRadarr(false);
-            return;
-          } else {
-            setRadarrMessage(`⚠️  "${movie.title}" is already in Radarr but not downloaded yet. Searching for releases...`);
-            // Trigger a manual search for the existing movie
-            try {
-              await fetch(`${API_BASE}/radarr/movies/${duplicate.id}/search`, {
-                method: 'POST',
-                credentials: 'include'
-              });
-              setRadarrMessage(`✅ Triggered search for "${movie.title}" in Radarr`);
-            } catch (err) {
-              console.error('Failed to trigger search:', err);
-            }
-            setAddingToRadarr(false);
-            return;
-          }
-        }
-      }
-
-      // First, get quality profiles and root folders
-      const profilesRes = await fetch(`${API_BASE}/radarr/quality-profiles`, {
-        credentials: 'include'
-      });
-      const foldersRes = await fetch(`${API_BASE}/radarr/root-folders`, {
-        credentials: 'include'
-      });
-
-      if (!profilesRes.ok || !foldersRes.ok) {
-        throw new Error('Failed to fetch Radarr configuration');
-      }
-
-      const profiles = await profilesRes.json();
-      const folders = await foldersRes.json();
-
-      if (profiles.length === 0 || folders.length === 0) {
-        throw new Error('Please configure quality profiles and root folders in Radarr first');
-      }
-
-      // Store the profiles, folders, and movie, then show quality selection dialog
-      setQualityProfiles(profiles);
-      setRootFolders(folders);
-      setMovieToAdd(movie);
-
-      // Default to HD-1080p if available, otherwise first profile
-      const defaultProfile = profiles.find((p: any) => p.name === 'HD-1080p') || profiles[0];
-      setSelectedQualityProfile(defaultProfile.id);
-
-      setShowQualityDialog(true);
-    } catch (error: any) {
-      console.error('Failed to load Radarr configuration:', error);
-      setRadarrMessage(`❌ ${error.message}`);
-    } finally {
-      setAddingToRadarr(false);
-    }
-  };
-
-  const confirmAddToRadarr = async () => {
-    if (!movieToAdd || !selectedQualityProfile) return;
-
-    setAddingToRadarr(true);
-    setShowQualityDialog(false);
-
-    try {
-      const rootFolderPath = rootFolders[0]?.path;
-
-      // Add movie to Radarr with selected quality
-      const response = await fetch(`${API_BASE}/radarr/movies`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          title: movieToAdd.title,
-          year: parseInt(movieToAdd.year || '0'),
-          tmdbId: movieToAdd.id,
-          qualityProfileId: selectedQualityProfile,
-          rootFolderPath,
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add movie to Radarr');
-      }
-
-      const data = await response.json();
-      setRadarrMessage(`✅ Added "${movieToAdd.title}" to Radarr! Downloading in ${qualityProfiles.find(p => p.id === selectedQualityProfile)?.name || 'selected quality'}...`);
-      setTimeout(() => setRadarrMessage(null), 5000);
-    } catch (error: any) {
-      console.error('Failed to add to Radarr:', error);
-      setRadarrMessage(`❌ ${error.message}`);
-    } finally {
-      setAddingToRadarr(false);
-      setMovieToAdd(null);
-    }
-  };
-
   // Handle movie click - reset torrent state and open modal
   const handleMovieClick = (movie: Movie) => {
     // Reset all torrent-related state when opening a new movie modal
@@ -1671,47 +1545,17 @@ export default function Movies() {
       if (formattedReleases.length === 0) {
         const totalResults = releases.length;
         if (totalResults > 0) {
-          setRadarrMessage(`⚠️ Found ${totalResults} results but all were irrelevant. This movie may not be available on your indexers. Try adding more indexers in Prowlarr.`);
+          setDownloadMessage(`⚠️ Found ${totalResults} results but all were irrelevant. This movie may not be available on your indexers. Try adding more indexers in Prowlarr.`);
         } else {
-          setRadarrMessage(`⚠️ No torrents found. This movie may not be available on your indexers. Try adding more indexers in Prowlarr.`);
+          setDownloadMessage(`⚠️ No torrents found. This movie may not be available on your indexers. Try adding more indexers in Prowlarr.`);
         }
       }
     } catch (error: any) {
       console.error('Failed to browse torrents:', error);
-      setRadarrMessage(`❌ ${error.message}`);
+      setDownloadMessage(`❌ ${error.message}`);
       setAvailableReleases([]);
     } finally {
       setLoadingReleases(false);
-    }
-  };
-
-  const downloadSelectedRelease = async () => {
-    if (!selectedRelease || !selectedMovie) return;
-
-    setAddingToRadarr(true);
-
-    try {
-      await fetch(`${API_BASE}/radarr/releases/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          guid: selectedRelease.guid,
-          indexerId: selectedRelease.indexerId,
-        })
-      });
-
-      setRadarrMessage(`✅ Downloading "${selectedMovie.title}" - ${selectedRelease.title}`);
-      setSelectedRelease(null);
-      setAvailableReleases([]);
-      setTimeout(() => setRadarrMessage(null), 5000);
-    } catch (error: any) {
-      console.error('Failed to download release:', error);
-      setRadarrMessage(`❌ ${error.message}`);
-    } finally {
-      setAddingToRadarr(false);
     }
   };
 
@@ -2876,23 +2720,6 @@ export default function Movies() {
               <p className="text-gray-300 mb-6">{selectedMovie.overview}</p>
 
               <div className="space-y-4">
-                {/* Radarr Message */}
-                {radarrMessage && (
-                  <div className={`border rounded-lg p-4 ${
-                    radarrMessage.includes('❌')
-                      ? 'bg-red-900/20 border-red-500/30'
-                      : 'bg-green-900/20 border-green-500/30'
-                  }`}>
-                    <p className={`text-sm ${
-                      radarrMessage.includes('❌')
-                        ? 'text-red-300'
-                        : 'text-green-300'
-                    }`}>
-                      {radarrMessage}
-                    </p>
-                  </div>
-                )}
-
                 {/* Download Button */}
                 {prowlarrEnabled && (
                   <button
@@ -2914,7 +2741,7 @@ export default function Movies() {
                   </button>
                 )}
 
-                {/* Radarr Torrent Results */}
+                {/* Prowlarr Torrent Results */}
                 {availableReleases.length > 0 && (
                   <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <h3 className="text-lg font-semibold text-green-400 mb-3">
@@ -2960,9 +2787,9 @@ export default function Movies() {
                               key={index}
                               onClick={async () => {
                                 setSelectedRelease(release);
-                                setAddingToRadarr(true);
+                                setDownloadingTorrent(true);
                                 // Show message immediately
-                                setRadarrMessage(`⏳ Downloading "${selectedMovie?.title}"`);
+                                setDownloadMessage(`⏳ Downloading "${selectedMovie?.title}"`);
 
                                 try {
                                   const response = await fetch(`${API_BASE}/torrents/download`, {
@@ -2980,20 +2807,20 @@ export default function Movies() {
                                   });
 
                                   if (response.ok) {
-                                    setRadarrMessage(`✅ Downloading "${selectedMovie?.title}"`);
+                                    setDownloadMessage(`✅ Downloading "${selectedMovie?.title}"`);
                                     setAvailableReleases([]);
-                                    setTimeout(() => setRadarrMessage(null), 5000);
+                                    setTimeout(() => setDownloadMessage(null), 5000);
                                   } else if (response.status === 409) {
-                                    setRadarrMessage(`⚠️ This torrent is already in your downloads`);
-                                    setTimeout(() => setRadarrMessage(null), 5000);
+                                    setDownloadMessage(`⚠️ This torrent is already in your downloads`);
+                                    setTimeout(() => setDownloadMessage(null), 5000);
                                   } else {
                                     const error = await response.json();
                                     throw new Error(error.error || 'Failed to download');
                                   }
                                 } catch (error: any) {
-                                  setRadarrMessage(`❌ ${error.message}`);
+                                  setDownloadMessage(`❌ ${error.message}`);
                                 } finally {
-                                  setAddingToRadarr(false);
+                                  setDownloadingTorrent(false);
                                   setSelectedRelease(null);
                                 }
                               }}
@@ -3071,150 +2898,6 @@ export default function Movies() {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quality Selection Dialog */}
-      {showQualityDialog && movieToAdd && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-white mb-3">Select Quality for "{movieToAdd.title}"</h3>
-
-            <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
-              {qualityProfiles.map((profile) => (
-                <button
-                  key={profile.id}
-                  onClick={() => setSelectedQualityProfile(profile.id)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                    selectedQualityProfile === profile.id
-                      ? 'border-blue-500 bg-blue-900/30'
-                      : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-white text-sm">{profile.name}</div>
-                      <div className="text-xs text-gray-400 mt-0.5 truncate">
-                        {profile.name === 'HD-1080p' && 'Recommended - Best quality/size balance'}
-                        {profile.name === 'Ultra-HD' && '4K quality - Large file sizes'}
-                        {profile.name === 'HD-720p' && 'Good quality - Smaller files'}
-                        {profile.name === 'SD' && 'Low quality - Smallest files'}
-                        {!['HD-1080p', 'Ultra-HD', 'HD-720p', 'SD'].includes(profile.name) && 'Custom quality profile'}
-                      </div>
-                    </div>
-                    {selectedQualityProfile === profile.id && (
-                      <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 ml-2">
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Browse Torrents Button */}
-            <button
-              onClick={browseTorrents}
-              disabled={!selectedQualityProfile || loadingReleases}
-              className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-3"
-            >
-              {loadingReleases ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Browse Torrents
-                </>
-              )}
-            </button>
-
-            {/* Torrent Search Results - Inline dropdown */}
-            {availableReleases.length > 0 && (
-              <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-3 mb-3 max-h-64 overflow-y-auto">
-                <h3 className="text-sm font-semibold text-green-400 mb-2">
-                  Found {availableReleases.length} Torrents (sorted by seeds)
-                </h3>
-                <div className="space-y-2">
-                  {[...availableReleases]
-                    .sort((a, b) => (b.seeders || 0) - (a.seeders || 0))
-                    .map((release, index) => {
-                      const sizeInGB = release.size ? (release.size / 1073741824).toFixed(1) : 'Unknown';
-                      const quality = release.quality?.quality?.name || 'Unknown';
-                      const seeders = release.seeders || 0;
-                      const leechers = release.leechers || 0;
-                      const indexer = release.indexer || 'Unknown';
-
-                      return (
-                        <div
-                          key={index}
-                          onClick={() => setSelectedRelease(release)}
-                          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 rounded-lg p-2 cursor-pointer transition-colors"
-                        >
-                          <div className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-white truncate mb-1">{release.title}</p>
-                              <div className="flex items-center gap-2 text-xs text-gray-400 flex-wrap">
-                                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${getIndexerColor(indexer)}`}>
-                                  {indexer}
-                                </span>
-                                {quality && (
-                                  <span className="px-1.5 py-0.5 bg-blue-600/20 text-blue-400 rounded text-xs">{quality}</span>
-                                )}
-                                <span className="text-xs">{sizeInGB} GB</span>
-                                <span className="text-green-400 font-semibold text-xs">↑ {seeders}</span>
-                                <span className="text-red-400 text-xs">↓ {leechers}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowQualityDialog(false);
-                  setMovieToAdd(null);
-                  setSelectedRelease(null);
-                  setAvailableReleases([]);
-                }}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-              {selectedRelease ? (
-                <button
-                  onClick={downloadSelectedRelease}
-                  disabled={addingToRadarr}
-                  className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                >
-                  {addingToRadarr ? 'Downloading...' : 'Download Selected'}
-                </button>
-              ) : (
-                <button
-                  onClick={confirmAddToRadarr}
-                  disabled={!selectedQualityProfile || addingToRadarr}
-                  className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                >
-                  {addingToRadarr ? 'Adding...' : 'Add to Radarr'}
-                </button>
-              )}
             </div>
           </div>
         </div>

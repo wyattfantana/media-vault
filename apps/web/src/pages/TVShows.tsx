@@ -67,16 +67,11 @@ export default function TVShows() {
 
   // Prowlarr state (for torrent search)
   const [prowlarrEnabled, setProwlarrEnabled] = useState(false);
-  const [addingToSonarr, setAddingToSonarr] = useState(false);
-  const [sonarrMessage, setSonarrMessage] = useState<string | null>(null);
-  const [showQualityDialog, setShowQualityDialog] = useState(false);
-  const [qualityProfiles, setQualityProfiles] = useState<any[]>([]);
-  const [selectedQualityProfile, setSelectedQualityProfile] = useState<number | null>(null);
-  const [showToAdd, setShowToAdd] = useState<TVShow | null>(null);
-  const [rootFolders, setRootFolders] = useState<any[]>([]);
   const [availableReleases, setAvailableReleases] = useState<any[]>([]);
   const [loadingReleases, setLoadingReleases] = useState(false);
   const [selectedRelease, setSelectedRelease] = useState<any | null>(null);
+  const [downloadingTorrent, setDownloadingTorrent] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
   const isInitialMount = React.useRef(true);
   const isRestoring = React.useRef(true); // Track if we're restoring state from localStorage
@@ -254,9 +249,9 @@ export default function TVShows() {
     }, 100); // Small delay to ensure all React state updates have processed
   }, []);
 
-  // Check if Sonarr is enabled
+  // Check if Prowlarr is enabled
   useEffect(() => {
-    const checkSonarrStatus = async () => {
+    const checkProwlarrStatus = async () => {
       try {
         const res = await fetch(`${API_BASE}/preferences`, {
           credentials: 'include'
@@ -269,7 +264,7 @@ export default function TVShows() {
         console.error('Failed to check Prowlarr status:', error);
       }
     };
-    checkSonarrStatus();
+    checkProwlarrStatus();
   }, []);
 
   // Save filters to localStorage when they change (skip during restoration)
@@ -1467,14 +1462,14 @@ export default function TVShows() {
       if (formattedReleases.length === 0) {
         const totalResults = releases.length;
         if (totalResults > 0) {
-          setSonarrMessage(`⚠️ Found ${totalResults} results but all were for other shows. This show may not be available on your indexers. Try adding more indexers in Prowlarr.`);
+          setDownloadMessage(`⚠️ Found ${totalResults} results but all were for other shows. This show may not be available on your indexers. Try adding more indexers in Prowlarr.`);
         } else {
-          setSonarrMessage(`⚠️ No torrents found. This show may not be available on your indexers. Try adding more indexers in Prowlarr.`);
+          setDownloadMessage(`⚠️ No torrents found. This show may not be available on your indexers. Try adding more indexers in Prowlarr.`);
         }
       }
     } catch (error: any) {
       console.error('Failed to browse torrents:', error);
-      setSonarrMessage(`❌ ${error.message}`);
+      setDownloadMessage(`❌ ${error.message}`);
       setAvailableReleases([]);
     } finally {
       setLoadingReleases(false);
@@ -1496,90 +1491,6 @@ export default function TVShows() {
         }
       }
     }, 100);
-  };
-
-  // Sonarr Integration
-  const addToSonarr = async (show: TVShow) => {
-    setAddingToSonarr(true);
-    setSonarrMessage(null);
-
-    try {
-      // First, get quality profiles and root folders
-      const profilesRes = await fetch(`${API_BASE}/sonarr/quality-profiles`, {
-        credentials: 'include'
-      });
-      const foldersRes = await fetch(`${API_BASE}/sonarr/root-folders`, {
-        credentials: 'include'
-      });
-
-      if (!profilesRes.ok || !foldersRes.ok) {
-        throw new Error('Failed to fetch Sonarr configuration');
-      }
-
-      const profiles = await profilesRes.json();
-      const folders = await foldersRes.json();
-
-      if (profiles.length === 0 || folders.length === 0) {
-        throw new Error('Please configure quality profiles and root folders in Sonarr first');
-      }
-
-      // Store the profiles, folders, and show, then show quality selection dialog
-      setQualityProfiles(profiles);
-      setRootFolders(folders);
-      setShowToAdd(show);
-
-      // Default to HD-1080p if available, otherwise first profile
-      const defaultProfile = profiles.find((p: any) => p.name === 'HD-1080p') || profiles[0];
-      setSelectedQualityProfile(defaultProfile.id);
-
-      setShowQualityDialog(true);
-    } catch (error: any) {
-      console.error('Failed to load Sonarr configuration:', error);
-      setSonarrMessage(`❌ ${error.message}`);
-    } finally {
-      setAddingToSonarr(false);
-    }
-  };
-
-  const confirmAddToSonarr = async () => {
-    if (!showToAdd || !selectedQualityProfile) return;
-
-    setAddingToSonarr(true);
-    setShowQualityDialog(false);
-
-    try {
-      const rootFolderPath = rootFolders[0]?.path;
-
-      // Add show to Sonarr with selected quality
-      const response = await fetch(`${API_BASE}/sonarr/series`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          title: showToAdd.name || showToAdd.title,
-          tvdbId: showToAdd.id,
-          qualityProfileId: selectedQualityProfile,
-          rootFolderPath,
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add series to Sonarr');
-      }
-
-      const data = await response.json();
-      setSonarrMessage(`✅ Added "${showToAdd.name || showToAdd.title}" to Sonarr! Downloading in ${qualityProfiles.find(p => p.id === selectedQualityProfile)?.name || 'selected quality'}...`);
-      setTimeout(() => setSonarrMessage(null), 5000);
-    } catch (error: any) {
-      console.error('Failed to add to Sonarr:', error);
-      setSonarrMessage(`❌ ${error.message}`);
-    } finally {
-      setAddingToSonarr(false);
-      setShowToAdd(null);
-    }
   };
 
   const handleDownload = async (show: TVShow) => {
@@ -2691,24 +2602,6 @@ export default function TVShows() {
               <p className="text-gray-300 mb-6">{selectedShow.overview}</p>
 
               <div className="space-y-4">
-                {/* Sonarr Message */}
-                {sonarrMessage && (
-                  <div className={`border rounded-lg p-4 ${
-                    sonarrMessage.includes('✅')
-                      ? 'bg-green-900/20 border-green-500/30'
-                      : 'bg-red-900/20 border-red-500/30'
-                  }`}>
-                    <p className={`text-sm ${
-                      sonarrMessage.includes('✅')
-                        ? 'text-green-300'
-                        : 'text-red-300'
-                    }`}>
-                      {sonarrMessage}
-                    </p>
-                  </div>
-                )}
-
-
                 {/* Download Button */}
                 {prowlarrEnabled && (
                   <button
@@ -2831,9 +2724,9 @@ export default function TVShows() {
                               key={index}
                               onClick={async () => {
                                 setSelectedRelease(release);
-                                setAddingToSonarr(true);
+                                setDownloadingTorrent(true);
                                 // Show message immediately
-                                setSonarrMessage(`⏳ Downloading "${selectedShow?.name || selectedShow?.title}"`);
+                                setDownloadMessage(`⏳ Downloading "${selectedShow?.name || selectedShow?.title}"`);
 
                                 try {
                                   const response = await fetch(`${API_BASE}/torrents/download`, {
@@ -2851,20 +2744,20 @@ export default function TVShows() {
                                   });
 
                                   if (response.ok) {
-                                    setSonarrMessage(`✅ Downloading "${selectedShow?.name || selectedShow?.title}"`);
+                                    setDownloadMessage(`✅ Downloading "${selectedShow?.name || selectedShow?.title}"`);
                                     setAvailableReleases([]);
-                                    setTimeout(() => setSonarrMessage(null), 5000);
+                                    setTimeout(() => setDownloadMessage(null), 5000);
                                   } else if (response.status === 409) {
-                                    setSonarrMessage(`⚠️ This torrent is already in your downloads`);
-                                    setTimeout(() => setSonarrMessage(null), 5000);
+                                    setDownloadMessage(`⚠️ This torrent is already in your downloads`);
+                                    setTimeout(() => setDownloadMessage(null), 5000);
                                   } else {
                                     const error = await response.json();
                                     throw new Error(error.error || 'Failed to download');
                                   }
                                 } catch (error: any) {
-                                  setSonarrMessage(`❌ ${error.message}`);
+                                  setDownloadMessage(`❌ ${error.message}`);
                                 } finally {
-                                  setAddingToSonarr(false);
+                                  setDownloadingTorrent(false);
                                   setSelectedRelease(null);
                                 }
                               }}
@@ -2891,68 +2784,6 @@ export default function TVShows() {
                 )}
 
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quality Selection Dialog */}
-      {showQualityDialog && showToAdd && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-2xl border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Select Quality for "{showToAdd.name || showToAdd.title}"</h3>
-
-            <div className="space-y-3 mb-6">
-              {qualityProfiles.map((profile) => (
-                <button
-                  key={profile.id}
-                  onClick={() => setSelectedQualityProfile(profile.id)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                    selectedQualityProfile === profile.id
-                      ? 'border-purple-500 bg-purple-900/30'
-                      : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-white">{profile.name}</div>
-                      <div className="text-sm text-gray-400 mt-1">
-                        {profile.name === 'HD-1080p' && 'Recommended - Best quality/size balance'}
-                        {profile.name === 'Ultra-HD' && '4K quality - Large file sizes'}
-                        {profile.name === 'HD-720p' && 'Good quality - Smaller files'}
-                        {profile.name === 'SD' && 'Low quality - Smallest files'}
-                        {!['HD-1080p', 'Ultra-HD', 'HD-720p', 'SD'].includes(profile.name) && 'Custom quality profile'}
-                      </div>
-                    </div>
-                    {selectedQualityProfile === profile.id && (
-                      <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowQualityDialog(false);
-                  setShowToAdd(null);
-                }}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmAddToSonarr}
-                disabled={!selectedQualityProfile || addingToSonarr}
-                className="flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-              >
-                {addingToSonarr ? 'Adding...' : 'Add to Sonarr'}
-              </button>
             </div>
           </div>
         </div>
