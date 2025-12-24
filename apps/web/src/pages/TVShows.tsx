@@ -61,6 +61,7 @@ export default function TVShows() {
   const [torrentResults, setTorrentResults] = useState<any[]>([]);
   const [searchingTorrents, setSearchingTorrents] = useState(false);
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
+  const [qualityFilter, setQualityFilter] = useState<string>('all');
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   // Prowlarr state (for torrent search)
@@ -1312,11 +1313,33 @@ export default function TVShows() {
     window.open(`https://ext.to/search?q=${query}`, '_blank');
   };
 
+  // Handle show click - reset torrent state and open modal
+  const handleShowClick = (show: TVShow) => {
+    // Reset all torrent-related state when opening a new show modal
+    setTorrentResults([]);
+    setQualityFilter('all');
+    setTorrentSearchError(null);
+    setVpnConnected(false);
+    setDownloadUrl('');
+    setSelectedShow(show);
+  };
+
+  // Helper function to extract quality from torrent title
+  const extractQuality = (title: string): string => {
+    const upperTitle = title.toUpperCase();
+    if (upperTitle.includes('2160P') || upperTitle.includes('4K') || upperTitle.includes('UHD')) return '2160p';
+    if (upperTitle.includes('1080P')) return '1080p';
+    if (upperTitle.includes('720P')) return '720p';
+    if (upperTitle.includes('480P')) return '480p';
+    return 'Other';
+  };
+
   const searchTorrents = async (show: TVShow) => {
     const query = `${show.name || show.title} ${show.year || ''}`;
     setSearchingTorrents(true);
     setTorrentSearchError(null);
     setTorrentResults([]);
+    setQualityFilter('all'); // Reset filter when searching new torrents
 
     try {
       const response = await fetch(`${API_BASE}/torrents/search`, {
@@ -1633,7 +1656,7 @@ export default function TVShows() {
         className={`group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-105 hover:z-10 hover:shadow-2xl flex-shrink-0 ${
           size === 'small' ? 'w-40' : 'w-48'
         }`}
-        onClick={() => setSelectedShow(show)}
+        onClick={() => handleShowClick(show)}
       >
         {show.poster_url ? (
           <img
@@ -2507,6 +2530,7 @@ export default function TVShows() {
             setTorrentResults([]);
             setTorrentSearchError(null);
             setDownloadUrl('');
+            setQualityFilter('all');
           }}
         >
           <div
@@ -2592,11 +2616,38 @@ export default function TVShows() {
                 {/* Torrent Search Results */}
                 {torrentResults.length > 0 && (
                   <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    {/* Quality Filter Buttons */}
+                    <div className="flex gap-2 mb-3 flex-wrap">
+                      {['all', '2160p', '1080p', '720p', 'Other'].map((quality) => {
+                        const count = quality === 'all'
+                          ? torrentResults.length
+                          : torrentResults.filter(t => extractQuality(t.title).includes(quality)).length;
+
+                        if (count === 0 && quality !== 'all') return null;
+
+                        return (
+                          <button
+                            key={quality}
+                            onClick={() => setQualityFilter(quality)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              qualityFilter === quality
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            {quality === 'all' ? 'All' : quality} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <h3 className="text-lg font-semibold text-green-400 mb-3">
-                      Found {torrentResults.length} Torrents (sorted by seeds)
+                      Found {torrentResults.filter(t => qualityFilter === 'all' || extractQuality(t.title) === qualityFilter).length} Torrents (sorted by seeds)
                     </h3>
                     <div className="space-y-2">
-                      {torrentResults.map((torrent, index) => (
+                      {torrentResults
+                        .filter(t => qualityFilter === 'all' || extractQuality(t.title) === qualityFilter)
+                        .map((torrent, index) => (
                         <div
                           key={index}
                           onClick={() => selectTorrent(torrent.magnet)}
