@@ -17,8 +17,24 @@ services:
     networks:
       - mediavault
     dns:
+      - 1.1.1.1
+      - 1.0.0.1
       - 8.8.8.8
       - 8.8.4.4
+    depends_on:
+      - flaresolverr
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - TZ=Etc/UTC
+    ports:
+      - 8191:8191
+    restart: unless-stopped
+    networks:
+      - mediavault
 
   # Radarr/Sonarr/Recyclarr removed - MediaVault now uses Prowlarr + qBittorrent directly
   # Uncomment below if you want automatic monitoring and quality upgrades

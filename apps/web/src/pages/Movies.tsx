@@ -1602,8 +1602,41 @@ export default function Movies() {
 
       const releases = await releasesResponse.json();
 
+      // Filter out irrelevant results
+      const movieTitle = selectedMovie.title.toLowerCase();
+      const allKeywords = movieTitle.split(/[\s:]+/).filter(word => word.length > 2);
+
+      const filteredReleases = releases.filter((r: any) => {
+        const titleLower = r.title.toLowerCase();
+
+        // Filter out adult content keywords
+        const adultKeywords = ['xxx', 'onlyfans', 'nfbusty', 'girlsoutwest', 'girlsrimming', 'playboy'];
+        if (adultKeywords.some(keyword => titleLower.includes(keyword))) {
+          return false;
+        }
+
+        // For movies with more than 2 keywords, require at least 50% match AND
+        // at least one keyword beyond the first two (to avoid person-name-only matches)
+        const matchedKeywords = allKeywords.filter(keyword => titleLower.includes(keyword));
+        const matchPercentage = matchedKeywords.length / allKeywords.length;
+
+        if (allKeywords.length > 2) {
+          // Require at least 50% overall match
+          if (matchPercentage < 0.5) return false;
+
+          // Also require at least one keyword from beyond the first two words
+          // (to filter out results that only match person names or common words)
+          const uniqueKeywords = allKeywords.slice(2);
+          const hasUniqueMatch = uniqueKeywords.some(keyword => titleLower.includes(keyword));
+          return hasUniqueMatch;
+        }
+
+        // For short titles (1-2 words), require higher match percentage
+        return matchPercentage >= 0.6;
+      });
+
       // Map Prowlarr results to expected format
-      const formattedReleases = releases.map((r: any) => ({
+      const formattedReleases = filteredReleases.map((r: any) => ({
         guid: r.guid,
         title: r.title,
         indexerId: r.indexerId,
@@ -1617,6 +1650,16 @@ export default function Movies() {
       }));
 
       setAvailableReleases(formattedReleases);
+
+      // Show message if no results found after filtering
+      if (formattedReleases.length === 0) {
+        const totalResults = releases.length;
+        if (totalResults > 0) {
+          setRadarrMessage(`⚠️ Found ${totalResults} results but all were irrelevant. This movie may not be available on your indexers. Try adding more indexers in Prowlarr.`);
+        } else {
+          setRadarrMessage(`⚠️ No torrents found. This movie may not be available on your indexers. Try adding more indexers in Prowlarr.`);
+        }
+      }
     } catch (error: any) {
       console.error('Failed to browse torrents:', error);
       setRadarrMessage(`❌ ${error.message}`);
