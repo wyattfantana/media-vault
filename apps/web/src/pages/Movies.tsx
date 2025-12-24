@@ -74,6 +74,7 @@ export default function Movies() {
   const [availableReleases, setAvailableReleases] = useState<any[]>([]);
   const [loadingReleases, setLoadingReleases] = useState(false);
   const [selectedRelease, setSelectedRelease] = useState<any | null>(null);
+  const [qualityFilter, setQualityFilter] = useState<string>('all');
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -1559,11 +1560,34 @@ export default function Movies() {
     }
   };
 
+  // Handle movie click - reset torrent state and open modal
+  const handleMovieClick = (movie: Movie) => {
+    // Reset all torrent-related state when opening a new movie modal
+    setAvailableReleases([]);
+    setSelectedRelease(null);
+    setQualityFilter('all');
+    setTorrentResults([]);
+    setTorrentSearchError(null);
+    setVpnConnected(false);
+    setSelectedMovie(movie);
+  };
+
+  // Helper function to extract quality from torrent title
+  const extractQuality = (title: string): string => {
+    const upperTitle = title.toUpperCase();
+    if (upperTitle.includes('2160P') || upperTitle.includes('4K') || upperTitle.includes('UHD')) return '2160p';
+    if (upperTitle.includes('1080P')) return '1080p';
+    if (upperTitle.includes('720P')) return '720p';
+    if (upperTitle.includes('480P')) return '480p';
+    return 'Other';
+  };
+
   const browseTorrents = async () => {
     if (!selectedMovie) return;
 
     setLoadingReleases(true);
     setAvailableReleases([]);
+    setQualityFilter('all'); // Reset filter when browsing new torrents
 
     try {
       // Search Prowlarr directly with movie title and year
@@ -1827,7 +1851,7 @@ export default function Movies() {
         className={`group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-105 hover:z-10 hover:shadow-2xl flex-shrink-0 ${
           size === 'small' ? 'w-40' : 'w-48'
         }`}
-        onClick={() => setSelectedMovie(movie)}
+        onClick={() => handleMovieClick(movie)}
       >
         {movie.poster_url ? (
           <img
@@ -2745,6 +2769,9 @@ export default function Movies() {
             setVpnConnected(false);
             setTorrentResults([]);
             setTorrentSearchError(null);
+            setAvailableReleases([]);
+            setSelectedRelease(null);
+            setQualityFilter('all');
           }}
         >
           <div
@@ -2831,11 +2858,37 @@ export default function Movies() {
                 {/* Radarr Torrent Results */}
                 {availableReleases.length > 0 && (
                   <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    {/* Quality Filter Buttons */}
+                    <div className="flex gap-2 mb-3 flex-wrap">
+                      {['all', '2160p', '1080p', '720p', 'Other'].map((quality) => {
+                        const count = quality === 'all'
+                          ? availableReleases.length
+                          : availableReleases.filter(r => extractQuality(r.title) === quality).length;
+
+                        if (count === 0 && quality !== 'all') return null;
+
+                        return (
+                          <button
+                            key={quality}
+                            onClick={() => setQualityFilter(quality)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              qualityFilter === quality
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            {quality === 'all' ? 'All' : quality} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <h3 className="text-lg font-semibold text-green-400 mb-3">
-                      Found {availableReleases.length} Torrents (sorted by seeds)
+                      Found {availableReleases.filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter).length} Torrents (sorted by seeds)
                     </h3>
                     <div className="space-y-2">
                       {[...availableReleases]
+                        .filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter)
                         .sort((a, b) => (b.seeders || 0) - (a.seeders || 0))
                         .map((release, index) => {
                           const sizeInGB = release.size ? (release.size / 1073741824).toFixed(1) : 'Unknown';
