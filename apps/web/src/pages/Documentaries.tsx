@@ -52,6 +52,8 @@ export default function Documentaries() {
   const [selectedRelease, setSelectedRelease] = useState<any | null>(null);
   const [qualityFilter, setQualityFilter] = useState<string>('1080p');
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
+  const [vpnConnected, setVpnConnected] = useState(false);
+  const [checkingVpn, setCheckingVpn] = useState(false);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -763,7 +765,21 @@ export default function Documentaries() {
     setSelectedRelease(null);
     setQualityFilter('1080p');
     setTorrentSearchError(null);
+    setVpnConnected(false);
     setSelectedDocumentary(documentary);
+
+    // Check VPN status
+    setCheckingVpn(true);
+    fetch(`${API_BASE}/vpn/status`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        setVpnConnected(data.connected || false);
+        setCheckingVpn(false);
+      })
+      .catch(() => {
+        setVpnConnected(false);
+        setCheckingVpn(false);
+      });
   };
 
   // Browse torrents using Prowlarr
@@ -1555,32 +1571,19 @@ export default function Documentaries() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-1">
-                <div className="text-sm text-gray-300">
+              <div className="space-y-2">
+                <div className="text-sm text-gray-300 flex items-center gap-2 flex-wrap">
+                  {allDocumentariesLoading && <Loader className="w-4 h-4 animate-spin text-blue-400" />}
                   <span className="text-gray-400">Loaded:</span>{' '}
                   <span className="font-bold text-white">{allDocumentaries.length.toLocaleString()}</span> of{' '}
                   <span className="font-bold text-blue-400">{allDocumentariesTotalResults.toLocaleString()}</span>{' '}
-                  {allDocumentariesFilters.minRating > 0 || allDocumentariesFilters.minVotes > 0 || allDocumentariesFilters.selectedGenres.length > 0 || allDocumentariesFilters.excludeGenres.length > 0 || allDocumentariesFilters.yearFrom || allDocumentariesFilters.yearTo ? (
-                    <span className="text-yellow-400">matching documentaries</span>
-                  ) : (
-                    <span className="text-gray-400">documentaries</span>
-                  )}
+                  <span className="text-gray-400">documentaries</span>
                 </div>
-                <div className="text-xs text-gray-500 space-y-1">
-                  {(allDocumentariesFilters.minRating > 0 || allDocumentariesFilters.minVotes > 0 || allDocumentariesFilters.selectedGenres.length > 0 || allDocumentariesFilters.excludeGenres.length > 0 || allDocumentariesFilters.yearFrom || allDocumentariesFilters.yearTo) ? (
-                    <>
-                      <div>
-                        <span className="text-yellow-400">Filtered:</span> <span className="font-semibold text-yellow-300">{allDocumentariesTotalResults.toLocaleString()}+ matching documentaries</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Total catalog:</span> <span className="font-semibold text-gray-400">205,482+ documentaries</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      Total catalog: <span className="font-semibold text-gray-400">{allDocumentariesTotalResults.toLocaleString()}+ documentaries</span>
-                    </div>
-                  )}
+
+                {/* Always show total catalog for reference */}
+                <div className="text-xs text-gray-500">
+                  <span className="text-gray-500">Total catalog:</span>{' '}
+                  <span className="font-semibold text-gray-400">205,482+ documentaries</span>
                 </div>
               </div>
             )}
@@ -1710,17 +1713,36 @@ export default function Documentaries() {
               <p className="text-gray-300 mb-6">{selectedDocumentary.overview}</p>
 
               <div className="space-y-4">
+                {/* VPN Warning */}
+                {availableReleases.length === 0 && !vpnConnected && !checkingVpn && (
+                  <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                    <p className="text-sm text-yellow-300">
+                      ⚠️ VPN is not connected. Please enable your VPN before downloading torrents.
+                    </p>
+                  </div>
+                )}
+
                 {/* Download Button */}
                 {availableReleases.length === 0 && (
                   <button
                     onClick={browseTorrents}
-                    disabled={loadingReleases}
+                    disabled={loadingReleases || !vpnConnected || checkingVpn}
                     className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
                   >
-                    {loadingReleases ? (
+                    {checkingVpn ? (
+                      <>
+                        <Loader className="w-6 h-6 animate-spin" />
+                        Checking VPN...
+                      </>
+                    ) : loadingReleases ? (
                       <>
                         <Loader className="w-6 h-6 animate-spin" />
                         Searching Torrents...
+                      </>
+                    ) : !vpnConnected ? (
+                      <>
+                        <Download className="w-6 h-6" />
+                        VPN Required
                       </>
                     ) : (
                       <>

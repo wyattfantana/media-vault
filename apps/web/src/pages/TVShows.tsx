@@ -1324,6 +1324,19 @@ export default function TVShows() {
     setVpnConnected(false);
     setDownloadUrl('');
     setSelectedShow(show);
+
+    // Check VPN status
+    setCheckingVpn(true);
+    fetch(`${API_BASE}/vpn/status`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        setVpnConnected(data.connected || false);
+        setCheckingVpn(false);
+      })
+      .catch(() => {
+        setVpnConnected(false);
+        setCheckingVpn(false);
+      });
   };
 
   // Helper function to extract quality from torrent title
@@ -2406,32 +2419,19 @@ export default function TVShows() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-1">
-                <div className="text-sm text-gray-300">
+              <div className="space-y-2">
+                <div className="text-sm text-gray-300 flex items-center gap-2 flex-wrap">
+                  {allShowsLoading && <Loader className="w-4 h-4 animate-spin text-blue-400" />}
                   <span className="text-gray-400">Loaded:</span>{' '}
                   <span className="font-bold text-white">{allShows.length.toLocaleString()}</span> of{' '}
                   <span className="font-bold text-blue-400">{allShowsTotalResults.toLocaleString()}</span>{' '}
-                  {allShowsFilters.minRating > 0 || allShowsFilters.minVotes > 0 || allShowsFilters.selectedGenres.length > 0 || allShowsFilters.excludeGenres.length > 0 || allShowsFilters.yearFrom || allShowsFilters.yearTo ? (
-                    <span className="text-yellow-400">matching shows</span>
-                  ) : (
-                    <span className="text-gray-400">shows</span>
-                  )}
+                  <span className="text-gray-400">shows</span>
                 </div>
-                <div className="text-xs text-gray-500 space-y-1">
-                  {(allShowsFilters.minRating > 0 || allShowsFilters.minVotes > 0 || allShowsFilters.selectedGenres.length > 0 || allShowsFilters.excludeGenres.length > 0 || allShowsFilters.yearFrom || allShowsFilters.yearTo) ? (
-                    <>
-                      <div>
-                        <span className="text-yellow-400">Filtered:</span> <span className="font-semibold text-yellow-300">{allShowsTotalResults.toLocaleString()}+ matching shows</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Total catalog:</span> <span className="font-semibold text-gray-400">210,119+ shows</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      Total catalog: <span className="font-semibold text-gray-400">{allShowsTotalResults.toLocaleString()}+ shows</span>
-                    </div>
-                  )}
+
+                {/* Always show total catalog for reference */}
+                <div className="text-xs text-gray-500">
+                  <span className="text-gray-500">Total catalog:</span>{' '}
+                  <span className="font-semibold text-gray-400">210,119+ shows</span>
                 </div>
               </div>
             )}
@@ -2602,17 +2602,36 @@ export default function TVShows() {
               <p className="text-gray-300 mb-6">{selectedShow.overview}</p>
 
               <div className="space-y-4">
+                {/* VPN Warning */}
+                {prowlarrEnabled && !vpnConnected && !checkingVpn && (
+                  <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                    <p className="text-sm text-yellow-300">
+                      ⚠️ VPN is not connected. Please enable your VPN before downloading torrents.
+                    </p>
+                  </div>
+                )}
+
                 {/* Download Button */}
                 {prowlarrEnabled && (
                   <button
                     onClick={() => browseTorrents()}
-                    disabled={loadingReleases}
+                    disabled={loadingReleases || !vpnConnected || checkingVpn}
                     className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
                   >
-                    {loadingReleases ? (
+                    {checkingVpn ? (
+                      <>
+                        <Loader className="w-6 h-6 animate-spin" />
+                        Checking VPN...
+                      </>
+                    ) : loadingReleases ? (
                       <>
                         <Loader className="w-6 h-6 animate-spin" />
                         Loading Torrents...
+                      </>
+                    ) : !vpnConnected ? (
+                      <>
+                        <Download className="w-6 h-6" />
+                        VPN Required
                       </>
                     ) : (
                       <>

@@ -1444,6 +1444,19 @@ export default function Movies() {
     setTorrentSearchError(null);
     setVpnConnected(false);
     setSelectedMovie(movie);
+
+    // Check VPN status
+    setCheckingVpn(true);
+    fetch(`${API_BASE}/vpn/status`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        setVpnConnected(data.connected || false);
+        setCheckingVpn(false);
+      })
+      .catch(() => {
+        setVpnConnected(false);
+        setCheckingVpn(false);
+      });
   };
 
   // Helper function to extract quality from torrent title
@@ -2720,17 +2733,36 @@ export default function Movies() {
               <p className="text-gray-300 mb-6">{selectedMovie.overview}</p>
 
               <div className="space-y-4">
+                {/* VPN Warning */}
+                {prowlarrEnabled && !vpnConnected && !checkingVpn && (
+                  <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                    <p className="text-sm text-yellow-300">
+                      ⚠️ VPN is not connected. Please enable your VPN before downloading torrents.
+                    </p>
+                  </div>
+                )}
+
                 {/* Download Button */}
                 {prowlarrEnabled && (
                   <button
                     onClick={() => browseTorrents()}
-                    disabled={loadingReleases}
+                    disabled={loadingReleases || !vpnConnected || checkingVpn}
                     className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
                   >
-                    {loadingReleases ? (
+                    {checkingVpn ? (
+                      <>
+                        <Loader className="w-6 h-6 animate-spin" />
+                        Checking VPN...
+                      </>
+                    ) : loadingReleases ? (
                       <>
                         <Loader className="w-6 h-6 animate-spin" />
                         Loading Torrents...
+                      </>
+                    ) : !vpnConnected ? (
+                      <>
+                        <Download className="w-6 h-6" />
+                        VPN Required
                       </>
                     ) : (
                       <>
