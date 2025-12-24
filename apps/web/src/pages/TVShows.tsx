@@ -62,6 +62,7 @@ export default function TVShows() {
   const [searchingTorrents, setSearchingTorrents] = useState(false);
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
   const [qualityFilter, setQualityFilter] = useState<string>('1080p');
+  const [packTypeFilter, setPackTypeFilter] = useState<string>('all');
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   // Prowlarr state (for torrent search)
@@ -1323,6 +1324,7 @@ export default function TVShows() {
     setAvailableReleases([]);
     setSelectedRelease(null);
     setQualityFilter('1080p');
+    setPackTypeFilter('all');
     setTorrentSearchError(null);
     setVpnConnected(false);
     setDownloadUrl('');
@@ -1355,12 +1357,49 @@ export default function TVShows() {
     return 'bg-indigo-600/20 text-indigo-400'; // Default color
   };
 
+  // Helper function to detect pack type from torrent title
+  const detectPackType = (title: string): string => {
+    const titleLower = title.toLowerCase();
+
+    // Complete series detection
+    if (titleLower.includes('complete') && (titleLower.includes('series') || titleLower.includes('collection'))) {
+      return 'series';
+    }
+    if (/s\d+-s\d+/.test(titleLower)) { // e.g., S01-S08
+      return 'series';
+    }
+
+    // Season pack detection
+    if (titleLower.includes('season') && titleLower.includes('complete')) {
+      return 'season';
+    }
+    if (/s\d+\s*(complete|pack|1080p|720p|2160p)/i.test(title)) { // e.g., S01 Complete, S02 1080p
+      return 'season';
+    }
+
+    // Multi-episode detection
+    if (/s\d+e\d+-e\d+/i.test(title)) { // e.g., S01E01-E05
+      return 'multi';
+    }
+    if (/\d+x\d+-\d+x\d+/i.test(title)) { // e.g., 1x01-1x05
+      return 'multi';
+    }
+
+    // Single episode detection
+    if (/s\d+e\d+/i.test(title) || /\d+x\d+/i.test(title)) {
+      return 'episode';
+    }
+
+    return 'other';
+  };
+
   const browseTorrents = async () => {
     if (!selectedShow) return;
 
     setLoadingReleases(true);
     setAvailableReleases([]);
     setQualityFilter('1080p'); // Reset filter when browsing new torrents
+    setPackTypeFilter('all');
 
     try {
       // Search Prowlarr directly with show title and year
@@ -2606,6 +2645,7 @@ export default function TVShows() {
             setTorrentSearchError(null);
             setDownloadUrl('');
             setQualityFilter('1080p');
+            setPackTypeFilter('all');
           }}
         >
           <div
@@ -2694,7 +2734,13 @@ export default function TVShows() {
                 {availableReleases.length > 0 && (
                   <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <h3 className="text-lg font-semibold text-green-400 mb-3">
-                      Found {availableReleases.filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter).length} Torrents (sorted by seeds)
+                      Found {availableReleases.filter(r => {
+                        const quality = extractQuality(r.title);
+                        const packType = detectPackType(r.title);
+                        const qualityMatch = qualityFilter === 'all' || quality === qualityFilter;
+                        const packMatch = packTypeFilter === 'all' || packType === packTypeFilter;
+                        return qualityMatch && packMatch;
+                      }).length} Torrents (sorted by seeds)
                     </h3>
 
                     {/* Quality Filter Buttons */}
@@ -2709,7 +2755,10 @@ export default function TVShows() {
                         return (
                           <button
                             key={quality}
-                            onClick={() => setQualityFilter(quality)}
+                            onClick={() => {
+                              setQualityFilter(quality);
+                              setPackTypeFilter('all'); // Reset pack filter when changing quality
+                            }}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                               qualityFilter === quality
                                 ? 'bg-green-600 text-white'
@@ -2721,9 +2770,55 @@ export default function TVShows() {
                         );
                       })}
                     </div>
+
+                    {/* Separator Line */}
+                    <div className="border-t border-gray-700 my-3"></div>
+
+                    {/* Pack Type Filter Buttons */}
+                    <div className="flex gap-2 mb-3 flex-wrap items-center">
+                      {[
+                        { value: 'all', label: 'All' },
+                        { value: 'series', label: 'Complete Series' },
+                        { value: 'season', label: 'Seasons' },
+                        { value: 'multi', label: 'Multi-Episode' },
+                        { value: 'episode', label: 'Episodes' }
+                      ].map((packType) => {
+                        // Count should respect the current quality filter
+                        const count = availableReleases.filter(r => {
+                          const quality = extractQuality(r.title);
+                          const pack = detectPackType(r.title);
+                          const qualityMatch = qualityFilter === 'all' || quality === qualityFilter;
+                          const packMatch = packType.value === 'all' || pack === packType.value;
+                          return qualityMatch && packMatch;
+                        }).length;
+
+                        if (count === 0 && packType.value !== 'all') return null;
+
+                        return (
+                          <button
+                            key={packType.value}
+                            onClick={() => setPackTypeFilter(packType.value)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              packTypeFilter === packType.value
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            {packType.label} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <div className="space-y-2">
                       {[...availableReleases]
-                        .filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter)
+                        .filter(r => {
+                          const quality = extractQuality(r.title);
+                          const packType = detectPackType(r.title);
+                          const qualityMatch = qualityFilter === 'all' || quality === qualityFilter;
+                          const packMatch = packTypeFilter === 'all' || packType === packTypeFilter;
+                          return qualityMatch && packMatch;
+                        })
                         .sort((a, b) => (b.seeders || 0) - (a.seeders || 0))
                         .map((release, index) => {
                           const sizeInGB = release.size ? (release.size / 1073741824).toFixed(1) : 'Unknown';
