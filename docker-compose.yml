@@ -24,6 +24,25 @@ services:
     depends_on:
       - flaresolverr
 
+  # Bazarr - Subtitle manager (downloads and manages subtitles for movies and TV shows)
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ./data/bazarr:/config
+      - /mnt/d/MediaVault/Movies:/movies
+      - /mnt/d/MediaVault/TV Shows:/tv
+      - /mnt/d/MediaVault/Documentaries:/documentaries
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+    networks:
+      - mediavault
+
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr

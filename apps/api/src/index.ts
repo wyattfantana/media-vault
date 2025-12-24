@@ -29,6 +29,7 @@ import tmdbRouter from './routes/tmdb.js';
 import recommendationsRouter from './routes/recommendations.js';
 import { curatedListsRouter } from './routes/curated-lists.js';
 import { prowlarrRouter } from './routes/prowlarr.js';
+import { bazarrRouter } from './routes/bazarr.js';
 import { logger, httpLogger } from './logger.js';
 import { downloadWorker } from './workers/download.worker.js';
 import { Pool } from 'pg';
@@ -235,6 +236,7 @@ app.use('/api/v1/tmdb', tmdbRouter);
 app.use('/api/v1/recommendations', recommendationsRouter);
 app.use('/api/v1/curated-lists', curatedListsRouter);
 app.use('/api/v1/prowlarr', prowlarrRouter);
+app.use('/api/v1/bazarr', bazarrRouter);
 
 // Legacy routes (redirect to v1 for backward compatibility)
 app.use('/api/clients', clientsRouter);

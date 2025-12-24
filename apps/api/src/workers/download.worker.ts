@@ -4,6 +4,7 @@ import { getIPlayerService, IPlayerProgramme } from '../services/get-iplayer.ser
 import { qbittorrentService } from '../services/qbittorrent.service.js';
 import { fileOrganizerService } from '../services/file-organizer.service.js';
 import { jellyfinService } from '../services/jellyfin.service.js';
+import { bazarrService } from '../services/bazarr.service.js';
 import { tmdbService } from '../services/tmdb.service.js';
 import { extractYouTubeVideoId, extractiPlayerPid, getSourceType } from '../utils/platform-ids.js';
 import fs from 'fs/promises';
@@ -872,6 +873,39 @@ export class DownloadWorker {
         }
       } catch (err) {
         console.log('[Torrent Sync] Jellyfin scan skipped');
+      }
+
+      // Auto-download subtitles via Bazarr (if enabled and TMDB ID available)
+      try {
+        if (bazarrService.isConfigured() && download.tmdb_id) {
+          console.log(`[Torrent Sync] Checking Bazarr for subtitle auto-download...`);
+
+          // Get user's subtitle language preferences
+          const prefs = await AppDataSource
+            .createQueryBuilder()
+            .select('*')
+            .from('user_preferences', 'up')
+            .where('up.user_id = :userId', { userId: download.user_id })
+            .getRawOne();
+
+          if (prefs && prefs.bazarr_enabled) {
+            const languages = prefs.bazarr_subtitle_languages || ['en'];
+            console.log(`[Torrent Sync] Auto-downloading subtitles for TMDB ID ${download.tmdb_id} in languages: ${languages.join(', ')}`);
+
+            const result = await bazarrService.autoDownloadMovieSubtitles(
+              download.tmdb_id,
+              languages
+            );
+
+            if (result.success) {
+              console.log(`[Torrent Sync] Bazarr: ${result.message}`);
+            } else {
+              console.log(`[Torrent Sync] Bazarr: ${result.message}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.log('[Torrent Sync] Bazarr subtitle download skipped:', err instanceof Error ? err.message : 'Unknown error');
       }
     } catch (err) {
       console.error(`[Torrent Sync] Error handling completion:`, err);

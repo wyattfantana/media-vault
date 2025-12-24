@@ -54,11 +54,9 @@ interface UserPreferences {
 
   // Privacy/Advanced
   youtube_cookies_path: string | null;
-  clear_search_history_on_exit: boolean;
 
   // API Keys & Paths
   tmdb_api_key: string | null;
-  omdb_api_key: string | null;
   download_directory: string;
   ytdlp_path: string;
   get_iplayer_path: string;
@@ -77,6 +75,12 @@ interface UserPreferences {
   prowlarr_port: number | null;
   prowlarr_api_key: string | null;
   prowlarr_url_base: string | null;
+
+  // Bazarr Subtitle Integration
+  bazarr_enabled: boolean;
+  bazarr_url: string | null;
+  bazarr_api_key: string | null;
+  bazarr_subtitle_languages: string[];
 }
 
 interface StorageInfo {
@@ -116,7 +120,7 @@ interface VPNStatus {
   localNetworkAccessible?: boolean;
 }
 
-type TabKey = 'vpn' | 'jellyfin' | 'arr' | 'storage' | 'privacy';
+type TabKey = 'vpn' | 'jellyfin' | 'arr' | 'bazarr' | 'storage' | 'privacy';
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<TabKey>('vpn');
@@ -128,7 +132,9 @@ export function Settings() {
   const [saveMessage, setSaveMessage] = useState('');
   const [vpnMessage, setVpnMessage] = useState('');
   const [arrMessage, setArrMessage] = useState('');
+  const [bazarrMessage, setBazarrMessage] = useState('');
   const [showProwlarrKey, setShowProwlarrKey] = useState(false);
+  const [showBazarrKey, setShowBazarrKey] = useState(false);
 
   useEffect(() => {
     fetchPreferences();
@@ -362,6 +368,31 @@ export function Settings() {
     }
   };
 
+  // Bazarr Subtitle Functions
+  const testBazarrConnection = async () => {
+    setBazarrMessage('Testing Bazarr connection...');
+    try {
+      const res = await fetch(`${API_BASE}/bazarr/status`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.connected) {
+          setBazarrMessage(`✅ Bazarr connected! Version: ${data.version || 'Unknown'}`);
+          setTimeout(() => setBazarrMessage(''), 5000);
+        } else {
+          setBazarrMessage('❌ Bazarr not connected. Please check your configuration.');
+        }
+      } else {
+        const error = await res.json();
+        setBazarrMessage(`❌ Bazarr connection failed: ${error.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      console.error('Failed to test Bazarr:', err);
+      setBazarrMessage(`❌ Bazarr connection failed: ${err.message}`);
+    }
+  };
+
   const updatePreference = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
     if (!preferences) return;
     setPreferences({ ...preferences, [key]: value });
@@ -399,6 +430,7 @@ export function Settings() {
     { key: 'vpn' as TabKey, label: 'VPN', icon: ShieldCheck },
     { key: 'jellyfin' as TabKey, label: 'Jellyfin', icon: Server },
     { key: 'arr' as TabKey, label: 'Torrents', icon: Film },
+    { key: 'bazarr' as TabKey, label: 'Subtitles', icon: Tv },
     { key: 'storage' as TabKey, label: 'Storage', icon: HardDrive },
     { key: 'privacy' as TabKey, label: 'Advanced', icon: Shield },
   ];
@@ -867,6 +899,133 @@ export function Settings() {
           </div>
         )}
 
+        {/* Bazarr Subtitles Tab */}
+        {activeTab === 'bazarr' && (
+          <div className="space-y-6">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-2">Subtitle Management</h2>
+              <p className="text-sm text-gray-400">
+                Configure Bazarr to automatically download subtitles for your movies and TV shows
+              </p>
+            </div>
+
+            {/* Connection Status Message */}
+            {bazarrMessage && (
+              <div className={`border rounded-lg p-4 ${
+                bazarrMessage.includes('✅')
+                  ? 'bg-green-900/20 border-green-500/30'
+                  : bazarrMessage.includes('❌')
+                  ? 'bg-red-900/20 border-red-500/30'
+                  : 'bg-blue-900/20 border-blue-500/30'
+              }`}>
+                <p className={`text-sm ${
+                  bazarrMessage.includes('✅')
+                    ? 'text-green-300'
+                    : bazarrMessage.includes('❌')
+                    ? 'text-red-300'
+                    : 'text-blue-300'
+                }`}>
+                  {bazarrMessage}
+                </p>
+              </div>
+            )}
+
+            {/* Info Box */}
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+              <p className="text-sm text-blue-300 mb-2">
+                <strong>📝 Automatic Subtitle Downloads:</strong>
+              </p>
+              <p className="text-sm text-blue-300">
+                <strong>Bazarr:</strong> Automatically searches and downloads subtitles for your movies and TV shows. MediaVault integrates with Bazarr to provide subtitles in your preferred languages.
+              </p>
+              <p className="text-sm text-blue-300 mt-2">
+                Access point: <a href="http://localhost:6767" target="_blank" rel="noopener noreferrer" className="underline">Bazarr</a>
+              </p>
+            </div>
+
+            {/* Bazarr Configuration */}
+            <div className="border border-gray-700 rounded-lg p-6 space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Tv className="w-6 h-6 text-purple-400" />
+                  <h3 className="text-lg font-semibold">Bazarr (Subtitle Manager)</h3>
+                </div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={preferences.bazarr_enabled}
+                    onChange={(e) => updatePreference('bazarr_enabled', e.target.checked)}
+                    className="w-4 h-4 accent-purple-600"
+                  />
+                  <span className="text-sm text-gray-300">Enabled</span>
+                </label>
+              </div>
+
+              {preferences.bazarr_enabled && (
+                <div className="space-y-4 pl-9">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Bazarr URL</label>
+                    <input
+                      type="text"
+                      placeholder="http://localhost:6767"
+                      value={preferences.bazarr_url || ''}
+                      onChange={(e) => updatePreference('bazarr_url', e.target.value || null)}
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Full URL to your Bazarr instance (e.g., http://localhost:6767)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">API Key</label>
+                    <div className="relative">
+                      <input
+                        type={showBazarrKey ? 'text' : 'password'}
+                        placeholder="Your Bazarr API key"
+                        value={preferences.bazarr_api_key || ''}
+                        onChange={(e) => updatePreference('bazarr_api_key', e.target.value || null)}
+                        className="w-full bg-gray-700 text-white px-3 py-2 pr-20 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none font-mono text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowBazarrKey(!showBazarrKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-2 py-1 bg-gray-600 rounded"
+                      >
+                        {showBazarrKey ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Find in Bazarr → Settings → General → Security → API Key
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Preferred Languages</label>
+                    <input
+                      type="text"
+                      placeholder="en,es,fr"
+                      value={preferences.bazarr_subtitle_languages?.join(',') || 'en'}
+                      onChange={(e) => updatePreference('bazarr_subtitle_languages', e.target.value.split(',').map(l => l.trim()).filter(Boolean))}
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Comma-separated language codes (e.g., en for English, es for Spanish, fr for French)
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={testBazarrConnection}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
+                  >
+                    Test Connection
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Storage Management Tab */}
         {activeTab === 'storage' && (
           <div className="space-y-6">
@@ -990,21 +1149,6 @@ export function Settings() {
                 </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  OMDB API Key (Optional)
-                </label>
-                <input
-                  type="password"
-                  placeholder="Your OMDB API key (optional)"
-                  value={preferences.omdb_api_key || ''}
-                  onChange={(e) => updatePreference('omdb_api_key', e.target.value || null)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Alternative metadata source. Get free API key at <a href="http://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">omdbapi.com</a>
-                </p>
-              </div>
             </div>
 
             {/* Paths Section */}
@@ -1080,18 +1224,6 @@ export function Settings() {
                 </p>
               </div>
 
-              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={preferences.clear_search_history_on_exit}
-                  onChange={(e) => updatePreference('clear_search_history_on_exit', e.target.checked)}
-                  className="w-5 h-5 accent-blue-600"
-                />
-                <div>
-                  <div className="font-medium text-white">Clear Search History on Exit</div>
-                  <div className="text-sm text-gray-400">Automatically clear search history when closing the app</div>
-                </div>
-              </label>
             </div>
           </div>
         )}
