@@ -61,7 +61,7 @@ export default function TVShows() {
   const [torrentResults, setTorrentResults] = useState<any[]>([]);
   const [searchingTorrents, setSearchingTorrents] = useState(false);
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
-  const [qualityFilter, setQualityFilter] = useState<string>('all');
+  const [qualityFilter, setQualityFilter] = useState<string>('1080p');
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   // Prowlarr state (for torrent search)
@@ -1322,7 +1322,7 @@ export default function TVShows() {
     setTorrentResults([]);
     setAvailableReleases([]);
     setSelectedRelease(null);
-    setQualityFilter('all');
+    setQualityFilter('1080p');
     setTorrentSearchError(null);
     setVpnConnected(false);
     setDownloadUrl('');
@@ -1339,12 +1339,28 @@ export default function TVShows() {
     return 'Other';
   };
 
+  // Helper function to get indexer color
+  const getIndexerColor = (indexer: string): string => {
+    const indexerLower = indexer.toLowerCase();
+    if (indexerLower.includes('torrentgalaxy')) return 'bg-purple-600/20 text-purple-400';
+    if (indexerLower.includes('1337x')) return 'bg-orange-600/20 text-orange-400';
+    if (indexerLower.includes('piratebay') || indexerLower.includes('pirate bay')) return 'bg-pink-600/20 text-pink-400';
+    if (indexerLower.includes('yts')) return 'bg-red-600/20 text-red-400';
+    if (indexerLower.includes('eztv')) return 'bg-green-600/20 text-green-400';
+    if (indexerLower.includes('torrentdownload')) return 'bg-blue-600/20 text-blue-400';
+    if (indexerLower.includes('rarbg')) return 'bg-emerald-600/20 text-emerald-400';
+    if (indexerLower.includes('kickass')) return 'bg-yellow-600/20 text-yellow-400';
+    if (indexerLower.includes('limetorrents')) return 'bg-lime-600/20 text-lime-400';
+    if (indexerLower.includes('nyaa')) return 'bg-fuchsia-600/20 text-fuchsia-400';
+    return 'bg-indigo-600/20 text-indigo-400'; // Default color
+  };
+
   const browseTorrents = async () => {
     if (!selectedShow) return;
 
     setLoadingReleases(true);
     setAvailableReleases([]);
-    setQualityFilter('all'); // Reset filter when browsing new torrents
+    setQualityFilter('1080p'); // Reset filter when browsing new torrents
 
     try {
       // Search Prowlarr directly with show title and year
@@ -2589,7 +2605,7 @@ export default function TVShows() {
             setSelectedRelease(null);
             setTorrentSearchError(null);
             setDownloadUrl('');
-            setQualityFilter('all');
+            setQualityFilter('1080p');
           }}
         >
           <div
@@ -2677,6 +2693,10 @@ export default function TVShows() {
                 {/* Prowlarr Torrent Results */}
                 {availableReleases.length > 0 && (
                   <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <h3 className="text-lg font-semibold text-green-400 mb-3">
+                      Found {availableReleases.filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter).length} Torrents (sorted by seeds)
+                    </h3>
+
                     {/* Quality Filter Buttons */}
                     <div className="flex gap-2 mb-3 flex-wrap">
                       {['all', '2160p', '1080p', '720p', 'Other'].map((quality) => {
@@ -2701,10 +2721,6 @@ export default function TVShows() {
                         );
                       })}
                     </div>
-
-                    <h3 className="text-lg font-semibold text-green-400 mb-3">
-                      Found {availableReleases.filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter).length} Torrents (sorted by seeds)
-                    </h3>
                     <div className="space-y-2">
                       {[...availableReleases]
                         .filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter)
@@ -2763,15 +2779,8 @@ export default function TVShows() {
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium text-white truncate mb-1">{release.title}</p>
                                   <div className="flex items-center gap-3 text-xs text-gray-400">
-                                    <span className={`px-2 py-1 rounded ${
-                                      indexer.toLowerCase().includes('piratebay') || indexer.toLowerCase().includes('pirate bay') ? 'bg-purple-600/20 text-purple-400' :
-                                      indexer.toLowerCase().includes('1337x') ? 'bg-orange-600/20 text-orange-400' :
-                                      indexer.toLowerCase().includes('yts') ? 'bg-red-600/20 text-red-400' :
-                                      indexer.toLowerCase().includes('rarbg') ? 'bg-green-600/20 text-green-400' :
-                                      indexer.toLowerCase().includes('bitsearch') ? 'bg-cyan-600/20 text-cyan-400' :
-                                      'bg-indigo-600/20 text-indigo-400'
-                                    }`}>
-                                      {indexer.toLowerCase()}
+                                    <span className={`px-2 py-1 rounded font-medium ${getIndexerColor(indexer)}`}>
+                                      {indexer}
                                     </span>
                                     <span>{sizeInGB} GB</span>
                                     <span className="text-green-400 font-semibold">↑ {seeders}</span>

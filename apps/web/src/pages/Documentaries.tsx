@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader } from 'lucide-react';
+import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, Loader } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
 import { searchCache } from '../utils/searchCache';
@@ -45,19 +45,13 @@ export default function Documentaries() {
   const [selectedDocumentary, setSelectedDocumentary] = useState<Documentary | null>(null);
   const [downloadUrl, setDownloadUrl] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('all-documentaries');
-  const [showFormatPreview, setShowFormatPreview] = useState(false);
-  const [previewFilename, setPreviewFilename] = useState('');
-  const [formattedPath, setFormattedPath] = useState<any>(null);
-  const [loadingFormat, setLoadingFormat] = useState(false);
-  const [formatError, setFormatError] = useState<string | null>(null);
-  const [vpnConnected, setVpnConnected] = useState(false);
-  const [checkingVpn, setCheckingVpn] = useState(false);
 
-  // Torrent search state
-  const [torrentResults, setTorrentResults] = useState<any[]>([]);
-  const [searchingTorrents, setSearchingTorrents] = useState(false);
+  // Prowlarr torrent state
+  const [availableReleases, setAvailableReleases] = useState<any[]>([]);
+  const [loadingReleases, setLoadingReleases] = useState(false);
+  const [selectedRelease, setSelectedRelease] = useState<any | null>(null);
+  const [qualityFilter, setQualityFilter] = useState<string>('1080p');
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
-  const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -108,6 +102,7 @@ export default function Documentaries() {
   const [downloadedDocumentaries, setDownloadedDocumentaries] = useState<Set<number>>(new Set());
 
   const isInitialMount = React.useRef(true);
+  const isRestoring = React.useRef(true); // Track if we're restoring state from localStorage
   const restoringScroll = React.useRef(false);
   const scrollPositionSaved = React.useRef(false);
 
@@ -117,7 +112,7 @@ export default function Documentaries() {
     setShowAllDocumentariesFilters(true);
 
     // Try to restore browse state from sessionStorage
-    const savedBrowseState = sessionStorage.getItem('documentariesBrowseState');
+    const savedBrowseState = localStorage.getItem('documentariesBrowseState');
     if (savedBrowseState) {
       try {
         const { documentaries, page, totalPages, totalResults, viewMode: savedViewMode, scrollY } = JSON.parse(savedBrowseState);
@@ -127,6 +122,9 @@ export default function Documentaries() {
         setAllDocumentariesTotalPages(totalPages || 1);
         setAllDocumentariesTotalResults(totalResults || 0);
         setViewMode(savedViewMode || 'all-documentaries');
+        // Ensure no loading states are active when restoring from cache
+        setAllDocumentariesLoading(false);
+        setLoadingMultiplePages(false);
 
         // Restore scroll position after a short delay to ensure content is rendered
         setTimeout(() => {
@@ -147,22 +145,48 @@ export default function Documentaries() {
       try {
         const parsed = JSON.parse(savedFilters);
         setAllDocumentariesFilters(parsed);
-        setActivePreset('saved');
       } catch (e) {
         console.error('Failed to load saved filters:', e);
       }
+    }
+
+    // Restore active preset
+    const savedPreset = localStorage.getItem('documentariesActivePreset');
+    if (savedPreset) {
+      setActivePreset(savedPreset);
     }
 
     // Only load documentaries if we didn't restore state
     if (!savedBrowseState) {
       loadDocumentaries();
     }
+
+    // Mark restoration complete - do this AFTER all state restoration is done
+    // This prevents the filter watch useEffect from triggering during restoration
+    setTimeout(() => {
+      isRestoring.current = false;
+      isInitialMount.current = false;
+    }, 100); // Small delay to ensure all React state updates have processed
   }, []);
+
+  // Save filters to localStorage when they change (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    localStorage.setItem('documentariesFilters', JSON.stringify(allDocumentariesFilters));
+  }, [allDocumentariesFilters]);
+
+  // Save active preset to localStorage (skip during restoration)
+  useEffect(() => {
+    if (isRestoring.current) return;
+    if (activePreset) {
+      localStorage.setItem('documentariesActivePreset', activePreset);
+    }
+  }, [activePreset]);
 
   // Watch for filter changes and reload
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    // Skip if we're restoring state from localStorage
+    if (isRestoring.current || isInitialMount.current) {
       return;
     }
 
@@ -188,7 +212,7 @@ export default function Documentaries() {
       scrollY: window.scrollY
     };
 
-    sessionStorage.setItem('documentariesBrowseState', JSON.stringify(browseState));
+    localStorage.setItem('documentariesBrowseState', JSON.stringify(browseState));
   }, [allDocumentaries, allDocumentariesPage, allDocumentariesTotalPages, allDocumentariesTotalResults, viewMode]);
 
   // Save scroll position on scroll events
@@ -196,12 +220,12 @@ export default function Documentaries() {
     const saveScrollPosition = () => {
       if (restoringScroll.current) return;
 
-      const savedState = sessionStorage.getItem('documentariesBrowseState');
+      const savedState = localStorage.getItem('documentariesBrowseState');
       if (savedState) {
         try {
           const state = JSON.parse(savedState);
           state.scrollY = window.scrollY;
-          sessionStorage.setItem('documentariesBrowseState', JSON.stringify(state));
+          localStorage.setItem('documentariesBrowseState', JSON.stringify(state));
         } catch (e) {
           // Ignore parse errors
         }
@@ -707,189 +731,105 @@ export default function Documentaries() {
     performSearch(searchQuery);
   };
 
-  const search1337x = (documentary: Documentary) => {
-    const query = encodeURIComponent(`${documentary.title} ${documentary.year || ''}`);
-    window.open(`https://1337x.to/search/${query}/1/`, '_blank');
+  // Helper function to extract quality from torrent title
+  const extractQuality = (title: string): string => {
+    const upperTitle = title.toUpperCase();
+    if (upperTitle.includes('2160P') || upperTitle.includes('4K') || upperTitle.includes('UHD')) return '2160p';
+    if (upperTitle.includes('1080P')) return '1080p';
+    if (upperTitle.includes('720P')) return '720p';
+    if (upperTitle.includes('480P')) return '480p';
+    return 'Other';
   };
 
-  const searchPirateBay = (documentary: Documentary) => {
-    const query = encodeURIComponent(`${documentary.title} ${documentary.year || ''}`);
-    window.open(`https://thepiratebay.org/search.php?q=${query}`, '_blank');
+  // Helper function to get indexer color
+  const getIndexerColor = (indexer: string): string => {
+    const indexerLower = indexer.toLowerCase();
+    if (indexerLower.includes('torrentgalaxy')) return 'bg-purple-600/20 text-purple-400';
+    if (indexerLower.includes('1337x')) return 'bg-orange-600/20 text-orange-400';
+    if (indexerLower.includes('piratebay') || indexerLower.includes('pirate bay')) return 'bg-pink-600/20 text-pink-400';
+    if (indexerLower.includes('yts')) return 'bg-red-600/20 text-red-400';
+    if (indexerLower.includes('eztv')) return 'bg-green-600/20 text-green-400';
+    if (indexerLower.includes('torrentdownload')) return 'bg-blue-600/20 text-blue-400';
+    if (indexerLower.includes('rarbg')) return 'bg-emerald-600/20 text-emerald-400';
+    if (indexerLower.includes('kickass')) return 'bg-yellow-600/20 text-yellow-400';
+    if (indexerLower.includes('limetorrents')) return 'bg-lime-600/20 text-lime-400';
+    if (indexerLower.includes('nyaa')) return 'bg-fuchsia-600/20 text-fuchsia-400';
+    return 'bg-indigo-600/20 text-indigo-400'; // Default color
   };
 
-  const searchExtTo = (documentary: Documentary) => {
-    const query = encodeURIComponent(`${documentary.title} ${documentary.year || ''}`);
-    window.open(`https://ext.to/search?q=${query}`, '_blank');
-  };
-
-  const searchTorrents = async (documentary: Documentary) => {
-    const query = `${documentary.title} ${documentary.year || ''}`;
-    setSearchingTorrents(true);
+  // Reset torrent state when selecting a new documentary
+  const handleDocumentaryClick = (documentary: Documentary) => {
+    setAvailableReleases([]);
+    setSelectedRelease(null);
+    setQualityFilter('1080p');
     setTorrentSearchError(null);
-    setTorrentResults([]);
-
-    try {
-      const response = await fetch(`${API_BASE}/torrents/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ query })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to search torrents');
-      }
-
-      const data = await response.json();
-      setTorrentResults(data.results || []);
-
-      if (data.results.length === 0) {
-        setTorrentSearchError('No torrents found. Try manual search instead.');
-      }
-    } catch (err: any) {
-      console.error('Torrent search failed:', err);
-      setTorrentSearchError(err.message || 'Failed to search torrents');
-    } finally {
-      setSearchingTorrents(false);
-    }
+    setSelectedDocumentary(documentary);
   };
 
-  const selectTorrent = (magnet: string) => {
-    setDownloadUrl(magnet);
-    setTorrentResults([]);
-    // Auto-scroll to very bottom of modal
-    setTimeout(() => {
-      const button = downloadButtonRef.current;
-      if (button) {
-        // Find the scrollable modal container
-        const modal = button.closest('.overflow-y-auto, .overflow-auto');
-        if (modal) {
-          // Scroll to very bottom
-          modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' });
+  // Browse torrents using Prowlarr
+  const browseTorrents = async () => {
+    if (!selectedDocumentary) return;
+
+    const searchQuery = `${selectedDocumentary.title} ${selectedDocumentary.year || ''}`;
+    setLoadingReleases(true);
+    setTorrentSearchError(null);
+
+    try {
+      const releasesResponse = await fetch(`${API_BASE}/prowlarr/search?query=${encodeURIComponent(searchQuery)}&type=movie`, {
+        credentials: 'include'
+      });
+
+      if (!releasesResponse.ok) {
+        throw new Error('Failed to search Prowlarr');
+      }
+
+      const releases = await releasesResponse.json();
+
+      // Smart filtering
+      const titleLower = selectedDocumentary.title.toLowerCase();
+      const yearStr = selectedDocumentary.year || '';
+
+      // Extract all keywords from the title
+      const allKeywords = titleLower.split(/\s+/).filter(word => word.length > 2);
+
+      const filteredReleases = releases.filter((r: any) => {
+        const releaseTitleLower = r.title.toLowerCase();
+
+        // Filter out adult content
+        const adultKeywords = ['xxx', 'onlyfans', 'nfbusty', 'girlsoutwest', 'girlsrimming', 'playboy'];
+        if (adultKeywords.some(keyword => releaseTitleLower.includes(keyword))) {
+          return false;
         }
-      }
-    }, 100);
-  };
 
-  const handleDownload = async (documentary: Documentary) => {
-    if (!downloadUrl.trim()) {
-      alert('Please enter a download URL');
-      return;
-    }
+        // Calculate keyword match percentage
+        const matchedKeywords = allKeywords.filter(keyword => releaseTitleLower.includes(keyword));
+        const matchPercentage = matchedKeywords.length / allKeywords.length;
 
-    // Extract filename from URL or use documentary title
-    const filename = extractFilenameFromUrl(downloadUrl) || `${documentary.title} (${documentary.year}).mkv`;
-    setPreviewFilename(filename);
-    setLoadingFormat(true);
-    setFormatError(null);
-    setShowFormatPreview(true);
+        // For titles with 3+ keywords, require at least 50% match + at least one unique keyword (beyond first two common words)
+        if (allKeywords.length > 2) {
+          if (matchPercentage < 0.5) return false;
 
-    // Check VPN status
-    setCheckingVpn(true);
-    fetch(`${API_BASE}/vpn/status`, { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        setVpnConnected(data.connected || false);
-        setCheckingVpn(false);
-      })
-      .catch(() => {
-        setVpnConnected(false);
-        setCheckingVpn(false);
+          // Require at least one unique identifier beyond the first two words
+          const uniqueKeywords = allKeywords.slice(2);
+          const hasUniqueMatch = uniqueKeywords.some(keyword => releaseTitleLower.includes(keyword));
+          return hasUniqueMatch;
+        }
+
+        // For shorter titles, require at least 60% match
+        return matchPercentage >= 0.6;
       });
 
-    // Fetch format preview
-    try {
-      const response = await fetch(`${API_BASE}/downloads/format-preview`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          filename,
-          contentType: 'documentary',
-          searchTMDB: true
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get format preview');
+      if (filteredReleases.length === 0) {
+        setTorrentSearchError('No torrents found. Try adding more indexers in Prowlarr (Dashboard > Open Prowlarr).');
       }
 
-      const data = await response.json();
-      setFormattedPath(data.formatted);
+      setAvailableReleases(filteredReleases);
     } catch (err: any) {
-      setFormatError(err.message);
+      console.error('Prowlarr search failed:', err);
+      setTorrentSearchError(err.message || 'Failed to search torrents');
+      setAvailableReleases([]);
     } finally {
-      setLoadingFormat(false);
-    }
-  };
-
-  const extractFilenameFromUrl = (url: string): string | null => {
-    try {
-      // Try to extract filename from URL
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
-      if (filename && filename.includes('.')) {
-        return filename;
-      }
-    } catch (e) {
-      // Not a valid URL, might be a magnet link or other
-    }
-    return null;
-  };
-
-  const submitDownload = async (documentary: Documentary) => {
-    if (!formattedPath) {
-      alert('Please wait for format preview to load');
-      return;
-    }
-
-    // Determine category from formatted path base directory
-    const category = formattedPath.baseDir?.toLowerCase() || 'documentaries';
-
-    try {
-      const res = await fetch(`${API_BASE}/downloads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          url: downloadUrl,
-          category: category,
-          formattedPath: formattedPath.formattedPath,
-          jellyfinFormat: formattedPath,
-          metadata: {
-            tmdb_id: documentary.id,
-            imdb_id: documentary.imdb_id,
-            title: documentary.title,
-            year: documentary.year,
-            rating: documentary.vote_average,
-            overview: documentary.overview,
-            poster_url: documentary.poster_url,
-            backdrop_url: documentary.backdrop_url,
-            genre_ids: documentary.genre_ids
-          },
-          downloader: 'yt-dlp'
-        })
-      });
-
-      if (res.ok) {
-        alert(`✓ Download queued: ${documentary.title}`);
-        setSelectedDocumentary(null);
-        setDownloadUrl('');
-        setShowFormatPreview(false);
-        setFormattedPath(null);
-        setVpnConnected(false);
-      } else {
-        const error = await res.json();
-        alert(`Download failed: ${error.error || 'Unknown error'}`);
-      }
-    } catch (err) {
-      console.error('Download error:', err);
-      alert('Download failed. Please check your URL and try again.');
+      setLoadingReleases(false);
     }
   };
 
@@ -960,7 +900,7 @@ export default function Documentaries() {
         className={`group relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-105 hover:z-10 hover:shadow-2xl flex-shrink-0 ${
           size === 'small' ? 'w-40' : 'w-48'
         }`}
-        onClick={() => setSelectedDocumentary(documentary)}
+        onClick={() => handleDocumentaryClick(documentary)}
       >
         {documentary.poster_url ? (
           <img
@@ -1722,8 +1662,9 @@ export default function Documentaries() {
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => {
             setSelectedDocumentary(null);
-            setVpnConnected(false);
-            setTorrentResults([]);
+            setAvailableReleases([]);
+            setSelectedRelease(null);
+            setQualityFilter('1080p');
             setTorrentSearchError(null);
             setDownloadUrl('');
           }}
@@ -1769,256 +1710,158 @@ export default function Documentaries() {
               <p className="text-gray-300 mb-6">{selectedDocumentary.overview}</p>
 
               <div className="space-y-4">
-                {/* Auto-Search Torrents Button */}
-                <button
-                  onClick={() => searchTorrents(selectedDocumentary)}
-                  disabled={searchingTorrents}
-                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
-                >
-                  {searchingTorrents ? (
-                    <>
-                      <Loader className="w-6 h-6 animate-spin" />
-                      Searching Torrents...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-6 h-6" />
-                      Auto-Search (PirateBay)
-                    </>
-                  )}
-                </button>
+                {/* Download Button */}
+                {availableReleases.length === 0 && (
+                  <button
+                    onClick={browseTorrents}
+                    disabled={loadingReleases}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
+                  >
+                    {loadingReleases ? (
+                      <>
+                        <Loader className="w-6 h-6 animate-spin" />
+                        Searching Torrents...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-6 h-6" />
+                        Download
+                      </>
+                    )}
+                  </button>
+                )}
 
-                {/* Torrent Search Results */}
-                {torrentResults.length > 0 && (
+                {/* Prowlarr Search Results with Quality Filters */}
+                {availableReleases.length > 0 && (
                   <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <h3 className="text-lg font-semibold text-green-400 mb-3">
-                      Found {torrentResults.length} Torrents (sorted by seeds)
+                      Found {availableReleases.filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter).length} Torrents (sorted by seeds)
                     </h3>
-                    <div className="space-y-2">
-                      {torrentResults.map((torrent, index) => (
-                        <div
-                          key={index}
-                          onClick={() => selectTorrent(torrent.magnet)}
-                          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 rounded-lg p-3 cursor-pointer transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-white truncate mb-1">{torrent.title}</p>
-                              <div className="flex items-center gap-3 text-xs text-gray-400">
-                                <span className={`px-2 py-1 rounded ${
-                                  torrent.source === '1337x' ? 'bg-orange-600/20 text-orange-400' :
-                                  torrent.source === 'piratebay' ? 'bg-purple-600/20 text-purple-400' :
-                                  torrent.source === 'yts' ? 'bg-red-600/20 text-red-400' :
-                                  torrent.source === 'ext' ? 'bg-pink-600/20 text-pink-400' :
-                                  torrent.source === 'rarbg' ? 'bg-green-600/20 text-green-400' :
-                                  'bg-indigo-600/20 text-indigo-400'
-                                }`}>
-                                  {torrent.source}
-                                </span>
-                                {torrent.quality && (
-                                  <span className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded">{torrent.quality}</span>
-                                )}
-                                <span>{torrent.size}</span>
-                                <span className="text-green-400 font-semibold">↑ {torrent.seeds}</span>
-                                <span className="text-red-400">↓ {torrent.peers}</span>
-                              </div>
-                            </div>
-                            <button className="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors">
-                              Select
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+
+                    {/* Quality Filter Buttons */}
+                    <div className="flex gap-2 mb-3 flex-wrap">
+                      {['all', '2160p', '1080p', '720p', 'Other'].map(quality => {
+                        const count = quality === 'all'
+                          ? availableReleases.length
+                          : availableReleases.filter(r => extractQuality(r.title) === quality).length;
+
+                        if (count === 0 && quality !== 'all') return null;
+
+                        return (
+                          <button
+                            key={quality}
+                            onClick={() => setQualityFilter(quality)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              qualityFilter === quality
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            {quality === 'all' ? 'All' : quality} ({count})
+                          </button>
+                        );
+                      })}
                     </div>
+                    <div className="space-y-2">
+                      {[...availableReleases]
+                        .filter(r => qualityFilter === 'all' || extractQuality(r.title) === qualityFilter)
+                        .sort((a, b) => (b.seeders || 0) - (a.seeders || 0))
+                        .map((release, index) => {
+                            const quality = extractQuality(release.title);
+                            const sizeMB = release.size ? (release.size / (1024 * 1024)) : null;
+                            const sizeGB = sizeMB && sizeMB > 1024 ? (sizeMB / 1024).toFixed(1) : null;
+                            const sizeDisplay = sizeGB ? `${sizeGB} GB` : sizeMB ? `${sizeMB.toFixed(0)} MB` : 'Unknown';
+
+                            return (
+                              <div
+                                key={index}
+                                onClick={() => setSelectedRelease(release)}
+                                className={`bg-gray-800 hover:bg-gray-700 border rounded-lg p-3 cursor-pointer transition-colors ${
+                                  selectedRelease?.guid === release.guid
+                                    ? 'border-green-500 bg-gray-700'
+                                    : 'border-gray-700 hover:border-green-500'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-white mb-1 line-clamp-2">{release.title}</p>
+                                    <div className="flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+                                      <span className={`px-2 py-1 rounded font-medium ${getIndexerColor(release.indexer)}`}>
+                                        {release.indexer}
+                                      </span>
+                                      <span className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded font-medium">
+                                        {quality}
+                                      </span>
+                                      <span>{sizeDisplay}</span>
+                                      {release.seeders !== undefined && (
+                                        <span className="text-green-400 font-semibold">↑ {release.seeders}</span>
+                                      )}
+                                      {release.leechers !== undefined && (
+                                        <span className="text-red-400">↓ {release.leechers}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <button
+                                    className={`flex-shrink-0 px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                      selectedRelease?.guid === release.guid
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-green-600/80 hover:bg-green-700 text-white'
+                                    }`}
+                                  >
+                                    {selectedRelease?.guid === release.guid ? 'Selected' : 'Select'}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                    </div>
+
+                    {/* Add to qBittorrent Button */}
+                    {selectedRelease && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`${API_BASE}/qbittorrent/add-torrent`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({
+                                magnetUri: selectedRelease.magnetUrl || selectedRelease.downloadUrl,
+                                category: 'documentaries',
+                                savePath: '/downloads/documentaries'
+                              })
+                            });
+
+                            if (response.ok) {
+                              alert(`✓ Added to qBittorrent: ${selectedRelease.title}`);
+                              setSelectedDocumentary(null);
+                              setAvailableReleases([]);
+                              setSelectedRelease(null);
+                              setQualityFilter('all');
+                            } else {
+                              const error = await response.json();
+                              alert(`Failed to add torrent: ${error.error || 'Unknown error'}`);
+                            }
+                          } catch (err) {
+                            console.error('Failed to add torrent:', err);
+                            alert('Failed to add torrent to qBittorrent');
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                      >
+                        <Download className="w-5 h-5" />
+                        Add to qBittorrent
+                      </button>
+                    )}
                   </div>
                 )}
 
-                {/* Torrent Search Error */}
-                {torrentSearchError && (
+                {/* Error Message */}
+                {torrentSearchError && availableReleases.length === 0 && (
                   <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4">
                     <p className="text-yellow-400 text-sm">{torrentSearchError}</p>
                   </div>
                 )}
-
-                {/* Manual Search (Fallback) */}
-                <div className="bg-gray-900/30 border border-gray-700 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Manual Search (Fallback)</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => search1337x(selectedDocumentary)}
-                      className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
-                    >
-                      <Search className="w-4 h-4" />
-                      1337x
-                    </button>
-                    <button
-                      onClick={() => searchExtTo(selectedDocumentary)}
-                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2.5 rounded-lg font-medium transition-colors text-sm"
-                    >
-                      <Search className="w-4 h-4" />
-                      Ext.to
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <input
-                    type="text"
-                    value={downloadUrl}
-                    onChange={(e) => setDownloadUrl(e.target.value)}
-                    placeholder="Paste video URL here..."
-                    className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none mb-3"
-                  />
-                  <button
-                    ref={downloadButtonRef}
-                    onClick={() => handleDownload(selectedDocumentary)}
-                    disabled={!downloadUrl.trim() || loadingFormat}
-                    className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                  >
-                    <Download className="w-5 h-5" />
-                    {loadingFormat ? 'Analyzing...' : 'Queue Download'}
-                  </button>
-
-                  {/* Inline Format Preview */}
-                  {showFormatPreview && (
-                    <div className="mt-4 space-y-4">
-                      {loadingFormat ? (
-                        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-                          <div className="flex items-center space-x-3">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
-                            <span className="text-gray-300">Analyzing filename and fetching metadata...</span>
-                          </div>
-                        </div>
-                      ) : formatError ? (
-                        <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4">
-                          <h4 className="text-red-400 font-semibold mb-2">Error</h4>
-                          <p className="text-gray-300 text-sm">{formatError}</p>
-                          <button
-                            onClick={() => handleDownload(selectedDocumentary)}
-                            className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      ) : formattedPath && (
-                        <div className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 border-2 border-blue-500/30 rounded-lg p-5 space-y-4">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-white">📁 Download Format Preview</h3>
-                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                              formattedPath.contentType === 'tv' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
-                              formattedPath.contentType === 'movie' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
-                              'bg-gray-500/30 text-gray-300 border border-gray-400/50'
-                            }`}>
-                              {formattedPath.contentType === 'tv' ? 'TV Show' : formattedPath.contentType === 'movie' ? 'Movie' : 'Documentary'}
-                            </span>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Original Filename:</label>
-                            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                              <code className="text-sm text-gray-300 break-all">{formattedPath.originalName}</code>
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Formatted for Jellyfin:</label>
-                            <div className="bg-gray-800/50 border border-green-500/30 rounded-lg p-3">
-                              <pre className="text-sm font-mono text-green-300 whitespace-pre-wrap">
-                                {formattedPath.preview}
-                              </pre>
-                            </div>
-                          </div>
-
-                          {formattedPath.folderStructure && (
-                            <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                              <h4 className="text-sm font-semibold text-gray-400 mb-3">Metadata:</h4>
-                              <div className="grid grid-cols-2 gap-3 text-sm">
-                                {formattedPath.folderStructure.movieName && (
-                                  <div>
-                                    <span className="text-gray-500">Documentary:</span>
-                                    <span className="ml-2 font-medium text-gray-300">{formattedPath.folderStructure.movieName}</span>
-                                  </div>
-                                )}
-                                {formattedPath.folderStructure.year && (
-                                  <div>
-                                    <span className="text-gray-500">Year:</span>
-                                    <span className="ml-2 font-medium text-gray-300">{formattedPath.folderStructure.year}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {showFormatPreview && formattedPath && !loadingFormat && !formatError && (
-                    <div className="mt-4 space-y-4">
-                      {/* VPN Status Check */}
-                      <div className={`border rounded-lg p-4 ${
-                        checkingVpn ? 'bg-gray-900/30 border-gray-500/50' :
-                        vpnConnected ? 'bg-green-900/30 border-green-500/50' :
-                        'bg-red-900/30 border-red-500/50'
-                      }`}>
-                        <div className="flex items-center gap-3">
-                          {checkingVpn ? (
-                            <>
-                              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                              <span className="text-gray-300 font-medium text-sm">
-                                Checking VPN status...
-                              </span>
-                            </>
-                          ) : vpnConnected ? (
-                            <>
-                              <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                              <span className="text-green-300 font-medium text-sm">
-                                VPN Connected - Ready to download
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </div>
-                              <span className="text-red-300 font-medium text-sm">
-                                VPN Disconnected - Please enable VPN to download
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Buttons */}
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => submitDownload(selectedDocumentary)}
-                          disabled={!vpnConnected || checkingVpn}
-                          className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
-                        >
-                          <Download className="w-5 h-5" />
-                          Confirm Download
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowFormatPreview(false);
-                            setFormattedPath(null);
-                            setVpnConnected(false);
-                          }}
-                          className="px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           </div>

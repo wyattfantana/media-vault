@@ -33,6 +33,16 @@ export class GetIPlayerService extends EventEmitter {
     this.downloadDir = process.env.DOWNLOAD_DIR || '/home/beerm/media-vault/downloads';
   }
 
+  setBinaryPath(binaryPath: string) {
+    if (binaryPath) {
+      this.getIPlayerPath = binaryPath;
+    }
+  }
+
+  getBinaryPath(): string {
+    return this.getIPlayerPath;
+  }
+
   /**
    * Search for programmes on BBC iPlayer
    */
@@ -152,6 +162,41 @@ export class GetIPlayerService extends EventEmitter {
     }
 
     return programmes;
+  }
+
+  /**
+   * Parse get_iplayer --info output (key: value lines)
+   */
+  private parseInfoOutput(output: string): IPlayerProgramme | null {
+    const data: Record<string, string> = {};
+    const lines = output.split('\n');
+
+    for (const line of lines) {
+      const match = line.match(/^([a-z0-9_]+):\s+(.*)$/i);
+      if (!match) continue;
+      data[match[1].toLowerCase()] = match[2].trim();
+    }
+
+    const pid = data.pid || '';
+    const name = data.name || data.brand || data.series || '';
+    const episode = data.episode || data.episodeshort || '';
+
+    if (!pid && !name && !episode) {
+      return null;
+    }
+
+    return {
+      pid: pid || '',
+      name: name || '',
+      episode: episode || '',
+      description: data.desc || data.descshort || data.desclong || '',
+      channel: data.channel || '',
+      categories: data.categories || data.category || '',
+      thumbnail: data.thumbnail || '',
+      available: data.firstbcastrel || data.firstbcastdate || '',
+      duration: data.duration || '',
+      type: (data.type?.toLowerCase() as 'tv' | 'radio') || 'tv'
+    };
   }
 
   /**
@@ -357,8 +402,14 @@ export class GetIPlayerService extends EventEmitter {
         }
 
         try {
-          const programmes = this.parseSearchResults(output);
-          resolve(programmes);
+          const hasListFormat = output.split('\n').some(line => line.includes('|'));
+          if (hasListFormat) {
+            resolve(this.parseSearchResults(output));
+            return;
+          }
+
+          const info = this.parseInfoOutput(output);
+          resolve(info ? [info] : []);
         } catch (err) {
           reject(new Error(`Failed to parse programme info: ${err}`));
         }

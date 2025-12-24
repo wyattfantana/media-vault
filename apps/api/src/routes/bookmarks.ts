@@ -43,8 +43,14 @@ bookmarksRouter.get('/', requireAuth, async (req, res) => {
         LEFT JOIN download_history dh ON (
           b.user_id = dh.user_id
           AND (
-            -- Match TMDB content by tmdb_id
-            (b.tmdb_id IS NOT NULL AND b.tmdb_id = dh.tmdb_id AND b.media_type = dh.tmdb_media_type)
+            -- Match TMDB content by tmdb_id (flexible media_type matching for documentaries)
+            (b.tmdb_id IS NOT NULL AND b.tmdb_id = dh.tmdb_id AND (
+              b.media_type = dh.tmdb_media_type
+              -- Allow documentary bookmarks to match movie downloads (TMDB classifies docs as movies)
+              OR (b.media_type = 'documentary' AND dh.tmdb_media_type = 'movie')
+              -- Allow movie bookmarks to match documentary downloads
+              OR (b.media_type = 'movie' AND dh.tmdb_media_type = 'documentary')
+            ))
             -- Match URL-based content by source_url
             OR (b.url IS NOT NULL AND b.url = dh.source_url)
           )

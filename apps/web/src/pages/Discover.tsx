@@ -12,7 +12,7 @@ import Documentaries from './Documentaries';
 type Tab = 'youtube' | 'bbc' | 'soundcloud' | 'tiktok' | 'twitch' | 'reddit' | 'movies' | 'tvshows' | 'documentaries';
 
 export function Discover() {
-  // Restore last active tab from sessionStorage or URL parameter, default to 'movies'
+  // Restore last active tab from localStorage or URL parameter, default to 'movies'
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     // Check URL parameter first
     const urlParams = new URLSearchParams(window.location.search);
@@ -20,8 +20,8 @@ export function Discover() {
     if (tabParam) {
       return tabParam as Tab;
     }
-    // Fall back to sessionStorage
-    const saved = sessionStorage.getItem('discover-active-tab');
+    // Fall back to localStorage
+    const saved = localStorage.getItem('discover-active-tab');
     return (saved as Tab) || 'movies';
   });
 
@@ -37,10 +37,10 @@ export function Discover() {
     { id: 'reddit' as const, label: 'Reddit', logo: '/images/reddit.svg' },
   ];
 
-  // Save active tab to sessionStorage whenever it changes
+  // Save active tab to localStorage whenever it changes
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
-    sessionStorage.setItem('discover-active-tab', tab);
+    localStorage.setItem('discover-active-tab', tab);
   };
 
   return (

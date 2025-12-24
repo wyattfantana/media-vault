@@ -137,6 +137,10 @@ sonarr:
 ✅ Add TV shows to Sonarr from TV Shows page
 ✅ Automatic torrent search via Prowlarr indexers
 ✅ Quality profile selection (defaulting to HD-1080p)
+✅ Manual torrent selection (browse and pick specific releases)
+✅ Duplicate detection and library checking
+✅ Smart error messages and workflow guidance
+✅ Unified downloads view showing Radarr, Sonarr, and MediaVault queues
 ✅ Download queue monitoring
 ✅ qBittorrent integration for torrent downloads
 ✅ Docker volume path mapping resolved
@@ -156,44 +160,33 @@ sonarr:
 ### High Priority
 
 1. **Enhanced UI Feedback**
-   - Show download progress in MediaVault UI
-   - Display queue status on Movies/TV Shows pages
-   - Add notifications for download completion/failure
+   - ⏳ Show download progress bars in unified Downloads page
+   - ⏳ Add notifications for download completion/failure
+   - ⏳ Real-time status updates via websockets
 
-2. **Better Error Handling**
-   - Detect and display duplicate movie/show errors gracefully
-   - Show specific error messages from Radarr/Sonarr
-   - Validate quality profiles and root folders before adding
+2. **Advanced Queue Management**
+   - ⏳ Allow pause/resume/cancel from MediaVault UI
+   - ⏳ Display ETA and download speed for active downloads
+   - ⏳ Bulk queue operations (pause all, clear completed)
 
-3. **Queue Management UI**
-   - Create a dedicated Downloads/Queue page
-   - Show active downloads from Radarr/Sonarr queues
-   - Allow pause/resume/cancel from MediaVault UI
-   - Display ETA and download speed
-
-4. **Quality Profile Selection**
-   - Allow users to select quality profile per movie/show
-   - Remember user's preferred quality settings
-   - Show available quality options in UI
+3. **Manual Torrent Selection for TV Shows**
+   - ⏳ Add "Browse Torrents" button to TV Shows quality dialog
+   - ⏳ Season/episode-specific release selection
+   - ⏳ Match Movies page UX for consistency
 
 ### Medium Priority
 
-5. **Existing Library Detection**
-   - Check if movie/show is already in Radarr/Sonarr before adding
-   - Show "Already in library" status
-   - Provide option to search for upgrades
+4. **Batch Operations**
+   - ⏳ Add multiple movies/shows at once
+   - ⏳ Bulk quality profile changes
+   - ⏳ Mass search/refresh commands
 
-6. **Batch Operations**
-   - Add multiple movies/shows at once
-   - Bulk quality profile changes
-   - Mass search/refresh commands
+5. **Advanced Release Filtering**
+   - ⏳ Filter torrents by quality, size range, seeders
+   - ⏳ Sort releases by different criteria
+   - ⏳ Save preferred release patterns
 
-7. **Advanced Search Options**
-   - Manual torrent selection (instead of automatic)
-   - Filter by quality, size, seeders
-   - Preview available releases before adding
-
-8. **Jellyfin Integration Enhancement**
+6. **Jellyfin Integration Enhancement**
    - Auto-update Jellyfin library when downloads complete
    - Link Radarr/Sonarr downloads to Jellyfin library items
    - Show playback status in MediaVault
@@ -316,8 +309,23 @@ Using Recyclarr to sync TRaSH guides ensures:
 - ✅ Tested end-to-end movie download workflow
 - ✅ Configured Recyclarr with TRaSH guides for HD-1080p quality
 
+### Session 11 (2025-12-22)
+- ✅ Implemented quality profile selection for Movies
+- ✅ Implemented quality profile selection for TV Shows
+- ✅ Added duplicate detection (checks existing Radarr/Sonarr library)
+- ✅ Auto-triggers search for existing undownloaded content
+- ✅ Unified Downloads page (MediaVault + Radarr + Sonarr queues)
+- ✅ **Manual Torrent Selection** - Power user feature
+  - Browse button in quality selection dialog
+  - Fetches available releases from Radarr API
+  - Shows torrent details (quality, size, seeders, indexer)
+  - Click to select specific release
+  - Download selected torrent instead of auto-picking
+- ✅ Better error messages and user guidance
+- ✅ Color-coded UI (Blue=Radarr, Purple=Sonarr, Indigo=Torrent Browser)
+
 ---
 
 **Last Updated:** 2025-12-22
-**Status:** Fully functional, ready for production use
-**Next Steps:** Enhanced UI feedback and queue management
+**Status:** Production-ready with advanced power user features
+**Next Steps:** Consider adding similar manual selection to TV Shows page

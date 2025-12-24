@@ -3,6 +3,7 @@
  */
 import { AppDataSource } from '../data-source.js';
 import { tmdbService } from '../services/tmdb.service.js';
+import { getIPlayerService } from '../services/get-iplayer.service.js';
 
 async function backfillThumbnails() {
   try {
@@ -22,11 +23,55 @@ async function backfillThumbnails() {
 
     console.log(`\n📊 Found ${downloads.length} downloads without thumbnails\n`);
 
+    const prefRows = await AppDataSource
+      .createQueryBuilder()
+      .select(['p.user_id', 'p.get_iplayer_path'])
+      .from('user_preferences', 'p')
+      .getRawMany();
+    const iplayerPathByUser = new Map<string, string>();
+    for (const pref of prefRows) {
+      if (pref.get_iplayer_path) {
+        iplayerPathByUser.set(pref.user_id, pref.get_iplayer_path);
+      }
+    }
+
     for (const download of downloads) {
       console.log(`\n--- Processing: ${download.title} ---`);
 
       try {
-        const thumbnail = await tmdbService.findThumbnailForTitle(download.title);
+        let thumbnail: string | null = null;
+
+        if (download.downloader === 'get_iplayer' && download.url) {
+          const preferredPath = iplayerPathByUser.get(download.user_id);
+          if (preferredPath) {
+            getIPlayerService.setBinaryPath(preferredPath);
+          }
+          const pidMatch = download.url.match(/[a-z0-9]{8}/i);
+          if (pidMatch) {
+            let programmes = await getIPlayerService.getProgrammeInfo(pidMatch[0]);
+            if (programmes.length === 0) {
+              programmes = await getIPlayerService.search(pidMatch[0]);
+            }
+            if (programmes.length > 0) {
+              thumbnail = programmes[0].thumbnail || null;
+            }
+          }
+        }
+
+        if (!thumbnail && download.metadata) {
+          try {
+            const metadata = typeof download.metadata === 'string'
+              ? JSON.parse(download.metadata)
+              : download.metadata;
+            thumbnail = metadata?.thumbnail || metadata?.thumbnails?.[0]?.url || null;
+          } catch (err) {
+            console.error(`⚠️  Failed to parse metadata for thumbnail: ${(err as Error).message}`);
+          }
+        }
+
+        if (!thumbnail && download.downloader !== 'get_iplayer') {
+          thumbnail = await tmdbService.findThumbnailForTitle(download.title, download.user_id);
+        }
 
         if (thumbnail) {
           // Update download with thumbnail

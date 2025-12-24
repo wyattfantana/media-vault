@@ -49,6 +49,119 @@ export class DownloadWorker {
   private defaultMaxConcurrentDownloads = 3; // Default maximum concurrent downloads
   private activeDownloadsByUser = new Map<string, Set<string>>(); // Track active downloads per user
 
+  private async shouldFetchThumbnails(userId: string): Promise<boolean> {
+    try {
+      const prefs = await AppDataSource
+        .createQueryBuilder()
+        .select('auto_fetch_thumbnails')
+        .from('user_preferences', 'p')
+        .where('p.user_id = :userId', { userId })
+        .getRawOne();
+      if (prefs && prefs.auto_fetch_thumbnails !== null && prefs.auto_fetch_thumbnails !== undefined) {
+        return !!prefs.auto_fetch_thumbnails;
+      }
+    } catch (err) {
+      console.error(`[Download Worker] Failed to fetch thumbnail preference for user ${userId}:`, err);
+    }
+
+    return true;
+  }
+
+  private async recordDownloadHistory(download: any, title: string, finalPath: string, fileSize: number) {
+    try {
+      const sourceType = getSourceType(download.downloader, download.url);
+      const youtubeId = extractYouTubeVideoId(download.url);
+      const iplayerId = extractiPlayerPid(download.url);
+
+      await AppDataSource.query(`
+        INSERT INTO download_history (
+          user_id, source_type, source_url, title, tmdb_id, tmdb_media_type,
+          youtube_video_id, iplayer_pid, file_path, file_size, category, downloaded_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+        ON CONFLICT (user_id, source_url) WHERE source_url IS NOT NULL DO NOTHING
+      `, [
+        download.user_id,
+        sourceType,
+        download.url,
+        title,
+        download.tmdb_id || null,
+        download.tmdb_media_type || null,
+        youtubeId,
+        iplayerId,
+        finalPath,
+        fileSize,
+        download.category || null
+      ]);
+
+      console.log(`[Download Worker] Added to download history: ${title}`);
+
+      // Auto-match TMDB ID if not already set (for torrent downloads)
+      if (!download.tmdb_id && sourceType === 'qbittorrent') {
+        try {
+          console.log(`[Download Worker] Auto-matching TMDB ID for: ${title}`);
+
+          const filename = path.basename(finalPath, path.extname(finalPath));
+          const yearMatch = filename.match(/\b(19\d{2}|20\d{2})\b/);
+          const year = yearMatch ? parseInt(yearMatch[1]) : null;
+
+          let cleanTitle = filename
+            .replace(/\b(19\d{2}|20\d{2})\b/g, '')
+            .replace(/\b(1080p|720p|2160p|4K|BluRay|WEBRip|HDTV|DVDRip|x264|x265|H\.?264|H\.?265|HEVC)\b/gi, '')
+            .replace(/\b(AAC|AC3|DTS|EAC3|DD|5\.1|2\.0|Atmos)\b/gi, '')
+            .replace(/-[A-Z0-9]+$/i, '')
+            .replace(/S\d{2}.*$/i, '')
+            .replace(/\([^)]*\)/g, '')
+            .replace(/[._-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (year && cleanTitle.endsWith(year.toString())) {
+            cleanTitle = cleanTitle.replace(new RegExp(`\\s*${year}$`), '').trim();
+          }
+
+          const isTV = /S\d{2}|Season|Episode/i.test(filename);
+          const mediaType = isTV ? 'tv' : (download.category?.toLowerCase().includes('documentary') ? 'documentary' : 'movie');
+
+          let tmdbId = null;
+          let tmdbMediaType = null;
+
+          if (mediaType === 'tv') {
+            const searchResults = await tmdbService.searchTVShows(cleanTitle, 1, download.user_id, year || undefined);
+            if (searchResults.results && searchResults.results.length > 0) {
+              tmdbId = searchResults.results[0].id;
+              tmdbMediaType = 'tv';
+              console.log(`[Download Worker] ✓ Matched TV show: ${searchResults.results[0].name} (TMDB: ${tmdbId})`);
+            }
+          } else {
+            const searchResults = await tmdbService.searchMovies(cleanTitle, 1, download.user_id, year || undefined);
+            if (searchResults.results && searchResults.results.length > 0) {
+              tmdbId = searchResults.results[0].id;
+              tmdbMediaType = mediaType;
+              console.log(`[Download Worker] ✓ Matched ${mediaType}: ${searchResults.results[0].title} (TMDB: ${tmdbId})`);
+            }
+          }
+
+          if (tmdbId) {
+            await AppDataSource.query(`
+              UPDATE download_history
+              SET tmdb_id = $1, tmdb_media_type = $2
+              WHERE user_id = $3 AND source_url = $4
+            `, [tmdbId, tmdbMediaType, download.user_id, download.url]);
+
+            console.log(`[Download Worker] Updated download_history with TMDB ID ${tmdbId}`);
+          } else {
+            console.log(`[Download Worker] No TMDB match found for: ${cleanTitle}`);
+          }
+        } catch (tmdbErr) {
+          console.error('[Download Worker] TMDB auto-match failed:', tmdbErr);
+        }
+      }
+    } catch (historyErr) {
+      console.error('[Download Worker] Failed to insert download history:', historyErr);
+    }
+  }
+
   constructor() {
     // Listen for progress events from downloaders
     ytdlpService.on('progress', (progress) => {
@@ -193,6 +306,9 @@ export class DownloadWorker {
       let resolution: string = '';
       let videoInfo: any = null;
       let iplayerInfo: IPlayerProgramme | undefined;
+      let thumbnail = download.thumbnail || '';
+      let title = download.title || '';
+      let description = download.description || '';
 
       // Download using appropriate service
       if (download.downloader === 'yt-dlp') {
@@ -242,6 +358,17 @@ export class DownloadWorker {
           });
           outputPath = result.outputPath;
           iplayerInfo = result.info; // Save iPlayer info for title formatting
+          if (iplayerInfo) {
+            if ((!title || title === download.url) && (iplayerInfo.name || iplayerInfo.episode)) {
+              title = formatIPlayerTitle(iplayerInfo, outputPath);
+            }
+            if (!description && iplayerInfo.description) {
+              description = iplayerInfo.description;
+            }
+            if (!thumbnail && iplayerInfo.thumbnail) {
+              thumbnail = iplayerInfo.thumbnail;
+            }
+          }
 
           // Parse duration from programme info
           if (result.info.duration) {
@@ -262,19 +389,28 @@ export class DownloadWorker {
       } else if (download.downloader === 'qbittorrent') {
         // For qBittorrent downloads, they are added to qBittorrent immediately in the POST endpoint
         // The worker shouldn't normally process them, but if one ends up here (e.g., failed to add),
-        // we'll mark it as failed since torrents are handled differently
-        console.log(`[Download Worker] qBittorrent download found in pending queue - torrents are handled separately`);
+        // we'll let the torrent sync loop handle progress/completion
+        console.log(`[Download Worker] qBittorrent download found in pending queue - skipping worker processing`);
 
         // Check if this download has already been added to qBittorrent by checking metadata
         const metadata = typeof download.metadata === 'string' ? JSON.parse(download.metadata) : download.metadata;
 
         if (!metadata.isTorrent) {
-          throw new Error('qBittorrent downloader specified but URL is not a torrent');
+          await AppDataSource
+            .createQueryBuilder()
+            .update('downloads')
+            .set({
+              status: 'failed',
+              error_message: 'qBittorrent download missing torrent metadata'
+            })
+            .where('id = :id', { id: download.id })
+            .execute();
+          return;
         }
 
         // Since torrents are added immediately in the POST endpoint, finding one here means
-        // it likely failed to add to qBittorrent. Skip processing.
-        throw new Error('Torrent should have been added to qBittorrent immediately. Please check qBittorrent service.');
+        // it likely raced with the worker. Skip processing to avoid retries.
+        return;
       } else {
         throw new Error(`Unknown downloader: ${download.downloader}`);
       }
@@ -386,7 +522,32 @@ export class DownloadWorker {
       // Format title for Jellyfin (clean up iPlayer filenames)
       const formattedTitle = download.downloader === 'get_iplayer'
         ? formatIPlayerTitle(iplayerInfo, finalPath)
-        : (download.title || 'Unknown');
+        : (title || download.title || 'Unknown');
+
+      const shouldFetchThumbs = await this.shouldFetchThumbnails(download.user_id);
+      if (download.downloader !== 'get_iplayer' && shouldFetchThumbs && (!thumbnail || thumbnail === '')) {
+        try {
+          const tmdbThumbnail = await tmdbService.findThumbnailForTitle(formattedTitle, download.user_id);
+          if (tmdbThumbnail) {
+            thumbnail = tmdbThumbnail;
+          }
+        } catch (err) {
+          console.error('[Download Worker] TMDB thumbnail lookup failed:', err);
+        }
+      }
+
+      if (title !== download.title || description !== download.description || thumbnail !== download.thumbnail) {
+        await AppDataSource
+          .createQueryBuilder()
+          .update('downloads')
+          .set({
+            title: title || download.title,
+            description: description || download.description,
+            thumbnail: thumbnail || download.thumbnail || ''
+          })
+          .where('id = :id', { id: download.id })
+          .execute();
+      }
 
       // Use raw SQL for upsert to handle duplicate file_path constraint
       await AppDataSource.query(`
@@ -413,13 +574,13 @@ export class DownloadWorker {
         download.id,
         download.user_id,
         formattedTitle,
-        download.description || '',
+        description || download.description || '',
         finalPath,
         fileSize,
         duration,
         format || path.extname(finalPath).slice(1),
         resolution || '',
-        download.thumbnail || '',
+        thumbnail || download.thumbnail || '',
         mediaType,
         download.downloader,
         download.metadata || '{}',
@@ -428,101 +589,7 @@ export class DownloadWorker {
       ]);
 
       // Insert into download_history for permanent tracking (duplicate detection)
-      try {
-        const sourceType = getSourceType(download.downloader, download.url);
-        const youtubeId = extractYouTubeVideoId(download.url);
-        const iplayerId = extractiPlayerPid(download.url);
-
-        await AppDataSource.query(`
-          INSERT INTO download_history (
-            user_id, source_type, source_url, title, tmdb_id, tmdb_media_type,
-            youtube_video_id, iplayer_pid, file_path, file_size, category, downloaded_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
-          ON CONFLICT (user_id, source_url) WHERE source_url IS NOT NULL DO NOTHING
-        `, [
-          download.user_id,
-          sourceType,
-          download.url,
-          formattedTitle,
-          download.tmdb_id || null,
-          download.tmdb_media_type || null,
-          youtubeId,
-          iplayerId,
-          finalPath,
-          fileSize,
-          download.category || null
-        ]);
-
-        console.log(`[Download Worker] Added to download history: ${formattedTitle}`);
-
-        // Auto-match TMDB ID if not already set (for torrent downloads)
-        if (!download.tmdb_id && sourceType === 'qbittorrent') {
-          try {
-            console.log(`[Download Worker] Auto-matching TMDB ID for: ${formattedTitle}`);
-
-            // Parse filename to extract title and year
-            const filename = path.basename(finalPath, path.extname(finalPath));
-            const yearMatch = filename.match(/\b(19\d{2}|20\d{2})\b/);
-            const year = yearMatch ? parseInt(yearMatch[1]) : null;
-
-            // Clean title
-            let cleanTitle = filename
-              .replace(/\b(19\d{2}|20\d{2})\b/g, '')
-              .replace(/\b(1080p|720p|2160p|4K|BluRay|WEBRip|HDTV|DVDRip|x264|x265|H\.?264|H\.?265|HEVC)\b/gi, '')
-              .replace(/\b(AAC|AC3|DTS|EAC3|DD|5\.1|2\.0|Atmos)\b/gi, '')
-              .replace(/-[A-Z0-9]+$/i, '')
-              .replace(/S\d{2}.*$/i, '')
-              .replace(/\([^)]*\)/g, '')
-              .replace(/[._-]+/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim();
-
-            // Determine if TV show
-            const isTV = /S\d{2}|Season|Episode/i.test(filename);
-            const mediaType = isTV ? 'tv' : (download.category?.toLowerCase().includes('documentary') ? 'documentary' : 'movie');
-
-            // Search TMDB
-            let tmdbId = null;
-            let tmdbMediaType = null;
-
-            if (mediaType === 'tv') {
-              const searchResults = await tmdbService.searchTVShows(cleanTitle, 1);
-              if (searchResults.results && searchResults.results.length > 0) {
-                tmdbId = searchResults.results[0].id;
-                tmdbMediaType = 'tv';
-                console.log(`[Download Worker] ✓ Matched TV show: ${searchResults.results[0].name} (TMDB: ${tmdbId})`);
-              }
-            } else {
-              const searchResults = await tmdbService.searchMovies(cleanTitle, 1);
-              if (searchResults.results && searchResults.results.length > 0) {
-                tmdbId = searchResults.results[0].id;
-                tmdbMediaType = mediaType;
-                console.log(`[Download Worker] ✓ Matched ${mediaType}: ${searchResults.results[0].title} (TMDB: ${tmdbId})`);
-              }
-            }
-
-            // Update download_history with TMDB ID
-            if (tmdbId) {
-              await AppDataSource.query(`
-                UPDATE download_history
-                SET tmdb_id = $1, tmdb_media_type = $2
-                WHERE user_id = $3 AND source_url = $4
-              `, [tmdbId, tmdbMediaType, download.user_id, download.url]);
-
-              console.log(`[Download Worker] Updated download_history with TMDB ID ${tmdbId}`);
-            } else {
-              console.log(`[Download Worker] No TMDB match found for: ${cleanTitle}`);
-            }
-          } catch (tmdbErr) {
-            console.error('[Download Worker] TMDB auto-match failed:', tmdbErr);
-            // Don't fail the download if TMDB matching fails
-          }
-        }
-      } catch (historyErr) {
-        console.error('[Download Worker] Failed to insert download history:', historyErr);
-        // Don't fail the download if history insert fails
-      }
+      await this.recordDownloadHistory(download, formattedTitle, finalPath, fileSize);
 
       // Trigger Jellyfin library scan
       try {
@@ -655,7 +722,7 @@ export class DownloadWorker {
                   let thumbnail = download.thumbnail;
                   if (!thumbnail || thumbnail === '') {
                     try {
-                      const tmdbThumbnail = await tmdbService.findThumbnailForTitle(torrent.name);
+                      const tmdbThumbnail = await tmdbService.findThumbnailForTitle(torrent.name, download.user_id);
                       if (tmdbThumbnail) {
                         thumbnail = tmdbThumbnail;
                         console.log(`[Torrent Sync] Found TMDB thumbnail for: ${torrent.name}`);
@@ -740,7 +807,7 @@ export class DownloadWorker {
       let thumbnail = download.thumbnail;
       if (!thumbnail || thumbnail === '') {
         try {
-          const tmdbThumbnail = await tmdbService.findThumbnailForTitle(torrent.name);
+          const tmdbThumbnail = await tmdbService.findThumbnailForTitle(torrent.name, download.user_id);
           if (tmdbThumbnail) {
             thumbnail = tmdbThumbnail;
             console.log(`[Torrent Sync] Found TMDB thumbnail on completion: ${torrent.name}`);
@@ -792,6 +859,8 @@ export class DownloadWorker {
       console.log(`[Torrent Sync] Created media entry for: ${torrent.name}`);
       console.log(`[Torrent Sync] Output: ${torrentPath}`);
       console.log(`[Torrent Sync] Size: ${(torrent.size / 1024 / 1024).toFixed(2)} MB`);
+
+      await this.recordDownloadHistory(download, torrent.name, torrentPath, stats.isDirectory() ? 0 : stats.size);
 
       // Trigger Jellyfin library scan
       try {

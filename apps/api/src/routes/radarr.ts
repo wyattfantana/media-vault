@@ -289,3 +289,85 @@ radarrRouter.get('/queue', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to get queue' });
   }
 });
+
+// POST /api/v1/radarr/movies/:id/search - Trigger movie search
+radarrRouter.post('/movies/:id/search', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { id } = req.params;
+
+    const prefs = await AppDataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('user_preferences', 'up')
+      .where('up.user_id = :userId', { userId })
+      .getRawOne();
+
+    if (!prefs || !prefs.radarr_enabled) {
+      return res.status(400).json({ error: 'Radarr is not enabled' });
+    }
+
+    radarrService.updateApiKey(prefs.radarr_api_key);
+
+    await radarrService.searchMovieReleases(parseInt(id));
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to trigger movie search:', err);
+    res.status(500).json({ error: 'Failed to trigger search' });
+  }
+});
+
+// GET /api/v1/radarr/releases/:movieId - Get available releases for a movie
+radarrRouter.get('/releases/:movieId', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { movieId } = req.params;
+
+    const prefs = await AppDataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('user_preferences', 'up')
+      .where('up.user_id = :userId', { userId })
+      .getRawOne();
+
+    if (!prefs || !prefs.radarr_enabled) {
+      return res.status(400).json({ error: 'Radarr is not enabled' });
+    }
+
+    radarrService.updateApiKey(prefs.radarr_api_key);
+
+    // First add movie to Radarr (unmonitored) so we can search for releases
+    const releases = await radarrService.getReleases(parseInt(movieId));
+    res.json(releases);
+  } catch (err) {
+    console.error('Failed to get releases:', err);
+    res.status(500).json({ error: 'Failed to get releases' });
+  }
+});
+
+// POST /api/v1/radarr/releases/download - Download a specific release
+radarrRouter.post('/releases/download', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { guid, indexerId } = req.body;
+
+    const prefs = await AppDataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('user_preferences', 'up')
+      .where('up.user_id = :userId', { userId })
+      .getRawOne();
+
+    if (!prefs || !prefs.radarr_enabled) {
+      return res.status(400).json({ error: 'Radarr is not enabled' });
+    }
+
+    radarrService.updateApiKey(prefs.radarr_api_key);
+
+    await radarrService.downloadRelease(guid, indexerId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to download release:', err);
+    res.status(500).json({ error: 'Failed to download release' });
+  }
+});

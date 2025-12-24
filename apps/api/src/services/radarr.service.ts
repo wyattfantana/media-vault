@@ -283,6 +283,36 @@ export class RadarrService {
   }
 
   /**
+   * Get available releases for a movie
+   */
+  async getReleases(movieId: number): Promise<any[]> {
+    try {
+      const response = await this.client.get('/release', {
+        params: { movieId }
+      });
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to get releases from Radarr:', error);
+      throw new Error('Failed to retrieve releases');
+    }
+  }
+
+  /**
+   * Download a specific release
+   */
+  async downloadRelease(guid: string, indexerId: number): Promise<void> {
+    try {
+      await this.client.post('/release', {
+        guid,
+        indexerId
+      });
+    } catch (error) {
+      console.error('Failed to download release:', error);
+      throw new Error('Failed to download release');
+    }
+  }
+
+  /**
    * Update API key
    */
   updateApiKey(apiKey: string): void {
