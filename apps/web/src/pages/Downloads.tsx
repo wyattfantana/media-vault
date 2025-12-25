@@ -47,6 +47,8 @@ export function Downloads() {
   const [customFolder, setCustomFolder] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     fetchDownloads();
@@ -84,6 +86,17 @@ export function Downloads() {
   const filteredDownloads = statusFilter === 'all'
     ? downloads
     : downloads.filter(d => d.status === statusFilter);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredDownloads.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedDownloads = filteredDownloads.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
 
   // Calculate real progress for downloads
   const getProgress = (download: Download): number => {
@@ -462,7 +475,7 @@ export function Downloads() {
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDownloads.map((download) => (
+          {paginatedDownloads.map((download) => (
             <div key={download.id} className="card">
               {/* Thumbnail */}
               {download.thumbnail ? (
@@ -617,7 +630,7 @@ export function Downloads() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
-              {filteredDownloads.map((download) => (
+              {paginatedDownloads.map((download) => (
                 <tr key={download.id} className="hover:bg-gray-800/50">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3 max-w-md">
@@ -690,6 +703,48 @@ export function Downloads() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="card mt-6">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-400">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredDownloads.length)} of {filteredDownloads.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-10 h-10 rounded-lg ${
+                      currentPage === page
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
