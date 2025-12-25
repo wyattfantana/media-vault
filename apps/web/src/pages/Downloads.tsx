@@ -287,58 +287,9 @@ export function Downloads() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-100">Queue Management</h1>
-          <p className="text-gray-400 mt-1">Monitor and manage all downloads</p>
-        </div>
-        <div className="flex gap-3">
-          {stats.completed > 0 && (
-            <button
-              onClick={handleClearCompleted}
-              className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600"
-            >
-              Clear Completed
-            </button>
-          )}
-          <button
-            onClick={() => setShowNewDownload(true)}
-            className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Download
-          </button>
-        </div>
-      </div>
-
-      {/* Statistics Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        <div className="card">
-          <div className="text-sm text-gray-400 mb-1">Total</div>
-          <div className="text-2xl font-bold text-gray-100">{stats.total}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-yellow-400 mb-1">Pending</div>
-          <div className="text-2xl font-bold text-yellow-300">{stats.pending}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-blue-400 mb-1">Downloading</div>
-          <div className="text-2xl font-bold text-blue-300">{stats.downloading}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-green-400 mb-1">Completed</div>
-          <div className="text-2xl font-bold text-green-300">{stats.completed}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-red-400 mb-1">Failed</div>
-          <div className="text-2xl font-bold text-red-300">{stats.failed}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-gray-400 mb-1">Cancelled</div>
-          <div className="text-2xl font-bold text-gray-300">{stats.cancelled}</div>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-100">Queue Management</h1>
+        <p className="text-gray-400 mt-1">Monitor and manage all downloads</p>
       </div>
 
       {/* Filters and View Mode */}

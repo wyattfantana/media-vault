@@ -41,6 +41,16 @@ bazarrRouter.get('/status', requireAuth, async (req, res) => {
       });
     }
 
+    // Configure Bazarr service with user's settings
+    if (prefs.bazarr_url && prefs.bazarr_api_key) {
+      const urlObj = new URL(prefs.bazarr_url);
+      bazarrService.configure({
+        host: urlObj.hostname,
+        port: parseInt(urlObj.port || '6767'),
+        apiKey: prefs.bazarr_api_key,
+      });
+    }
+
     const status = await bazarrService.getStatus();
     res.json(status);
   } catch (err) {

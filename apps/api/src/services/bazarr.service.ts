@@ -186,7 +186,8 @@ export class BazarrService {
 
     try {
       const response = await this.client!.get('/system/status');
-      return response.data;
+      // Bazarr wraps response in a 'data' object
+      return response.data.data || response.data;
     } catch (error) {
       console.error('[Bazarr] Failed to get system status:', error);
       throw new Error('Failed to retrieve Bazarr system status');
