@@ -36,6 +36,7 @@ export function Favorites() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [downloadFilter, setDownloadFilter] = useState<'all' | 'downloaded' | 'not_downloaded'>('all');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -413,46 +414,12 @@ export function Favorites() {
         <p className="text-gray-400 mt-1">Your bookmarked channels, playlists, movies, shows, and documentaries</p>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
-        <div className="card">
-          <div className="text-sm text-gray-400 mb-1">Total</div>
-          <div className="text-2xl font-bold text-gray-100">{stats.total}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-purple-400 mb-1">Movies</div>
-          <div className="text-2xl font-bold text-purple-300">{stats.tmdb_movie}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-blue-400 mb-1">TV Shows</div>
-          <div className="text-2xl font-bold text-blue-300">{stats.tmdb_tv}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-green-400 mb-1">Documentaries</div>
-          <div className="text-2xl font-bold text-green-300">{stats.tmdb_documentary}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-red-400 mb-1">YT Channels</div>
-          <div className="text-2xl font-bold text-red-300">{stats.youtube_channel}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-red-400 mb-1">YT Playlists</div>
-          <div className="text-2xl font-bold text-red-300">{stats.youtube_playlist}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-orange-400 mb-1">SoundCloud</div>
-          <div className="text-2xl font-bold text-orange-300">{stats.soundcloud_user}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-gray-400 mb-1">Other</div>
-          <div className="text-2xl font-bold text-gray-300">{stats.other}</div>
-        </div>
-      </div>
-
-      {/* Filters */}
+      {/* Filters and View Mode */}
       <div className="card mb-6">
-        <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Type</label>
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Type</label>
+            <div className="flex flex-wrap gap-2 mb-4">
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-lg text-sm ${filter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
@@ -518,6 +485,26 @@ export function Favorites() {
             ⬇ Not Downloaded ({stats.not_downloaded})
           </button>
         </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">View Mode</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-4 py-2 rounded-lg text-sm ${viewMode === 'grid' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              >
+                Grid
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-4 py-2 rounded-lg text-sm ${viewMode === 'table' ? 'bg-brand-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              >
+                Table
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Bookmarks Grid */}
@@ -535,7 +522,7 @@ export function Favorites() {
             </p>
           )}
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {paginatedBookmarks.map((bookmark) => {
             // Render TMDB cards differently from YouTube/SoundCloud cards
@@ -645,6 +632,88 @@ export function Favorites() {
             </div>
             )
           })}
+        </div>
+      ) : (
+        <div className="card overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-900/50 border-b border-gray-700">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Title
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {paginatedBookmarks.map((bookmark) => (
+                <tr key={bookmark.id} className="hover:bg-gray-800/50">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3 max-w-md">
+                      {bookmark.thumbnail && (
+                        <img
+                          src={bookmark.thumbnail}
+                          alt={bookmark.title}
+                          className="w-12 h-12 object-cover rounded bg-gray-700"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-100 truncate">
+                          {bookmark.title}
+                        </p>
+                        {bookmark.url && (
+                          <p className="text-xs text-gray-400 truncate">
+                            {bookmark.url}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 py-1 text-xs rounded bg-gray-700 text-gray-300">
+                      {bookmark.type.replace('_', ' ')}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {bookmark.download_status?.is_downloaded ? (
+                      <span className="px-2 py-1 text-xs rounded bg-green-900/50 text-green-300">
+                        ✓ Downloaded
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs rounded bg-gray-700 text-gray-400">
+                        Not Downloaded
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex gap-2">
+                      {bookmark.url && (
+                        <button
+                          onClick={() => handleVisit(bookmark.url!)}
+                          className="text-blue-400 hover:text-blue-300 text-sm"
+                        >
+                          Visit
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(bookmark.id)}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
