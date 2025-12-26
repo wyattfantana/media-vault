@@ -401,6 +401,44 @@ export function Dashboard() {
                 </div>
               </div>
             </a>
+
+            <a
+              href="http://localhost:8989"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block p-4 bg-teal-900/30 hover:bg-teal-900/50 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-100">Open Sonarr</p>
+                  <p className="text-sm text-gray-400">Manage TV shows for subtitles</p>
+                </div>
+              </div>
+            </a>
+
+            <a
+              href="http://localhost:7878"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block p-4 bg-yellow-900/30 hover:bg-yellow-900/50 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-yellow-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-100">Open Radarr</p>
+                  <p className="text-sm text-gray-400">Manage movies for subtitles</p>
+                </div>
+              </div>
+            </a>
           </div>
         </div>
       </div>
