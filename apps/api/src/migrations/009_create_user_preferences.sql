@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 
   -- Privacy/Advanced
   youtube_cookies_path VARCHAR(512) DEFAULT NULL,
-  clear_search_history_on_exit BOOLEAN DEFAULT false,
 
   -- Metadata
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

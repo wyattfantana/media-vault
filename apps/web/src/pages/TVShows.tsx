@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, X, Loader, Plus } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
@@ -2611,6 +2612,36 @@ export default function TVShows() {
                   </div>
                 )}
 
+                {/* Download Success/Error Message */}
+                {downloadMessage && (
+                  <div className={`border rounded-lg p-4 transition-all duration-300 ${
+                    downloadMessage.startsWith('✅')
+                      ? 'bg-green-900/30 border-green-400/50 shadow-lg shadow-green-500/20 animate-pulse'
+                      : downloadMessage.startsWith('⚠️')
+                      ? 'bg-yellow-900/20 border-yellow-500/30'
+                      : downloadMessage.startsWith('⏳')
+                      ? 'bg-green-900/20 border-green-500/30'
+                      : 'bg-red-900/20 border-red-500/30'
+                  }`}>
+                    <p className={`${
+                      downloadMessage.startsWith('✅') ? 'text-base font-semibold' : 'text-sm'
+                    } ${
+                      downloadMessage.startsWith('✅')
+                        ? 'text-green-200'
+                        : downloadMessage.startsWith('⚠️')
+                        ? 'text-yellow-300'
+                        : downloadMessage.startsWith('⏳')
+                        ? 'text-green-300'
+                        : 'text-red-300'
+                    }`}>
+                      {downloadMessage}
+                      {downloadMessage.startsWith('✅') && (
+                        <>, <Link to="/downloads" className="underline font-bold hover:text-green-100 transition-colors">click here to see your downloads</Link></>
+                      )}
+                    </p>
+                  </div>
+                )}
+
                 {/* Download Button */}
                 {prowlarrEnabled && (
                   <button
@@ -2741,11 +2772,14 @@ export default function TVShows() {
                           return (
                             <div
                               key={index}
-                              onClick={async () => {
+                              onClick={async (e) => {
+                                e.stopPropagation();
+
+                                // Prevent duplicate downloads
+                                if (downloadingTorrent) return;
+
                                 setSelectedRelease(release);
                                 setDownloadingTorrent(true);
-                                // Show message immediately
-                                setDownloadMessage(`⏳ Downloading "${selectedShow?.name || selectedShow?.title}"`);
 
                                 try {
                                   const response = await fetch(`${API_BASE}/torrents/download`, {
@@ -2763,24 +2797,27 @@ export default function TVShows() {
                                   });
 
                                   if (response.ok) {
-                                    setDownloadMessage(`✅ Downloading "${selectedShow?.name || selectedShow?.title}"`);
+                                    setDownloadMessage(`✅ ${selectedShow?.name || selectedShow?.title} is now downloading`);
                                     setAvailableReleases([]);
-                                    setTimeout(() => setDownloadMessage(null), 5000);
+                                    setTimeout(() => setDownloadMessage(null), 10000);
                                   } else if (response.status === 409) {
                                     setDownloadMessage(`⚠️ This torrent is already in your downloads`);
                                     setTimeout(() => setDownloadMessage(null), 5000);
                                   } else {
-                                    const error = await response.json();
-                                    throw new Error(error.error || 'Failed to download');
+                                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                                    throw new Error(errorData.error || 'Failed to download');
                                   }
                                 } catch (error: any) {
                                   setDownloadMessage(`❌ ${error.message}`);
+                                  setTimeout(() => setDownloadMessage(null), 5000);
                                 } finally {
                                   setDownloadingTorrent(false);
                                   setSelectedRelease(null);
                                 }
                               }}
-                              className="bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 rounded-lg p-3 cursor-pointer transition-colors"
+                              className={`bg-gray-800 border border-gray-700 rounded-lg p-3 transition-colors ${
+                                downloadingTorrent ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700 hover:border-green-500 cursor-pointer'
+                              }`}
                             >
                               <div className="flex items-start gap-3">
                                 <div className="flex-1 min-w-0">

@@ -929,7 +929,8 @@ export class TMDBService {
         cleanTitle = title
         .replace(/\.(mkv|mp4|avi|mov|wmv|flv|webm)$/i, '') // Remove extensions
         .replace(/\b(720p|1080p|2160p|4k|HDTV|WEB[-_. ]?DL|BluRay|BRRip|WEBRip|HDRip|DVDRip|x264|x265|HEVC|AAC|AC3|DTS|H\.?265|H\.?264|DDP5\.1|DD5\.1|Atmos)\b/gi, '') // Remove quality indicators
-        .replace(/\b(YIFY|YTS|RARBG|ETRG|Ozlem|EAC3|RBG|SeeHD)\b/gi, '') // Remove release groups
+        .replace(/\b(YIFY|YTS|RARBG|ETRG|Ozlem|EAC3|RBG|SeeHD|LAMA|TGx|BONE|SPARKS|FGT|PSA|CMRG|NTG|ION10|TOMMY|DEFLATE|SWTYBLZ)\b/gi, '') // Remove release groups
+        .replace(/\b(REMASTERED|EXTENDED|UNRATED|DIRECTORS?\.?CUT|THEATRICAL|IMAX|PROPER|REPACK|INTERNAL|LIMITED|FESTIVAL|NEW)\b/gi, '') // Remove edition tags
         .replace(/\d+(\.\d+)?\s?(GB|MB|KB)/gi, '') // Remove file sizes
         .replace(/\bS\d{2}E?\d{0,2}\b/gi, '') // Remove season/episode tags
         .replace(/\bS\d{2}(-S\d{2})?\b/gi, '') // Remove season ranges like S01-S26

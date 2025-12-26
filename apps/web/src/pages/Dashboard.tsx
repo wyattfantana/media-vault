@@ -382,6 +382,25 @@ export function Dashboard() {
                 </div>
               </div>
             </a>
+
+            <a
+              href="http://localhost:6767"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block p-4 bg-orange-900/30 hover:bg-orange-900/50 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-100">Open Bazarr</p>
+                  <p className="text-sm text-gray-400">Manage subtitles</p>
+                </div>
+              </div>
+            </a>
           </div>
         </div>
       </div>

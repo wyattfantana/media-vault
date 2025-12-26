@@ -48,7 +48,7 @@ export function Downloads() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 16;
 
   useEffect(() => {
     fetchDownloads();
@@ -722,19 +722,47 @@ export function Downloads() {
                 Previous
               </button>
               <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-10 h-10 rounded-lg ${
-                      currentPage === page
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
+                {/* Smart pagination: Show first, last, current, and nearby pages */}
+                {currentPage > 2 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      className="w-10 h-10 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    >
+                      1
+                    </button>
+                    {currentPage > 3 && <span className="text-gray-500 px-2">...</span>}
+                  </>
+                )}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(page => {
+                    // Show current page and 1 page on each side
+                    return page >= currentPage - 1 && page <= currentPage + 1;
+                  })
+                  .map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-10 h-10 rounded-lg ${
+                        currentPage === page
+                          ? 'bg-brand-600 text-white'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                {currentPage < totalPages - 1 && (
+                  <>
+                    {currentPage < totalPages - 2 && <span className="text-gray-500 px-2">...</span>}
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="w-10 h-10 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
               </div>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}

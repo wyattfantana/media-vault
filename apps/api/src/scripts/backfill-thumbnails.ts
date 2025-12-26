@@ -5,21 +5,53 @@ import { AppDataSource } from '../data-source.js';
 import { tmdbService } from '../services/tmdb.service.js';
 import { getIPlayerService } from '../services/get-iplayer.service.js';
 
+function buildTmdbSearchParams(rawTitle: string) {
+  const yearMatch = rawTitle.match(/\b(19\d{2}|20\d{2})\b/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : undefined;
+
+  let cleanTitle = rawTitle
+    .replace(/\b(19\d{2}|20\d{2})\b/g, '')
+    .replace(/\b(1080p|720p|2160p|4K|BluRay|WEBRip|WEB-DL|HDTV|DVDRip|x264|x265|H\.?264|H\.?265|HEVC)\b/gi, '')
+    .replace(/\b(AAC|AC3|DTS|EAC3|DD|5\.1|2\.0|Atmos)\b/gi, '')
+    .replace(/-[A-Z0-9]+$/i, '')
+    .replace(/S\d{2}.*$/i, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/[._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (year && cleanTitle.endsWith(year.toString())) {
+    cleanTitle = cleanTitle.replace(new RegExp(`\\s*${year}$`), '').trim();
+  }
+
+  const isTV = /S\d{2}|Season|Episode/i.test(rawTitle);
+  return { cleanTitle, year, isTV };
+}
+
 async function backfillThumbnails() {
   try {
+    const titleFilter = process.argv[2]?.trim() || null;
+    const searchOverride = process.argv[3]?.trim() || null;
+
     // Initialize database
     await AppDataSource.initialize();
     console.log('✅ Database connected');
 
     // Get all downloads without thumbnails
-    const downloads = await AppDataSource
+    let query = AppDataSource
       .createQueryBuilder()
       .select('*')
       .from('downloads', 'd')
       .where('(d.thumbnail IS NULL OR d.thumbnail = \'\')')
       .andWhere('d.title IS NOT NULL')
-      .andWhere('d.title != \'Torrent Download\'')
-      .getRawMany();
+      .andWhere('d.title != \'Torrent Download\'');
+
+    if (titleFilter) {
+      console.log(`\n🔎 Limiting to title: ${titleFilter}\n`);
+      query = query.andWhere('d.title ILIKE :title', { title: titleFilter });
+    }
+
+    const downloads = await query.getRawMany();
 
     console.log(`\n📊 Found ${downloads.length} downloads without thumbnails\n`);
 
@@ -70,7 +102,22 @@ async function backfillThumbnails() {
         }
 
         if (!thumbnail && download.downloader !== 'get_iplayer') {
-          thumbnail = await tmdbService.findThumbnailForTitle(download.title, download.user_id);
+          const { cleanTitle: derivedTitle, year, isTV } = buildTmdbSearchParams(download.title || '');
+          const cleanTitle = searchOverride || derivedTitle;
+          const preferTV = isTV || download.category?.toLowerCase().includes('tv');
+          if (cleanTitle) {
+            if (preferTV) {
+              const searchResults = await tmdbService.searchTVShows(cleanTitle, 1, download.user_id, year);
+              if (searchResults.results && searchResults.results.length > 0) {
+                thumbnail = tmdbService.getImageUrl(searchResults.results[0].poster_path, 'w200');
+              }
+            } else {
+              const searchResults = await tmdbService.searchMovies(cleanTitle, 1, download.user_id, year);
+              if (searchResults.results && searchResults.results.length > 0) {
+                thumbnail = tmdbService.getImageUrl(searchResults.results[0].poster_path, 'w200');
+              }
+            }
+          }
         }
 
         if (thumbnail) {

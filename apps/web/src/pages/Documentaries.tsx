@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, Loader } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
@@ -54,6 +55,8 @@ export default function Documentaries() {
   const [torrentSearchError, setTorrentSearchError] = useState<string | null>(null);
   const [vpnConnected, setVpnConnected] = useState(false);
   const [checkingVpn, setCheckingVpn] = useState(false);
+  const [downloadingTorrent, setDownloadingTorrent] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
@@ -1722,6 +1725,36 @@ export default function Documentaries() {
                   </div>
                 )}
 
+                {/* Download Success/Error Message */}
+                {downloadMessage && (
+                  <div className={`border rounded-lg p-4 transition-all duration-300 ${
+                    downloadMessage.startsWith('✅')
+                      ? 'bg-green-900/30 border-green-400/50 shadow-lg shadow-green-500/20 animate-pulse'
+                      : downloadMessage.startsWith('⚠️')
+                      ? 'bg-yellow-900/20 border-yellow-500/30'
+                      : downloadMessage.startsWith('⏳')
+                      ? 'bg-green-900/20 border-green-500/30'
+                      : 'bg-red-900/20 border-red-500/30'
+                  }`}>
+                    <p className={`${
+                      downloadMessage.startsWith('✅') ? 'text-base font-semibold' : 'text-sm'
+                    } ${
+                      downloadMessage.startsWith('✅')
+                        ? 'text-green-200'
+                        : downloadMessage.startsWith('⚠️')
+                        ? 'text-yellow-300'
+                        : downloadMessage.startsWith('⏳')
+                        ? 'text-green-300'
+                        : 'text-red-300'
+                    }`}>
+                      {downloadMessage}
+                      {downloadMessage.startsWith('✅') && (
+                        <>, <Link to="/downloads" className="underline font-bold hover:text-green-100 transition-colors">click here to see your downloads</Link></>
+                      )}
+                    </p>
+                  </div>
+                )}
+
                 {/* Download Button */}
                 {availableReleases.length === 0 && (
                   <button
@@ -1838,41 +1871,65 @@ export default function Documentaries() {
                           })}
                     </div>
 
-                    {/* Add to qBittorrent Button */}
+                    {/* Download Button */}
                     {selectedRelease && (
                       <button
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.stopPropagation();
+
+                          // Prevent duplicate downloads
+                          if (downloadingTorrent) return;
+
+                          setDownloadingTorrent(true);
+
                           try {
-                            const response = await fetch(`${API_BASE}/qbittorrent/add-torrent`, {
+                            const response = await fetch(`${API_BASE}/torrents/download`, {
                               method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
                               credentials: 'include',
                               body: JSON.stringify({
-                                magnetUri: selectedRelease.magnetUrl || selectedRelease.downloadUrl,
-                                category: 'documentaries',
-                                savePath: '/downloads/documentaries'
+                                magnetUrl: selectedRelease.magnetUrl,
+                                downloadUrl: selectedRelease.downloadUrl,
+                                title: selectedRelease.title,
+                                category: 'Documentaries',
                               })
                             });
 
                             if (response.ok) {
-                              alert(`✓ Added to qBittorrent: ${selectedRelease.title}`);
-                              setSelectedDocumentary(null);
+                              setDownloadMessage(`✅ ${selectedDocumentary?.title} is now downloading`);
                               setAvailableReleases([]);
-                              setSelectedRelease(null);
-                              setQualityFilter('all');
+                              setTimeout(() => setDownloadMessage(null), 10000);
+                            } else if (response.status === 409) {
+                              setDownloadMessage(`⚠️ This torrent is already in your downloads`);
+                              setTimeout(() => setDownloadMessage(null), 5000);
                             } else {
-                              const error = await response.json();
-                              alert(`Failed to add torrent: ${error.error || 'Unknown error'}`);
+                              const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                              throw new Error(errorData.error || 'Failed to download');
                             }
-                          } catch (err) {
-                            console.error('Failed to add torrent:', err);
-                            alert('Failed to add torrent to qBittorrent');
+                          } catch (error: any) {
+                            setDownloadMessage(`❌ ${error.message}`);
+                            setTimeout(() => setDownloadMessage(null), 5000);
+                          } finally {
+                            setDownloadingTorrent(false);
+                            setSelectedRelease(null);
                           }
                         }}
-                        className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                        disabled={downloadingTorrent}
+                        className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
                       >
-                        <Download className="w-5 h-5" />
-                        Add to qBittorrent
+                        {downloadingTorrent ? (
+                          <>
+                            <Loader className="w-5 h-5 animate-spin" />
+                            Downloading...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-5 h-5" />
+                            Download
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
