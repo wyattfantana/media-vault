@@ -109,7 +109,7 @@ general:
   use_postprocessing: true
   use_postprocessing_threshold: true
   use_postprocessing_threshold_movie: true
-  use_radarr: false
+  use_radarr: true
   use_scenename: true
   use_sonarr: true
   utf8_encode: true
@@ -218,7 +218,7 @@ proxy:
   url: ''
   username: ''
 radarr:
-  apikey: ''
+  apikey: 85660fa98c9946e69634b52a4d29826b
   base_url: /
   defer_search_signalr: false
   excluded_tags: []
@@ -226,7 +226,7 @@ radarr:
   full_update_day: 6
   full_update_hour: 4
   http_timeout: 60
-  ip: 127.0.0.1
+  ip: radarr
   movies_sync: 60
   only_monitored: false
   port: 7878

@@ -1,76 +1,60 @@
 # MediaVault
 
-**Your Personal Media Hub - Download and organize content from across the web**
+A personal media management system for discovering, downloading, and organizing movies, TV shows, and documentaries.
 
-MediaVault lets you download and manage media from BBC iPlayer, YouTube, torrents, and social platforms. Everything is organized automatically and ready to watch on your media server.
+## Features
 
-**Status:** ✅ Fully working - downloads, streaming, and automatic organization operational
+### Discovery
+- **Movies** - Browse 800,000+ movies from TMDB with ratings, posters, and metadata
+- **TV Shows** - 210,000+ TV series with episode information
+- **Documentaries** - Curated documentary discovery with genre filtering
+
+### Advanced Filtering
+- **By Person** - Filter by actor, director, or creator
+- **By Network/Studio** - Find content from HBO, Netflix, BBC, etc.
+- **By Genre** - Action, Comedy, Drama, Sci-Fi, and more
+- **Quality Presets** - Quick filters for highly-rated content (7.5+, 6.5+, etc.)
+- **Year Range** - Filter by release year
+- **Rating/Votes** - Minimum rating and vote count thresholds
+- **Country** - Filter by origin country, English-only option
+
+### Downloads
+- **Torrent Search** - Integrated Prowlarr search across multiple indexers
+- **Quality Selection** - Choose 4K, 1080p, 720p, or let it auto-select
+- **qBittorrent Integration** - Direct magnet link handling
+- **Progress Tracking** - Real-time download status in the Downloads page
+- **Auto-Organization** - Files sorted into Movies/, TV/, Documentaries/ folders
+- **Jellyfin Naming** - Proper naming format (Movie (Year), Show S01E01)
+
+### Additional Sources
+- **BBC iPlayer** - Download TV and radio programmes (UK)
+- **YouTube** - Videos, channels, and playlists
+- **SoundCloud** - Tracks and playlists
+- **TikTok, Reddit, Twitch** - Social media content
+- **1000+ sites** - Anything supported by yt-dlp
+
+### Extras
+- **Favorites** - Bookmark movies and shows to watch later
+- **VPN Toggle** - One-click Mullvad VPN connection for torrent protection
+- **Subtitle Support** - Bazarr integration for automatic subtitle downloads
+- **Multi-user** - Account system with email/password authentication
 
 ---
 
-## ✨ What Can It Do?
+## Requirements
 
-### Browse & Discover
-- 🎬 **1 Million+ Movies & TV Shows** - Browse with ratings, posters, and trailers
-- 📺 **BBC iPlayer** - 9000+ TV and radio programmes (DRM-free)
-- 🎵 **YouTube & SoundCloud** - Channels, playlists, and individual tracks
-- 🎞️ **Documentaries** - 200,000+ docs across History, Crime, Music, and more
-- 🧲 **Torrents** - Integrated search with 1337x, PirateBay, and more
-
-### Smart Downloads
-- ✅ **One-Click Downloads** - Just paste a URL and go
-- 📊 **Real-Time Progress** - Watch your downloads in action
-- ⚡ **Bulk Downloads** - Select multiple videos and download together
-- 🎛️ **Quality Control** - Choose from 4K down to 360p, or audio-only
-- 🗂️ **Auto-Organization** - Files sorted into Movies, TV, Music, Documentaries automatically
-- 📺 **Jellyfin Ready** - Perfect naming for your media server (S01E01, movie years, etc.)
-- 🔒 **VPN Integration** - Windows Mullvad support with automatic traffic protection and sidebar toggle
-
-### Beautiful Interface
-- 🎨 **Netflix-Style Browse** - Grid view with thumbnails and ratings
-- 🔍 **Smart Search** - Filter by genre, year, rating across all platforms
-- ⭐ **Bookmarks** - Save your favorite channels and playlists
-- 🌐 **Unified Discovery** - All platforms in one tab
-
-### What You Can Download
-✅ BBC iPlayer (TV & Radio)
-✅ YouTube (videos, channels, playlists)
-✅ SoundCloud (tracks, albums, playlists)
-✅ Torrents (magnet links & .torrent files)
-✅ TikTok, Reddit, Twitch
-✅ Any site supported by yt-dlp (1000+ platforms)
+- Node.js 20+
+- PostgreSQL
+- qBittorrent-nox
+- yt-dlp
+- get_iplayer (for BBC content)
+- Docker (for Prowlarr/Bazarr)
 
 ---
 
-## 🚀 Getting Started
+## Installation
 
-### What You Need
-
-- **Node.js** (version 20 or newer)
-- **PostgreSQL** (database)
-- **yt-dlp** (YouTube downloader)
-- **get_iplayer** (BBC iPlayer downloader)
-- **qBittorrent-nox** (torrent client)
-
-
-### Installation
-
-**1. Install the download tools:**
-
-```bash
-# yt-dlp (for YouTube and social media)
-sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O ~/bin/yt-dlp
-sudo chmod a+rx ~/bin/yt-dlp
-
-# get_iplayer (for BBC iPlayer)
-git clone https://github.com/get-iplayer/get_iplayer.git ~/get_iplayer
-sudo apt-get install libwww-perl liblwp-protocol-https-perl libxml-libxml-perl ffmpeg atomicparsley
-
-# qBittorrent (for torrents)
-sudo apt-get install -y qbittorrent-nox
-```
-
-**2. Get MediaVault:**
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/wyattfantana/media-vault.git
@@ -78,72 +62,41 @@ cd media-vault
 npm install
 ```
 
-**3. Set up the database:**
+### 2. Set up PostgreSQL
 
 ```bash
-# Start PostgreSQL in WSL2 (recommended for all-in-one setup)
 sudo service postgresql start
+sudo -u postgres psql -c "CREATE USER mediavault WITH PASSWORD 'mediavault123';"
+sudo -u postgres psql -c "CREATE DATABASE mediavault OWNER mediavault;"
+```
 
-# Create mediavault user and database
-sudo -u postgres psql <<EOF
-CREATE USER mediavault WITH PASSWORD 'mediavault123';
-CREATE DATABASE mediavault OWNER mediavault;
-\q
-EOF
+### 3. Run migrations
 
-# Configure PostgreSQL for password authentication
-sudo sed -i 's/^local   all             all                                     peer/local   all             all                                     md5/' /etc/postgresql/16/main/pg_hba.conf
-sudo service postgresql reload
-
-# Run the migrations (this creates all the tables)
+```bash
 cd apps/api
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/002_create_media_tables.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/003_create_bookmarks_table.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/004_create_presets_table.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/005_add_platform_to_presets.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/006_add_jellyfin_formatting_columns.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/007_add_qbittorrent_downloader.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/008_add_quality_format_columns.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/009_create_user_preferences.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/010_add_vpn_preferences.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/014_add_iplayer_to_jellyfin_paths.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/015_convert_jellyfin_paths_to_array.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/016_add_api_keys_and_paths.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/017_add_tmdb_watchlist_support.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/018_add_tmdb_id_to_downloads.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/019_add_tmdb_id_to_media.sql
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/020_add_missing_user_columns.sql
-
-# Run Better Auth migration (creates user and session tables)
+for f in src/migrations/*.sql; do
+  PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < "$f"
+done
 npm run migration:run
 ```
 
-**4. Configure your settings:**
+### 4. Configure environment
 
-Create a file at `apps/api/.env` with these settings:
+Create `apps/api/.env`:
 
 ```bash
-# Database (using Unix socket for WSL2)
 POSTGRES_HOST=/var/run/postgresql
-POSTGRES_PORT=5432
 POSTGRES_DB=mediavault
 POSTGRES_USER=mediavault
 POSTGRES_PASSWORD=mediavault123
 
-# Get a free TMDB API key at https://www.themoviedb.org/settings/api
-TMDB_API_KEY=your_tmdb_api_key
+TMDB_API_KEY=your_tmdb_api_key  # Get free at themoviedb.org
+DOWNLOAD_DIR=/path/to/downloads
 
-# Where to save downloads
-DOWNLOAD_DIR=/home/yourusername/downloads
-
-# Tool paths (optional - these are the defaults)
-YTDLP_PATH=/home/yourusername/bin/yt-dlp
-GET_IPLAYER_PATH=/home/yourusername/get_iplayer/get_iplayer
-
-# Other settings (use these defaults)
 PORT=3001
-BETTER_AUTH_SECRET=change_this_to_random_text
+BETTER_AUTH_SECRET=random_secret_string
 BETTER_AUTH_URL=http://localhost:3001
+
 QBITTORRENT_HOST=localhost
 QBITTORRENT_PORT=8080
 QBITTORRENT_USERNAME=admin
@@ -151,255 +104,109 @@ QBITTORRENT_PASSWORD=adminadmin
 ```
 
 Create `apps/web/.env`:
+
 ```bash
 VITE_API_URL=http://localhost:3001
 ```
 
-**5. Start MediaVault:**
+### 5. Start services
 
 ```bash
-~/start-mediavault.sh
+# Start PostgreSQL
+sudo service postgresql start
+
+# Start qBittorrent
+qbittorrent-nox --webui-port=8080 &
+
+# Start Prowlarr (optional, for torrent search)
+docker compose up -d prowlarr
+
+# Start MediaVault
+npm run dev
 ```
 
-This starts everything you need and keeps it running in the background.
+### 6. Open browser
 
-**6. Open your browser:**
-
-Go to **http://localhost:5173** and create your account!
+Go to **http://localhost:5173** and create an account.
 
 ---
 
-## 📖 How to Use
+## Configuration
 
-1. **Sign up** - Create your account on the home page
-2. **Browse** - Use the Discover tab to find movies, TV shows, or BBC programmes
-3. **Download** - Click download on anything you like, or paste a YouTube/torrent link
-4. **Watch** - Files are automatically organized in your downloads folder, ready for Jellyfin or any media player
+### Prowlarr (Torrent Search)
 
----
+1. Open Prowlarr at http://localhost:9696
+2. Add indexers (1337x, ThePirateBay, etc.)
+3. Copy API key from Settings > General
+4. In MediaVault Settings, enable Prowlarr and paste the API key
 
-## 🔒 VPN Setup (Optional but Recommended)
+### Bazarr (Subtitles)
 
-MediaVault integrates with **Windows Mullvad VPN** for automatic torrent protection.
+1. Start Bazarr: `docker compose up -d bazarr`
+2. Open Bazarr at http://localhost:6767
+3. Configure subtitle providers (OpenSubtitles, etc.)
+4. Copy API key from Settings > General
+5. In MediaVault Settings, enable Bazarr and paste the API key
 
-**How it works:**
-- Install [Mullvad VPN](https://mullvad.net/) on Windows (not in WSL2)
-- MediaVault automatically detects and uses it
-- All WSL2 traffic (including torrents) routes through the VPN thanks to mirrored networking
-- One-click toggle in the sidebar to connect/disconnect
-- VPN status displayed with server location and IP
+### VPN (Mullvad)
 
-**No binding needed!** - Unlike traditional setups, qBittorrent doesn't need to bind to a VPN interface. When Mullvad is connected on Windows, all WSL2 traffic automatically uses it.
-
-**Features:**
-- ✅ Sidebar toggle - Connect/disconnect with one click
-- ✅ Real-time status - See connection state, server, and IP
-- ✅ Auto-connect - Automatically connect before torrent downloads
-- ✅ Require VPN - Block torrents unless VPN is active
-- ✅ Traffic verification - Test endpoint confirms protection
+Install Mullvad VPN on Windows. MediaVault auto-detects it and provides a sidebar toggle. All WSL2 traffic routes through VPN when connected.
 
 ---
 
-## 🤖 *arr Services Integration (Optional - Advanced Automation)
+## Usage
 
-MediaVault now integrates with **Prowlarr** for automated torrent indexing and search!
-
-**What is Prowlarr?**
-- **Prowlarr** - Manages all your torrent indexers in one place, providing unified search across multiple torrent sites
-
-### Installation
-
-**1. Install Docker Compose (if not already installed):**
-
-```bash
-# For WSL2/Ubuntu
-sudo apt-get update
-sudo apt-get install docker-compose-plugin
-```
-
-**2. Start Prowlarr:**
-
-The start script will automatically start Prowlarr when you run:
-
-```bash
-~/start-mediavault.sh
-```
-
-**3. Configure Prowlarr:**
-
-After starting, visit Prowlarr's web interface to complete setup:
-
-- **Prowlarr** (http://localhost:9696)
-  - Copy the API key from Settings > General
-  - Add indexers (Settings > Indexers > Add Indexer)
-  - Common indexers: 1337x, ThePirateBay, TorrentGalaxy, etc.
-
-**4. Configure in MediaVault:**
-
-- Go to Settings in MediaVault
-- Scroll to the Torrent Indexer section
-- Enable Prowlarr and paste its API key
-- Save settings
-
-### How It Works
-
-Once configured, you can:
-
-1. **Browse movies/TV shows** in MediaVault's Discover page
-2. **Click "Download"** on any title
-3. **Select quality and torrent** from the search results
-4. MediaVault will:
-   - Search all configured indexers via Prowlarr
-   - Display results with quality, seeds, size, and indexer info
-   - Download selected torrent directly via qBittorrent
-   - Track download progress in the Downloads page
-
-### Benefits
-
-- ✅ **Automatic quality selection** - Based on your preferences
-- ✅ **Proper file naming** - Ready for Jellyfin
-- ✅ **Upgrade handling** - Automatically replaces files when better quality is available
-- ✅ **Season monitoring** - Get new episodes automatically
-- ✅ **Failed download handling** - Automatically tries alternative releases
-- ✅ **Import management** - Moves and renames files automatically
-
-### Recyclarr (Quality Management)
-
-Recyclarr automatically applies community-recommended quality settings from [TRaSH Guides](https://trash-guides.info/).
-
-The configuration is pre-set in `data/recyclarr/recyclarr.yml` - just add your API keys and run:
-
-```bash
-docker exec recyclarr recyclarr sync
-```
-
-This will optimize your quality profiles for the best balance of quality and file size.
+1. **Browse** - Use Movies, TV Shows, or Documentaries tabs
+2. **Filter** - Apply filters for actor, genre, rating, etc.
+3. **Download** - Click a title, search torrents, select quality
+4. **Track** - Monitor progress in Downloads page
+5. **Watch** - Files are organized in your download directory
 
 ---
 
-## ⚙️ Managing Services
-
-MediaVault runs several services in the background. Here's how to control them:
-
-**View what's running:**
-```bash
-tmux ls
-```
-
-**Check the logs:**
-```bash
-tmux attach -t mediavault    # See API and web interface logs
-tmux attach -t qbittorrent   # See torrent client logs
-```
-
-Press `Ctrl+B` then `D` to exit without stopping the services.
-
-**Stop everything:**
-```bash
-tmux kill-session -t mediavault
-tmux kill-session -t qbittorrent
-```
-
-**Access points:**
-- MediaVault: http://localhost:5173
-- qBittorrent: http://localhost:8080 (login: admin/adminadmin)
-
----
-
-## ❓ Troubleshooting
-
-**Login/Register not working? (Error about missing columns)**
-If you see errors about missing `twoFactorEnabled`, `banReason`, or `banExpires` columns, your database needs migration 020:
-```bash
-cd apps/api
-PGPASSWORD=mediavault123 psql -h /var/run/postgresql -U mediavault -d mediavault < src/migrations/020_add_missing_user_columns.sql
-```
-
-**Downloads not starting?**
-The worker might not be running. Restart with `~/start-mediavault.sh`
-
-**Port already in use?**
-```bash
-lsof -ti:3001 | xargs kill -9 2>/dev/null  # Kill process on port 3001
-lsof -ti:5173 | xargs kill -9 2>/dev/null  # Kill process on port 5173
-```
-
-**Database won't connect?**
-```bash
-sudo service postgresql start  # Start PostgreSQL
-```
-
-**Can't find downloads?**
-Check your `DOWNLOAD_DIR` in `apps/api/.env` - that's where files are saved.
-
----
-
-## ℹ️ What Works (and what doesn't)
-
-### ✅ Works Great
-- BBC iPlayer (all TV and radio)
-- YouTube (videos, channels, playlists)
-- SoundCloud
-- Torrents (magnet links and .torrent files)
-- TikTok, Reddit, Twitch
-- 1000+ other sites via yt-dlp
-
-### ❌ Doesn't Work
-- Channel 4, ITVX, My5 (DRM-protected)
-- Rumble (temporarily broken, awaiting yt-dlp fix)
-- Age-restricted YouTube (needs cookie authentication)
-
-### ⚠️ Limitations
-- Downloads process 3 at a time (configurable)
-- Can't cancel in-progress downloads (only pending ones)
-
----
-
-## 🛠️ Tech Stack
-
-For developers interested in what's under the hood:
-
-- **Frontend:** React + TypeScript + Vite + TailwindCSS
-- **Backend:** Express + TypeScript + PostgreSQL
-- **Authentication:** Better Auth (email/password sessions)
-- **APIs:** TMDB API, YouTube Data API, BBC iPlayer API
-- **Download Tools:** yt-dlp, get_iplayer, qBittorrent-nox
-- **Architecture:** Turborepo monorepo
-
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 media-vault/
 ├── apps/
-│   ├── api/          # Backend server (port 3001)
-│   └── web/          # Frontend interface (port 5173)
-├── downloads/        # Your downloaded media files
-│   ├── Movies/
-│   ├── TV/
-│   ├── Music/
-│   └── Documentaries/
+│   ├── api/        # Express backend (port 3001)
+│   ├── web/        # React frontend (port 5173)
+│   └── worker/     # Background download processor
+├── data/           # Docker volume data (Prowlarr, Bazarr, etc.)
+└── docker-compose.yml
 ```
 
 ---
 
-## 📄 License
+## Tech Stack
 
-MIT License - Feel free to use and modify!
-
----
-
-## 🙏 Credits
-
-Built with:
-- **yt-dlp** - Universal video downloader (1000+ sites)
-- **get_iplayer** - BBC iPlayer downloader
-- **qBittorrent** - Torrent client
-- **TMDB** - Movie database API
+- **Frontend**: React, TypeScript, Vite, TailwindCSS
+- **Backend**: Express, TypeScript, PostgreSQL, TypeORM
+- **Auth**: Better Auth
+- **APIs**: TMDB, Prowlarr, Bazarr, qBittorrent
+- **Tools**: yt-dlp, get_iplayer, qBittorrent-nox
+- **Build**: Turborepo
 
 ---
 
-**Made with ❤️ for people who want control over their media collection**
+## Troubleshooting
 
-**Status:** Fully operational - Download, organize, and enjoy!
+**Database connection failed**
+```bash
+sudo service postgresql start
+```
+
+**Port in use**
+```bash
+lsof -ti:3001 | xargs kill -9
+lsof -ti:5173 | xargs kill -9
+```
+
+**Downloads not processing**
+Restart the worker: `npm run dev`
+
+---
+
+## License
+
+MIT
