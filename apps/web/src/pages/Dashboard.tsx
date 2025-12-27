@@ -329,10 +329,10 @@ export function Dashboard() {
               href="http://localhost:8096"
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-4 bg-green-900/30 hover:bg-green-900/50 rounded-lg transition-colors"
+              className="block p-4 bg-purple-900/30 hover:bg-purple-900/50 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -349,10 +349,10 @@ export function Dashboard() {
               href="http://localhost:8080"
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-4 bg-blue-900/30 hover:bg-blue-900/50 rounded-lg transition-colors"
+              className="block p-4 bg-green-900/30 hover:bg-green-900/50 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
@@ -368,10 +368,10 @@ export function Dashboard() {
               href="http://localhost:9696"
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-4 bg-purple-900/30 hover:bg-purple-900/50 rounded-lg transition-colors"
+              className="block p-4 bg-orange-900/30 hover:bg-orange-900/50 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -383,62 +383,26 @@ export function Dashboard() {
               </div>
             </a>
 
-            <a
-              href="http://localhost:6767"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-4 bg-orange-900/30 hover:bg-orange-900/50 rounded-lg transition-colors"
+            <button
+              onClick={() => {
+                window.open('http://localhost:6767', '_blank', 'noopener,noreferrer');
+                window.open('http://localhost:8989', '_blank', 'noopener,noreferrer');
+                window.open('http://localhost:7878', '_blank', 'noopener,noreferrer');
+              }}
+              className="block w-full p-4 bg-blue-900/30 hover:bg-blue-900/50 rounded-lg transition-colors text-left"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-100">Open Bazarr</p>
-                  <p className="text-sm text-gray-400">Manage subtitles</p>
+                  <p className="font-medium text-gray-100">Manage Subtitles</p>
+                  <p className="text-sm text-gray-400">Opens Bazarr, Sonarr & Radarr</p>
                 </div>
               </div>
-            </a>
-
-            <a
-              href="http://localhost:8989"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-4 bg-teal-900/30 hover:bg-teal-900/50 rounded-lg transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-100">Open Sonarr</p>
-                  <p className="text-sm text-gray-400">Manage TV shows for subtitles</p>
-                </div>
-              </div>
-            </a>
-
-            <a
-              href="http://localhost:7878"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-4 bg-yellow-900/30 hover:bg-yellow-900/50 rounded-lg transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-600 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-100">Open Radarr</p>
-                  <p className="text-sm text-gray-400">Manage movies for subtitles</p>
-                </div>
-              </div>
-            </a>
+            </button>
           </div>
         </div>
       </div>

@@ -1235,14 +1235,6 @@ export default function Documentaries() {
       {/* All Documentaries View */}
       {viewMode === 'all-documentaries' && (
         <div className="max-w-7xl mx-auto px-8 py-8 space-y-6">
-          {/* Advanced Discovery Section */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-200 mb-3">Advanced Discovery</h3>
-            <div className="text-sm text-gray-400">
-              Use the search bar above to find documentaries by title, or use the filters below to browse by rating, genre, and year.
-            </div>
-          </div>
-
           {/* Show/Hide Additional Filters Toggle */}
           {!showAllDocumentariesFilters && (
             <div className="flex items-center justify-start">
@@ -1350,12 +1342,14 @@ export default function Documentaries() {
                           }));
                           setActivePreset(null);
                         } else {
-                          // Select - apply preset
+                          // Select - apply preset with additional filters
                           setAllDocumentariesFilters(prev => ({
                             ...prev,
                             minRating: 5.5,
-                            minVotes: 250,
-                            sortBy: 'vote_average.desc'
+                            minVotes: 50,
+                            sortBy: 'vote_average.desc',
+                            excludeGenres: [10751, 16],
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           }));
                           setActivePreset('worth-watching');
                         }
@@ -1380,12 +1374,14 @@ export default function Documentaries() {
                           }));
                           setActivePreset(null);
                         } else {
-                          // Select - apply preset
+                          // Select - apply preset with additional filters
                           setAllDocumentariesFilters(prev => ({
                             ...prev,
                             minRating: 6.5,
-                            minVotes: 500,
-                            sortBy: 'vote_average.desc'
+                            minVotes: 100,
+                            sortBy: 'vote_average.desc',
+                            excludeGenres: [10751, 16],
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           }));
                           setActivePreset('quality');
                         }
@@ -1410,12 +1406,14 @@ export default function Documentaries() {
                           }));
                           setActivePreset(null);
                         } else {
-                          // Select - apply preset
+                          // Select - apply preset with additional filters
                           setAllDocumentariesFilters(prev => ({
                             ...prev,
                             minRating: 7.5,
-                            minVotes: 1000,
-                            sortBy: 'vote_average.desc'
+                            minVotes: 200,
+                            sortBy: 'vote_average.desc',
+                            excludeGenres: [10751, 16],
+                            originCountries: ['US', 'GB', 'CA', 'AU', 'NZ', 'IE']
                           }));
                           setActivePreset('elite');
                         }
@@ -1497,20 +1495,65 @@ export default function Documentaries() {
                   </div>
                 </div>
 
+                {/* Genres Multi-Select Dropdown */}
+                <div className="col-span-full">
+                  <details className="group">
+                    <summary className="cursor-pointer list-none">
+                      <div className="flex items-center justify-between bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors">
+                        <span className="text-sm font-medium text-gray-300">
+                          Genres {allDocumentariesFilters.selectedGenres.length > 0 && `(${allDocumentariesFilters.selectedGenres.length} selected)`}
+                        </span>
+                        <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </summary>
+                    <div className="mt-3 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        {genres.map(genre => {
+                          const isSelected = allDocumentariesFilters.selectedGenres.includes(genre.id);
+                          return (
+                            <button
+                              key={genre.id}
+                              onClick={() => {
+                                setAllDocumentariesFilters(prev => ({
+                                  ...prev,
+                                  selectedGenres: isSelected
+                                    ? prev.selectedGenres.filter(id => id !== genre.id)
+                                    : [...prev.selectedGenres, genre.id]
+                                }));
+                              }}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                isSelected
+                                  ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30 hover:bg-blue-900/50'
+                                  : 'bg-gray-700 text-gray-400 border border-gray-600 hover:bg-gray-600'
+                              }`}
+                            >
+                              {genre.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+
                 {/* Min Rating */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Min Rating: {allDocumentariesFilters.minRating > 0 ? allDocumentariesFilters.minRating.toFixed(1) : 'Any'}
                   </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="0.5"
-                    value={allDocumentariesFilters.minRating}
-                    onChange={(e) => setAllDocumentariesFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
-                    className="w-full accent-blue-600"
-                  />
+                  <div className="pt-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="0.5"
+                      value={allDocumentariesFilters.minRating}
+                      onChange={(e) => setAllDocumentariesFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
                 </div>
 
                 {/* Min Votes */}
@@ -1518,15 +1561,17 @@ export default function Documentaries() {
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Min Votes: {allDocumentariesFilters.minVotes > 0 ? allDocumentariesFilters.minVotes : 'Any'}
                   </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="5000"
-                    step="100"
-                    value={allDocumentariesFilters.minVotes}
-                    onChange={(e) => setAllDocumentariesFilters(prev => ({ ...prev, minVotes: parseInt(e.target.value) }))}
-                    className="w-full accent-blue-600"
-                  />
+                  <div className="pt-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="5000"
+                      step="100"
+                      value={allDocumentariesFilters.minVotes}
+                      onChange={(e) => setAllDocumentariesFilters(prev => ({ ...prev, minVotes: parseInt(e.target.value) }))}
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
                 </div>
 
                 {/* Year Range */}
@@ -1553,50 +1598,6 @@ export default function Documentaries() {
                     />
                   </div>
                 </div>
-
-                {/* Genre Multi-Select Dropdown */}
-                <div className="col-span-full">
-                  <details className="group">
-                    <summary className="cursor-pointer list-none">
-                      <div className="flex items-center justify-between bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition-colors">
-                        <span className="text-sm font-medium text-gray-300">
-                          Additional Genres (click to toggle • <span className="text-green-400">included</span> / <span className="text-red-400">excluded</span>)
-                        </span>
-                        <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </summary>
-                    <div className="mt-3 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
-                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                        {genres.map(genre => {
-                          const isExcluded = allDocumentariesFilters.excludeGenres.includes(genre.id);
-                          return (
-                            <button
-                              key={genre.id}
-                              onClick={() => {
-                                setAllDocumentariesFilters(prev => ({
-                                  ...prev,
-                                  excludeGenres: isExcluded
-                                    ? prev.excludeGenres.filter(id => id !== genre.id)
-                                    : [...prev.excludeGenres, genre.id]
-                                }));
-                              }}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
-                                isExcluded
-                                  ? 'bg-red-900/30 text-red-400 border border-red-500/30 hover:bg-red-900/50'
-                                  : 'bg-green-900/30 text-green-400 border border-green-500/30 hover:bg-green-900/50'
-                              }`}
-                            >
-                              {isExcluded && <span className="absolute top-1 right-1 text-xs">✕</span>}
-                              {genre.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </details>
-                </div>
               </div>
             </div>
           )}
@@ -1605,11 +1606,11 @@ export default function Documentaries() {
           <div className="bg-gray-800/50 p-4 rounded-lg border-l-4 border-blue-500">
             <div className="space-y-2">
               <div className="text-sm text-gray-300 flex items-center gap-2 flex-wrap">
-                {(allDocumentariesLoading || loadingMultiplePages) && <Loader className="w-4 h-4 animate-spin text-blue-400" />}
                 <span className="text-gray-400">Loaded:</span>{' '}
                 <span className="font-bold text-white">{allDocumentaries.length.toLocaleString()}</span> of{' '}
                 <span className="font-bold text-blue-400">{allDocumentariesTotalResults.toLocaleString()}</span>{' '}
                 <span className="text-gray-400">documentaries</span>
+                {(allDocumentariesLoading || loadingMultiplePages) && <Loader className="w-4 h-4 animate-spin text-blue-400" />}
               </div>
 
               {/* Always show total catalog for reference */}
@@ -1632,6 +1633,14 @@ export default function Documentaries() {
                 ))}
               </div>
 
+              {/* Stats at bottom */}
+              <div className="flex items-center justify-center mt-6">
+                <div className="text-sm text-gray-400 bg-gray-800/50 px-6 py-3 rounded-lg border border-gray-700">
+                  {allDocumentaries.length} documentaries loaded • Page {allDocumentariesPage}/{allDocumentariesTotalPages}
+                  {(allDocumentariesLoading || loadingMultiplePages) && <Loader className="w-4 h-4 animate-spin text-blue-400 inline-block ml-2" />}
+                </div>
+              </div>
+
               {/* Loading indicator for infinite scroll */}
               {(allDocumentariesLoading || loadingMultiplePages) && allDocumentariesPage > 1 && (
                 <div className="text-center mt-8 py-8">
@@ -1640,9 +1649,12 @@ export default function Documentaries() {
                 </div>
               )}
 
-              {!allDocumentariesLoading && allDocumentariesPage >= allDocumentariesTotalPages && allDocumentaries.length > 0 && (
-                <div className="text-center mt-8 py-4">
-                  <p className="text-gray-500 text-sm">No more documentaries to load</p>
+              {!allDocumentariesLoading && !loadingMultiplePages && allDocumentariesPage >= allDocumentariesTotalPages && allDocumentaries.length > 0 && (
+                <div className="text-center mt-8 py-6">
+                  <div className="inline-block bg-green-900/30 border border-green-500/50 rounded-lg px-6 py-3">
+                    <p className="text-green-400 font-medium">✓ All {allDocumentaries.length.toLocaleString()} matching results loaded</p>
+                    <p className="text-xs text-gray-400 mt-1">Showing all documentaries that match your current filters</p>
+                  </div>
                 </div>
               )}
             </>
@@ -1858,12 +1870,46 @@ export default function Documentaries() {
                             return (
                               <div
                                 key={index}
-                                onClick={() => setSelectedRelease(release)}
-                                className={`bg-gray-800 hover:bg-gray-700 border rounded-lg p-3 cursor-pointer transition-colors ${
-                                  selectedRelease?.guid === release.guid
-                                    ? 'border-green-500 bg-gray-700'
-                                    : 'border-gray-700 hover:border-green-500'
-                                }`}
+                                onClick={async () => {
+                                  // Prevent duplicate downloads
+                                  if (downloadingTorrent) return;
+
+                                  setDownloadingTorrent(true);
+
+                                  try {
+                                    const response = await fetch(`${API_BASE}/torrents/download`, {
+                                      method: 'POST',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
+                                      credentials: 'include',
+                                      body: JSON.stringify({
+                                        magnetUrl: release.magnetUrl,
+                                        downloadUrl: release.downloadUrl,
+                                        title: release.title,
+                                        category: 'Documentaries',
+                                      })
+                                    });
+
+                                    if (response.ok) {
+                                      setDownloadMessage(`✅ ${selectedDocumentary?.title} is now downloading`);
+                                      setAvailableReleases([]);
+                                      setTimeout(() => setDownloadMessage(null), 10000);
+                                    } else if (response.status === 409) {
+                                      setDownloadMessage(`⚠️ This torrent is already in your downloads`);
+                                      setTimeout(() => setDownloadMessage(null), 5000);
+                                    } else {
+                                      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                                      throw new Error(errorData.error || 'Failed to download');
+                                    }
+                                  } catch (error: any) {
+                                    setDownloadMessage(`❌ ${error.message}`);
+                                    setTimeout(() => setDownloadMessage(null), 5000);
+                                  } finally {
+                                    setDownloadingTorrent(false);
+                                  }
+                                }}
+                                className="bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 rounded-lg p-3 cursor-pointer transition-colors"
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex-1 min-w-0">
@@ -1884,82 +1930,11 @@ export default function Documentaries() {
                                       )}
                                     </div>
                                   </div>
-                                  <button
-                                    className={`flex-shrink-0 px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                      selectedRelease?.guid === release.guid
-                                        ? 'bg-green-600 text-white'
-                                        : 'bg-green-600/80 hover:bg-green-700 text-white'
-                                    }`}
-                                  >
-                                    {selectedRelease?.guid === release.guid ? 'Selected' : 'Select'}
-                                  </button>
                                 </div>
                               </div>
                             );
                           })}
                     </div>
-
-                    {/* Download Button */}
-                    {selectedRelease && (
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-
-                          // Prevent duplicate downloads
-                          if (downloadingTorrent) return;
-
-                          setDownloadingTorrent(true);
-
-                          try {
-                            const response = await fetch(`${API_BASE}/torrents/download`, {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
-                              credentials: 'include',
-                              body: JSON.stringify({
-                                magnetUrl: selectedRelease.magnetUrl,
-                                downloadUrl: selectedRelease.downloadUrl,
-                                title: selectedRelease.title,
-                                category: 'Documentaries',
-                              })
-                            });
-
-                            if (response.ok) {
-                              setDownloadMessage(`✅ ${selectedDocumentary?.title} is now downloading`);
-                              setAvailableReleases([]);
-                              setTimeout(() => setDownloadMessage(null), 10000);
-                            } else if (response.status === 409) {
-                              setDownloadMessage(`⚠️ This torrent is already in your downloads`);
-                              setTimeout(() => setDownloadMessage(null), 5000);
-                            } else {
-                              const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                              throw new Error(errorData.error || 'Failed to download');
-                            }
-                          } catch (error: any) {
-                            setDownloadMessage(`❌ ${error.message}`);
-                            setTimeout(() => setDownloadMessage(null), 5000);
-                          } finally {
-                            setDownloadingTorrent(false);
-                            setSelectedRelease(null);
-                          }
-                        }}
-                        disabled={downloadingTorrent}
-                        className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
-                      >
-                        {downloadingTorrent ? (
-                          <>
-                            <Loader className="w-5 h-5 animate-spin" />
-                            Downloading...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-5 h-5" />
-                            Download
-                          </>
-                        )}
-                      </button>
-                    )}
                   </div>
                 )}
 

@@ -138,7 +138,8 @@ export class DownloadWorker {
             const searchResults = await tmdbService.searchMovies(cleanTitle, 1, download.user_id, year || undefined);
             if (searchResults.results && searchResults.results.length > 0) {
               tmdbId = searchResults.results[0].id;
-              tmdbMediaType = mediaType;
+              // TMDB only recognizes 'movie' or 'tv', so map 'documentary' to 'movie'
+              tmdbMediaType = mediaType === 'documentary' ? 'movie' : mediaType;
               console.log(`[Download Worker] ✓ Matched ${mediaType}: ${searchResults.results[0].title} (TMDB: ${tmdbId})`);
             }
           }
