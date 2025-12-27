@@ -60,9 +60,6 @@ export default function Documentaries() {
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
-  const [trendingDocumentaries, setTrendingDocumentaries] = useState<Documentary[]>([]);
-  const [topRatedDocumentaries, setTopRatedDocumentaries] = useState<Documentary[]>([]);
-  const [recentDocumentaries, setRecentDocumentaries] = useState<Documentary[]>([]);
 
   // Genre view state
   const [selectedGenre, setSelectedGenre] = useState<GenreSection | null>(null);
@@ -325,11 +322,6 @@ export default function Documentaries() {
   };
 
   const loadBrowseSections = async () => {
-    // Load special sections
-    fetchTrending();
-    fetchTopRated();
-    fetchNowPlaying();
-
     // Load genre sections
     const sections: GenreSection[] = GENRE_CONFIG.map(config => ({
       ...config,
@@ -342,65 +334,6 @@ export default function Documentaries() {
     GENRE_CONFIG.forEach(config => {
       fetchGenreSection(config.id, config.name, config.emoji);
     });
-  };
-
-  const fetchTrending = async () => {
-    try {
-      // Use discover with documentary genre (99) sorted by popularity
-      const res = await fetch(`${API_BASE}/tmdb/discover/movies?genre=99&sort_by=popularity.desc&page=1`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by popularity for trending
-        const sorted = (data.results || []).sort((a: Documentary, b: Documentary) =>
-          b.popularity - a.popularity
-        );
-        setTrendingDocumentaries(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch trending:', err);
-    }
-  };
-
-  const fetchTopRated = async () => {
-    try {
-      // Use discover with documentary genre (99) sorted by rating - relaxed filters for more results
-      const res = await fetch(`${API_BASE}/tmdb/discover/movies?genre=99&sort_by=vote_average.desc&page=1&min_rating=6&min_votes=100`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by rating to guarantee perfect order
-        const sorted = (data.results || []).sort((a: Documentary, b: Documentary) =>
-          b.vote_average - a.vote_average
-        );
-        setTopRatedDocumentaries(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch top rated:', err);
-    }
-  };
-
-  const fetchNowPlaying = async () => {
-    try {
-      // Use discover with documentary genre (99) sorted by release date
-      const res = await fetch(`${API_BASE}/tmdb/discover/movies?genre=99&sort_by=release_date.desc&page=1`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by release date (newest first)
-        const sorted = (data.results || []).sort((a: Documentary, b: Documentary) => {
-          const yearA = a.year ? parseInt(a.year) : 0;
-          const yearB = b.year ? parseInt(b.year) : 0;
-          return yearB - yearA;
-        });
-        setRecentDocumentaries(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch now playing:', err);
-    }
   };
 
   const fetchGenreSection = async (genreId: number, genreName: string, emoji: string) => {

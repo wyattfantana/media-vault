@@ -74,9 +74,6 @@ export default function Movies() {
 
   // Browse mode sections
   const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
-  const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
-  const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
-  const [nowPlayingMovies, setNowPlayingMovies] = useState<Movie[]>([]);
 
   // Genre view state
   const [selectedGenre, setSelectedGenre] = useState<GenreSection | null>(null);
@@ -454,11 +451,6 @@ export default function Movies() {
   };
 
   const loadBrowseSections = async () => {
-    // Load special sections
-    fetchTrending();
-    fetchTopRated();
-    fetchNowPlaying();
-
     // Load genre sections
     const sections: GenreSection[] = GENRE_CONFIG.map(config => ({
       ...config,
@@ -471,62 +463,6 @@ export default function Movies() {
     GENRE_CONFIG.forEach(config => {
       fetchGenreSection(config.id, config.name, config.emoji);
     });
-  };
-
-  const fetchTrending = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/tmdb/trending/movie/week`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by popularity for trending
-        const sorted = (data.results || []).sort((a: Movie, b: Movie) =>
-          b.popularity - a.popularity
-        );
-        setTrendingMovies(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch trending:', err);
-    }
-  };
-
-  const fetchTopRated = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/tmdb/top-rated/movies?page=1`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by rating to guarantee perfect order
-        const sorted = (data.results || []).sort((a: Movie, b: Movie) =>
-          b.vote_average - a.vote_average
-        );
-        setTopRatedMovies(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch top rated:', err);
-    }
-  };
-
-  const fetchNowPlaying = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/tmdb/now-playing/movies?page=1`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by release date (newest first)
-        const sorted = (data.results || []).sort((a: Movie, b: Movie) => {
-          const yearA = a.year ? parseInt(a.year) : 0;
-          const yearB = b.year ? parseInt(b.year) : 0;
-          return yearB - yearA;
-        });
-        setNowPlayingMovies(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch now playing:', err);
-    }
   };
 
   const fetchGenreSection = async (genreId: number, genreName: string, emoji: string) => {
