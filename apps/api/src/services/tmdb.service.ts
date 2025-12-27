@@ -829,15 +829,22 @@ export class TMDBService {
   }
 
   /**
-   * Discover movies by company/studio
+   * Discover movies or TV shows by company/studio/network
+   * @param companyId TMDB company/network ID
+   * @param mediaType 'movie' or 'tv'
    */
-  async discoverByCompany(companyId: number, page: number = 1, userId?: string): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
+  async discoverByCompany(companyId: number, page: number = 1, userId?: string, mediaType: 'movie' | 'tv' = 'movie'): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       const apiKey = await this.getApiKey(userId);
-      const response = await axios.get(`${TMDB_BASE_URL}/discover/movie`, {
+
+      // For TV, use discover/tv with with_networks. For movies, use discover/movie with with_companies
+      const endpoint = mediaType === 'tv' ? `${TMDB_BASE_URL}/discover/tv` : `${TMDB_BASE_URL}/discover/movie`;
+      const companyParam = mediaType === 'tv' ? 'with_networks' : 'with_companies';
+
+      const response = await axios.get(endpoint, {
         params: {
           api_key: apiKey,
-          with_companies: companyId,
+          [companyParam]: companyId,
           sort_by: 'popularity.desc',
           page
         }
@@ -845,61 +852,78 @@ export class TMDBService {
 
       return response.data;
     } catch (error) {
-      console.error('[TMDB] Discover by company error:', error);
-      throw new Error('Failed to discover movies by company');
+      console.error('[TMDB] Discover by company/network error:', error);
+      throw new Error(`Failed to discover ${mediaType === 'tv' ? 'TV shows' : 'movies'} by company`);
     }
   }
 
   /**
-   * Discover movies by person (actor or director)
-   * Uses person's movie credits and filters by department/job
+   * Discover movies or TV shows by person (actor or director/creator)
+   * Uses person's credits and filters by department/job
    * @param personId TMDB person ID
-   * @param role 'cast' for actor, 'crew' for director
+   * @param role 'cast' for actor, 'crew' for director/creator
+   * @param mediaType 'movie' or 'tv' - determines which credits endpoint to use
    */
-  async discoverByPerson(personId: number, role: 'cast' | 'crew' = 'cast', page: number = 1, userId?: string): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
+  async discoverByPerson(personId: number, role: 'cast' | 'crew' = 'cast', page: number = 1, userId?: string, mediaType: 'movie' | 'tv' = 'movie'): Promise<{ results: TMDBMovie[]; total_pages: number; total_results: number }> {
     try {
       const apiKey = await this.getApiKey(userId);
 
-      // Fetch person's movie credits
-      const response = await axios.get(`${TMDB_BASE_URL}/person/${personId}/movie_credits`, {
+      // Fetch person's credits based on media type
+      const creditsEndpoint = mediaType === 'tv'
+        ? `${TMDB_BASE_URL}/person/${personId}/tv_credits`
+        : `${TMDB_BASE_URL}/person/${personId}/movie_credits`;
+
+      const response = await axios.get(creditsEndpoint, {
         params: { api_key: apiKey }
       });
 
-      let movies: any[] = [];
+      let results: any[] = [];
 
       if (role === 'cast') {
         // For actors, use the cast array
-        movies = response.data.cast || [];
+        results = response.data.cast || [];
       } else {
-        // For directors, filter crew for directing jobs only
+        // For directors/creators, filter crew for relevant jobs
         const crew = response.data.crew || [];
-        movies = crew.filter((credit: any) =>
-          credit.job === 'Director' ||
-          (credit.department === 'Directing' && credit.job === 'Director')
-        );
+        if (mediaType === 'tv') {
+          // For TV, include creators, executive producers, and showrunners
+          results = crew.filter((credit: any) =>
+            credit.job === 'Creator' ||
+            credit.job === 'Executive Producer' ||
+            credit.job === 'Showrunner' ||
+            credit.department === 'Writing' ||
+            credit.department === 'Directing'
+          );
+        } else {
+          // For movies, filter for directors only
+          results = crew.filter((credit: any) =>
+            credit.job === 'Director' ||
+            (credit.department === 'Directing' && credit.job === 'Director')
+          );
+        }
       }
 
-      // Remove duplicates (person might have multiple credits on same movie)
-      const uniqueMovies = Array.from(
-        new Map(movies.map(m => [m.id, m])).values()
+      // Remove duplicates (person might have multiple credits on same item)
+      const uniqueResults = Array.from(
+        new Map(results.map(m => [m.id, m])).values()
       );
 
       // Sort by popularity descending
-      uniqueMovies.sort((a: any, b: any) => (b.popularity || 0) - (a.popularity || 0));
+      uniqueResults.sort((a: any, b: any) => (b.popularity || 0) - (a.popularity || 0));
 
       // Paginate results (20 per page like TMDB)
       const perPage = 20;
       const startIndex = (page - 1) * perPage;
-      const paginatedMovies = uniqueMovies.slice(startIndex, startIndex + perPage);
+      const paginatedResults = uniqueResults.slice(startIndex, startIndex + perPage);
 
       return {
-        results: paginatedMovies as TMDBMovie[],
-        total_pages: Math.ceil(uniqueMovies.length / perPage),
-        total_results: uniqueMovies.length
+        results: paginatedResults as TMDBMovie[],
+        total_pages: Math.ceil(uniqueResults.length / perPage),
+        total_results: uniqueResults.length
       };
     } catch (error) {
       console.error('[TMDB] Discover by person error:', error);
-      throw new Error('Failed to discover movies by person');
+      throw new Error(`Failed to discover ${mediaType === 'tv' ? 'TV shows' : 'movies'} by person`);
     }
   }
 

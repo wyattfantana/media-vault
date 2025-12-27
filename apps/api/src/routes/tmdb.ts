@@ -737,32 +737,33 @@ router.get('/search/companies', async (req, res) => {
   }
 });
 
-// Discover movies by company endpoint
+// Discover movies or TV shows by company/network endpoint
 router.get('/discover/company/:id', async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     const companyId = parseInt(req.params.id);
-    const { page } = req.query;
+    const { page, type } = req.query;
 
     if (isNaN(companyId)) {
       return res.status(400).json({ error: 'Invalid company ID' });
     }
 
     const pageNum = page && typeof page === 'string' ? parseInt(page) : 1;
-    const results = await tmdbService.discoverByCompany(companyId, pageNum, userId);
+    const mediaType = type === 'tv' ? 'tv' : 'movie';
+    const results = await tmdbService.discoverByCompany(companyId, pageNum, userId, mediaType);
     res.json(results);
   } catch (error) {
-    console.error('TMDB discover by company error:', error);
-    res.status(500).json({ error: 'Failed to discover movies by company' });
+    console.error('TMDB discover by company/network error:', error);
+    res.status(500).json({ error: 'Failed to discover by company' });
   }
 });
 
-// Discover movies by person endpoint
+// Discover movies or TV shows by person endpoint
 router.get('/discover/person/:id', async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     const personId = parseInt(req.params.id);
-    const { role, page } = req.query;
+    const { role, page, type } = req.query;
 
     if (isNaN(personId)) {
       return res.status(400).json({ error: 'Invalid person ID' });
@@ -770,11 +771,12 @@ router.get('/discover/person/:id', async (req, res) => {
 
     const personRole = role === 'crew' ? 'crew' : 'cast';
     const pageNum = page && typeof page === 'string' ? parseInt(page) : 1;
-    const results = await tmdbService.discoverByPerson(personId, personRole, pageNum, userId);
+    const mediaType = type === 'tv' ? 'tv' : 'movie';
+    const results = await tmdbService.discoverByPerson(personId, personRole, pageNum, userId, mediaType);
     res.json(results);
   } catch (error) {
     console.error('TMDB discover by person error:', error);
-    res.status(500).json({ error: 'Failed to discover movies by person' });
+    res.status(500).json({ error: 'Failed to discover by person' });
   }
 });
 
