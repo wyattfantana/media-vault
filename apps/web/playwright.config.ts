@@ -2,10 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: true,
+  fullyParallel: false, // Run tests sequentially to avoid rate limiting
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1, // Run tests sequentially to prevent auth rate limiting
   reporter: 'html',
   timeout: 90000, // 90 seconds per test (movies page loads 815k movies)
 

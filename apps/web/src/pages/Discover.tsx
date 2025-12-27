@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Browse } from './Browse';
 import { YouTube } from './YouTube';
 import { SoundCloud } from './SoundCloud';
@@ -12,15 +12,15 @@ import Documentaries from './Documentaries';
 type Tab = 'youtube' | 'bbc' | 'soundcloud' | 'tiktok' | 'twitch' | 'reddit' | 'movies' | 'tvshows' | 'documentaries';
 
 export function Discover() {
-  // Restore last active tab from localStorage or URL parameter, default to 'movies'
+  // Restore last active tab from URL parameter FIRST, then localStorage, default to 'movies'
   const [activeTab, setActiveTab] = useState<Tab>(() => {
-    // Check URL parameter first
+    // ALWAYS prioritize URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam) {
+    if (tabParam && ['youtube', 'bbc', 'soundcloud', 'tiktok', 'twitch', 'reddit', 'movies', 'tvshows', 'documentaries'].includes(tabParam)) {
       return tabParam as Tab;
     }
-    // Fall back to localStorage
+    // Fall back to localStorage only if no URL param
     const saved = localStorage.getItem('discover-active-tab');
     return (saved as Tab) || 'movies';
   });
@@ -36,6 +36,29 @@ export function Discover() {
     { id: 'twitch' as const, label: 'Twitch', logo: '/images/twitch.svg' },
     { id: 'reddit' as const, label: 'Reddit', logo: '/images/reddit.svg' },
   ];
+
+  // Sync tab with URL parameter on mount and when URL changes
+  useEffect(() => {
+    const handleURLChange = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam && tabParam !== activeTab) {
+        setActiveTab(tabParam as Tab);
+        // CRITICAL: Update localStorage when loading from URL parameter
+        localStorage.setItem('discover-active-tab', tabParam);
+      }
+    };
+
+    // Check on mount
+    handleURLChange();
+
+    // Listen for popstate events (back/forward navigation)
+    window.addEventListener('popstate', handleURLChange);
+
+    return () => {
+      window.removeEventListener('popstate', handleURLChange);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save active tab to localStorage whenever it changes
   const handleTabChange = (tab: Tab) => {

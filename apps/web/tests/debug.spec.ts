@@ -62,8 +62,8 @@ test.describe('Debug Tests', () => {
     });
 
     // Try to go directly to movies page
-    console.log('Going to /movies...');
-    await page.goto('/movies', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    console.log('Going to /discover?tab=movies...');
+    await page.goto('/discover?tab=movies', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     await page.waitForTimeout(10000);
 

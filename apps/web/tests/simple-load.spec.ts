@@ -6,8 +6,8 @@ test.describe('Simple Page Load Test', () => {
     page.on('console', msg => console.log('BROWSER:', msg.text()));
     page.on('pageerror', error => console.log('PAGE ERROR:', error));
 
-    console.log('1. Navigating to /movies...');
-    await page.goto('/movies', { waitUntil: 'networkidle', timeout: 60000 });
+    console.log('1. Navigating to /discover?tab=movies...');
+    await page.goto('/discover?tab=movies', { waitUntil: 'networkidle', timeout: 60000 });
 
     console.log('2. Current URL:', page.url());
 
