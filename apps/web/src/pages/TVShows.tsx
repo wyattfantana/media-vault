@@ -77,12 +77,6 @@ export default function TVShows() {
   const isInitialMount = React.useRef(true);
   const isRestoring = React.useRef(true); // Track if we're restoring state from localStorage
 
-  // Browse mode sections
-  const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
-  const [trendingShows, setTrendingShows] = useState<TVShow[]>([]);
-  const [topRatedShows, setTopRatedShows] = useState<TVShow[]>([]);
-  const [airingTodayShows, setAiringTodayShows] = useState<TVShow[]>([]);
-
   // Genre view state
   const [selectedGenre, setSelectedGenre] = useState<GenreSection | null>(null);
   const [genreShows, setGenreShows] = useState<TVShow[]>([]);
@@ -716,111 +710,6 @@ export default function TVShows() {
       }
     } catch (err) {
       console.error('Failed to fetch genres:', err);
-    }
-  };
-
-  const loadBrowseSections = async () => {
-    // Load special sections
-    fetchTrending();
-    fetchTopRated();
-    fetchNowPlaying();
-
-    // Load genre sections
-    const sections: GenreSection[] = GENRE_CONFIG.map(config => ({
-      ...config,
-      shows: [],
-      loading: true
-    }));
-    setGenreSections(sections);
-
-    // Fetch top-rated shows for each genre
-    GENRE_CONFIG.forEach(config => {
-      fetchGenreSection(config.id, config.name, config.emoji);
-    });
-  };
-
-  const fetchTrending = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/tmdb/trending/tv/week`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by popularity for trending
-        const sorted = (data.results || []).sort((a: TVShow, b: TVShow) =>
-          b.popularity - a.popularity
-        );
-        setTrendingShows(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch trending:', err);
-    }
-  };
-
-  const fetchTopRated = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/tmdb/popular/tv?page=1`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by rating to guarantee perfect order
-        const sorted = (data.results || []).sort((a: TVShow, b: TVShow) =>
-          b.vote_average - a.vote_average
-        );
-        setTopRatedShows(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch top rated:', err);
-    }
-  };
-
-  const fetchNowPlaying = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/tmdb/popular/tv?page=1`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Sort by release date (newest first)
-        const sorted = (data.results || []).sort((a: TVShow, b: TVShow) => {
-          const yearA = a.year ? parseInt(a.year) : 0;
-          const yearB = b.year ? parseInt(b.year) : 0;
-          return yearB - yearA;
-        });
-        setAiringTodayShows(sorted);
-      }
-    } catch (err) {
-      console.error('Failed to fetch airing today:', err);
-    }
-  };
-
-  const fetchGenreSection = async (genreId: number, genreName: string, emoji: string) => {
-    try {
-      // Browse mode: Show ONLY the best of the best (7.5+, 2000+ votes)
-      const res = await fetch(
-        `${API_BASE}/tmdb/popular/tv?genre=${genreId}&sort_by=vote_average.desc&page=1&min_rating=7.5&min_votes=2000`,
-        { credentials: 'include' }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        // Client-side re-sort to guarantee perfect descending order
-        const sortedShows = (data.results || []).sort((a: TVShow, b: TVShow) =>
-          b.vote_average - a.vote_average
-        );
-        setGenreSections(prev => prev.map(section =>
-          section.id === genreId
-            ? { ...section, shows: sortedShows, loading: false }
-            : section
-        ));
-      }
-    } catch (err) {
-      console.error(`Failed to fetch ${genreName}:`, err);
-      setGenreSections(prev => prev.map(section =>
-        section.id === genreId
-          ? { ...section, loading: false }
-          : section
-      ));
     }
   };
 

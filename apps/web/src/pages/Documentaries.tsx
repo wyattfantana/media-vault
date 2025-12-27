@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Film, Search, Star, Calendar, Download, ChevronLeft, ChevronRight, ChevronRight as ArrowRight, SlidersHorizontal, Loader } from 'lucide-react';
+import { Film, Search, Star, Calendar, Download, SlidersHorizontal, Loader } from 'lucide-react';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebounce } from '../hooks/useDebounce';
 import { searchCache } from '../utils/searchCache';
@@ -58,8 +58,6 @@ export default function Documentaries() {
   const [downloadingTorrent, setDownloadingTorrent] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
-  // Browse mode sections
-  const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
 
   // Genre view state
   const [selectedGenre, setSelectedGenre] = useState<GenreSection | null>(null);
@@ -302,10 +300,6 @@ export default function Documentaries() {
     { id: 18, name: 'Drama', emoji: '🎭' },
   ];
 
-  useEffect(() => {
-    fetchGenres();
-    loadBrowseSections();
-  }, []);
 
   const fetchGenres = async () => {
     try {
@@ -318,52 +312,6 @@ export default function Documentaries() {
       }
     } catch (err) {
       console.error('Failed to fetch genres:', err);
-    }
-  };
-
-  const loadBrowseSections = async () => {
-    // Load genre sections
-    const sections: GenreSection[] = GENRE_CONFIG.map(config => ({
-      ...config,
-      documentaries: [],
-      loading: true
-    }));
-    setGenreSections(sections);
-
-    // Fetch top-rated documentaries for each genre
-    GENRE_CONFIG.forEach(config => {
-      fetchGenreSection(config.id, config.name, config.emoji);
-    });
-  };
-
-  const fetchGenreSection = async (genreId: number, genreName: string, emoji: string) => {
-    try {
-      // Browse mode: Show quality documentaries (relaxed filters for more variety)
-      // If it's the Documentary genre (99), use only that genre. Otherwise, combine with documentary genre
-      const genreParam = genreId === 99 ? '99' : `99,${genreId}`;
-      const res = await fetch(
-        `${API_BASE}/tmdb/discover/movies?genre=${genreParam}&sort_by=vote_average.desc&page=1&min_rating=6&min_votes=50`,
-        { credentials: 'include' }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        // Client-side re-sort to guarantee perfect descending order
-        const sortedDocumentaries = (data.results || []).sort((a: Documentary, b: Documentary) =>
-          b.vote_average - a.vote_average
-        );
-        setGenreSections(prev => prev.map(section =>
-          section.id === genreId
-            ? { ...section, documentaries: sortedDocumentaries, loading: false }
-            : section
-        ));
-      }
-    } catch (err) {
-      console.error(`Failed to fetch ${genreName}:`, err);
-      setGenreSections(prev => prev.map(section =>
-        section.id === genreId
-          ? { ...section, loading: false }
-          : section
-      ));
     }
   };
 
@@ -902,72 +850,6 @@ export default function Documentaries() {
               <span className="text-gray-400">• {documentary.vote_count.toLocaleString()} votes</span>
             </div>
           </div>
-        </div>
-      </div>
-    );
-  };
-
-  const DocumentaryRow = ({ title, documentaries, loading, onSeeAll }: {
-    title: string;
-    documentaries: Documentary[];
-    loading: boolean;
-    onSeeAll?: () => void;
-  }) => {
-    const scrollRef = React.useRef<HTMLDivElement>(null);
-
-    const scroll = (direction: 'left' | 'right') => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollBy({
-          left: direction === 'left' ? -800 : 800,
-          behavior: 'smooth'
-        });
-      }
-    };
-
-    return (
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4 px-4">
-          <h2 className="text-2xl font-bold text-white">{title}</h2>
-          {onSeeAll && (
-            <button
-              onClick={onSeeAll}
-              className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
-            >
-              See All <ArrowRight className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-        <div className="relative group/row">
-          <button
-            onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-black/90 text-white p-2 rounded-r-lg opacity-0 group-hover/row:opacity-100 transition-opacity"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          <button
-            onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-black/90 text-white p-2 rounded-l-lg opacity-0 group-hover/row:opacity-100 transition-opacity"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-
-          {loading ? (
-            <div className="flex gap-4 px-4 overflow-hidden">
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="w-48 h-72 bg-gray-800 rounded-lg animate-pulse flex-shrink-0" />
-              ))}
-            </div>
-          ) : (
-            <div
-              ref={scrollRef}
-              className="flex gap-4 px-4 overflow-x-auto scrollbar-hide scroll-smooth"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
-              {documentaries.map(documentary => (
-                <DocumentaryCard key={documentary.id} documentary={documentary} />
-              ))}
-            </div>
-          )}
         </div>
       </div>
     );

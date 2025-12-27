@@ -72,9 +72,6 @@ export default function Movies() {
   const [downloadingTorrent, setDownloadingTorrent] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
-  // Browse mode sections
-  const [genreSections, setGenreSections] = useState<GenreSection[]>([]);
-
   // Genre view state
   const [selectedGenre, setSelectedGenre] = useState<GenreSection | null>(null);
   const [genreMovies, setGenreMovies] = useState<Movie[]>([]);
@@ -431,11 +428,6 @@ export default function Movies() {
     { id: 53, name: 'Thriller', emoji: '😱' },
   ];
 
-  useEffect(() => {
-    fetchGenres();
-    loadBrowseSections();
-  }, []);
-
   const fetchGenres = async () => {
     try {
       const res = await fetch(`${API_BASE}/tmdb/genres/movies`, {
@@ -447,51 +439,6 @@ export default function Movies() {
       }
     } catch (err) {
       console.error('Failed to fetch genres:', err);
-    }
-  };
-
-  const loadBrowseSections = async () => {
-    // Load genre sections
-    const sections: GenreSection[] = GENRE_CONFIG.map(config => ({
-      ...config,
-      movies: [],
-      loading: true
-    }));
-    setGenreSections(sections);
-
-    // Fetch top-rated movies for each genre
-    GENRE_CONFIG.forEach(config => {
-      fetchGenreSection(config.id, config.name, config.emoji);
-    });
-  };
-
-  const fetchGenreSection = async (genreId: number, genreName: string, emoji: string) => {
-    try {
-      // Browse mode: Show ONLY the best of the best (7.5+, 2000+ votes)
-      // Always exclude documentaries (99), music (10402), and TV movies (10770)
-      const res = await fetch(
-        `${API_BASE}/tmdb/discover/movies?genre=${genreId}&sort_by=vote_average.desc&page=1&min_rating=7.5&min_votes=2000&exclude_genres=99,10402,10770`,
-        { credentials: 'include' }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        // Client-side re-sort to guarantee perfect descending order
-        const sortedMovies = (data.results || []).sort((a: Movie, b: Movie) =>
-          b.vote_average - a.vote_average
-        );
-        setGenreSections(prev => prev.map(section =>
-          section.id === genreId
-            ? { ...section, movies: sortedMovies, loading: false }
-            : section
-        ));
-      }
-    } catch (err) {
-      console.error(`Failed to fetch ${genreName}:`, err);
-      setGenreSections(prev => prev.map(section =>
-        section.id === genreId
-          ? { ...section, loading: false }
-          : section
-      ));
     }
   };
 
