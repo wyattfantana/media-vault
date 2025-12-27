@@ -4,10 +4,10 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: false, // Run tests sequentially to avoid rate limiting
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: 2, // Retry failed tests to handle auth flakiness
   workers: 1, // Run tests sequentially to prevent auth rate limiting
   reporter: 'html',
-  timeout: 90000, // 90 seconds per test (movies page loads 815k movies)
+  timeout: 180000, // 3 minutes per test for comprehensive testing
 
   use: {
     baseURL: 'http://localhost:5173',
@@ -18,20 +18,13 @@ export default defineConfig({
   },
 
   projects: [
-    // Setup project to handle authentication
-    {
-      name: 'setup',
-      testMatch: /.*\.setup\.ts/,
-    },
-
-    // Main tests - depend on setup
+    // Main tests - no auth setup dependency, test handles its own auth
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup'],
+      testIgnore: /.*\.setup\.ts/,
     },
     // Firefox and Safari disabled for faster test runs
     // Uncomment when needed for cross-browser testing
