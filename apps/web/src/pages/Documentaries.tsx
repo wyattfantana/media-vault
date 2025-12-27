@@ -1235,53 +1235,128 @@ export default function Documentaries() {
       {/* All Documentaries View */}
       {viewMode === 'all-documentaries' && (
         <div className="max-w-7xl mx-auto px-8 py-8 space-y-6">
-          {/* Filters Toggle */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setShowAllDocumentariesFilters(!showAllDocumentariesFilters)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              {showAllDocumentariesFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
+          {/* Advanced Discovery Section */}
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-3">Advanced Discovery</h3>
             <div className="text-sm text-gray-400">
-              {allDocumentaries.length} documentaries loaded • Page {allDocumentariesPage}/{allDocumentariesTotalPages}
+              Use the search bar above to find documentaries by title, or use the filters below to browse by rating, genre, and year.
             </div>
           </div>
 
-          {/* Filter Panel */}
+          {/* Show/Hide Additional Filters Toggle */}
+          {!showAllDocumentariesFilters && (
+            <div className="flex items-center justify-start">
+              <button
+                onClick={() => setShowAllDocumentariesFilters(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300 font-medium"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                Show Additional Filters
+              </button>
+            </div>
+          )}
+
+          {/* Additional Filters Panel - Collapsible */}
           {showAllDocumentariesFilters && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              {/* Hide Filters Button & Reset Button */}
+              <div className="flex items-center justify-start gap-3 mb-4">
+                <button
+                  onClick={() => setShowAllDocumentariesFilters(false)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-300 font-medium"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Hide Additional Filters
+                </button>
+                <button
+                  onClick={() => {
+                    setAllDocumentariesFilters({
+                      minRating: 0,
+                      minVotes: 0,
+                      yearFrom: null,
+                      yearTo: null,
+                      sortBy: 'popularity.desc',
+                      selectedGenres: [],
+                      excludeGenres: [],
+                      originCountries: []
+                    });
+                    setActivePreset('all-docs'); // Auto-select All Docs on reset
+                  }}
+                  disabled={
+                    allDocumentariesFilters.minRating === 0 &&
+                    allDocumentariesFilters.minVotes === 0 &&
+                    !allDocumentariesFilters.yearFrom &&
+                    !allDocumentariesFilters.yearTo &&
+                    allDocumentariesFilters.selectedGenres.length === 0 &&
+                    allDocumentariesFilters.excludeGenres.length === 0 &&
+                    allDocumentariesFilters.originCountries.length === 0
+                  }
+                  className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors font-medium ${
+                    allDocumentariesFilters.minRating === 0 &&
+                    allDocumentariesFilters.minVotes === 0 &&
+                    !allDocumentariesFilters.yearFrom &&
+                    !allDocumentariesFilters.yearTo &&
+                    allDocumentariesFilters.selectedGenres.length === 0 &&
+                    allDocumentariesFilters.excludeGenres.length === 0 &&
+                    allDocumentariesFilters.originCountries.length === 0
+                      ? 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  Reset Filters
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {/* Quick Filters */}
                 <div className="col-span-full">
                   <label className="block text-sm font-medium text-gray-400 mb-3">Quick Filters</label>
                   <div className="flex flex-wrap gap-3">
+                    {/* All Docs - No filters */}
+                    <button
+                      onClick={() => {
+                        if (activePreset === 'all-docs') {
+                          // Deselect - already at defaults, do nothing
+                          setActivePreset(null);
+                        } else {
+                          // Select - reset to no rating/vote filters
+                          setAllDocumentariesFilters(prev => ({
+                            ...prev,
+                            minRating: 0,
+                            minVotes: 0,
+                            sortBy: 'popularity.desc'
+                          }));
+                          setActivePreset('all-docs');
+                        }
+                      }}
+                      className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                        activePreset === 'all-docs'
+                          ? 'bg-green-600 text-white ring-2 ring-green-300 shadow-lg scale-105'
+                          : 'bg-gray-700 text-gray-300 hover:bg-green-600'
+                      }`}
+                    >
+                      🎬 All Docs
+                    </button>
+
                     <button
                       onClick={() => {
                         if (activePreset === 'worth-watching') {
-                          setAllDocumentariesFilters({
+                          // Deselect - reset ONLY rating/votes/sort
+                          setAllDocumentariesFilters(prev => ({
+                            ...prev,
                             minRating: 0,
                             minVotes: 0,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'popularity.desc',
-                            originCountries: []
-                          });
+                            sortBy: 'popularity.desc'
+                          }));
                           setActivePreset(null);
                         } else {
-                          setAllDocumentariesFilters({
+                          // Select - apply preset
+                          setAllDocumentariesFilters(prev => ({
+                            ...prev,
                             minRating: 5.5,
-                            minVotes: 25,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'vote_average.desc',
-                            originCountries: []
-                          });
+                            minVotes: 250,
+                            sortBy: 'vote_average.desc'
+                          }));
                           setActivePreset('worth-watching');
                         }
                       }}
@@ -1296,28 +1371,22 @@ export default function Documentaries() {
                     <button
                       onClick={() => {
                         if (activePreset === 'quality') {
-                          setAllDocumentariesFilters({
+                          // Deselect - reset ONLY rating/votes/sort
+                          setAllDocumentariesFilters(prev => ({
+                            ...prev,
                             minRating: 0,
                             minVotes: 0,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'popularity.desc',
-                            originCountries: []
-                          });
+                            sortBy: 'popularity.desc'
+                          }));
                           setActivePreset(null);
                         } else {
-                          setAllDocumentariesFilters({
+                          // Select - apply preset
+                          setAllDocumentariesFilters(prev => ({
+                            ...prev,
                             minRating: 6.5,
-                            minVotes: 50,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'vote_average.desc',
-                            originCountries: []
-                          });
+                            minVotes: 500,
+                            sortBy: 'vote_average.desc'
+                          }));
                           setActivePreset('quality');
                         }
                       }}
@@ -1332,28 +1401,22 @@ export default function Documentaries() {
                     <button
                       onClick={() => {
                         if (activePreset === 'elite') {
-                          setAllDocumentariesFilters({
+                          // Deselect - reset ONLY rating/votes/sort
+                          setAllDocumentariesFilters(prev => ({
+                            ...prev,
                             minRating: 0,
                             minVotes: 0,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'popularity.desc',
-                            originCountries: []
-                          });
+                            sortBy: 'popularity.desc'
+                          }));
                           setActivePreset(null);
                         } else {
-                          setAllDocumentariesFilters({
+                          // Select - apply preset
+                          setAllDocumentariesFilters(prev => ({
+                            ...prev,
                             minRating: 7.5,
-                            minVotes: 100,
-                            excludeGenres: [],
-                            selectedGenres: [],
-                            yearFrom: null,
-                            yearTo: null,
-                            sortBy: 'vote_average.desc',
-                            originCountries: []
-                          });
+                            minVotes: 1000,
+                            sortBy: 'vote_average.desc'
+                          }));
                           setActivePreset('elite');
                         }
                       }}
@@ -1534,62 +1597,27 @@ export default function Documentaries() {
                     </div>
                   </details>
                 </div>
-
-                {/* Reset Button */}
-                <div className="col-span-full">
-                  <button
-                    onClick={() => {
-                      setAllDocumentariesFilters({
-                        minRating: 0,
-                        minVotes: 0,
-                        yearFrom: null,
-                        yearTo: null,
-                        sortBy: 'popularity.desc',
-                        selectedGenres: [],
-                        excludeGenres: []
-                      });
-                      setActivePreset(null);
-                    }}
-                    className="w-full px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                  >
-                    Reset All Filters
-                  </button>
-                </div>
               </div>
             </div>
           )}
 
           {/* Results header */}
           <div className="bg-gray-800/50 p-4 rounded-lg border-l-4 border-blue-500">
-            {loadingMultiplePages ? (
-              <div className="flex items-center gap-3 py-2">
-                <Loader className="w-6 h-6 animate-spin text-blue-400" />
-                <div className="space-y-1">
-                  <div className="text-base font-semibold text-blue-400 animate-pulse">
-                    Loading documentaries...
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Please wait while we fetch more results
-                  </div>
-                </div>
+            <div className="space-y-2">
+              <div className="text-sm text-gray-300 flex items-center gap-2 flex-wrap">
+                {(allDocumentariesLoading || loadingMultiplePages) && <Loader className="w-4 h-4 animate-spin text-blue-400" />}
+                <span className="text-gray-400">Loaded:</span>{' '}
+                <span className="font-bold text-white">{allDocumentaries.length.toLocaleString()}</span> of{' '}
+                <span className="font-bold text-blue-400">{allDocumentariesTotalResults.toLocaleString()}</span>{' '}
+                <span className="text-gray-400">documentaries</span>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="text-sm text-gray-300 flex items-center gap-2 flex-wrap">
-                  {allDocumentariesLoading && <Loader className="w-4 h-4 animate-spin text-blue-400" />}
-                  <span className="text-gray-400">Loaded:</span>{' '}
-                  <span className="font-bold text-white">{allDocumentaries.length.toLocaleString()}</span> of{' '}
-                  <span className="font-bold text-blue-400">{allDocumentariesTotalResults.toLocaleString()}</span>{' '}
-                  <span className="text-gray-400">documentaries</span>
-                </div>
 
-                {/* Always show total catalog for reference */}
-                <div className="text-xs text-gray-500">
-                  <span className="text-gray-500">Total catalog:</span>{' '}
-                  <span className="font-semibold text-gray-400">205,482+ documentaries</span>
-                </div>
+              {/* Always show total catalog for reference */}
+              <div className="text-xs text-gray-500">
+                <span className="text-gray-500">Total catalog:</span>{' '}
+                <span className="font-semibold text-gray-400">205,482+ documentaries</span>
               </div>
-            )}
+            </div>
           </div>
 
           {allDocumentariesLoading && allDocumentariesPage === 1 ? (
