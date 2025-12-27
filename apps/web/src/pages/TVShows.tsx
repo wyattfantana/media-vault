@@ -119,7 +119,6 @@ export default function TVShows() {
 
   // Advanced Discovery state
   const [showSearchQuery, setShowSearchQuery] = useState('');
-  const [selectedCollection, setSelectedCollection] = useState<{ id: number; name: string } | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<{ id: number; name: string } | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<{ id: number; name: string } | null>(null);
   const [selectedActor, setSelectedActor] = useState<{ id: number; name: string } | null>(null);
@@ -207,8 +206,7 @@ export default function TVShows() {
     const savedAdvanced = localStorage.getItem('tvShowsAdvancedFilters');
     if (savedAdvanced) {
       try {
-        const { collection, company, creator, actor } = JSON.parse(savedAdvanced);
-        if (collection) setSelectedCollection(collection);
+        const { company, creator, actor } = JSON.parse(savedAdvanced);
         if (company) setSelectedCompany(company);
         if (creator) setSelectedCreator(creator);
         if (actor) setSelectedActor(actor);
@@ -286,13 +284,12 @@ export default function TVShows() {
   useEffect(() => {
     if (isRestoring.current) return;
     const advancedFilters = {
-      collection: selectedCollection,
       company: selectedCompany,
       creator: selectedCreator,
       actor: selectedActor
     };
     localStorage.setItem('tvShowsAdvancedFilters', JSON.stringify(advancedFilters));
-  }, [selectedCollection, selectedCompany, selectedCreator, selectedActor]);
+  }, [selectedCompany, selectedCreator, selectedActor]);
 
   // Save filter panel state (skip during restoration)
   useEffect(() => {
@@ -401,7 +398,6 @@ export default function TVShows() {
 
   // Advanced Discovery handlers
   const clearAllAdvancedFilters = () => {
-    setSelectedCollection(null);
     setSelectedCompany(null);
     setSelectedCreator(null);
     setSelectedActor(null);
@@ -421,7 +417,6 @@ export default function TVShows() {
     }
 
     // Clear OTHER filter types
-    setSelectedCollection(null);
     setSelectedCompany(null);
     setSelectedCreator(null);
     setSelectedActor(null);
@@ -473,77 +468,6 @@ export default function TVShows() {
     }
   };
 
-  const handleCollectionSelect = async (collectionId: number | null, name: string) => {
-    if (!collectionId) {
-      setSelectedCollection(null);
-      setAllShows([]); // Just clear, don't reload
-      return;
-    }
-
-    // Clear OTHER filter types
-    setSelectedCompany(null);
-    setSelectedCreator(null);
-    setSelectedActor(null);
-    setShowSearchQuery('');
-
-    setSelectedCollection({ id: collectionId, name });
-
-    // Check cache first
-    const cacheKey = `collection:${collectionId}`;
-    if (filterCache[cacheKey]) {
-      setAllShows(filterCache[cacheKey].shows);
-      setAllShowsTotalPages(1);
-      setAllShowsPage(1);
-      setAllShowsTotalResults(filterCache[cacheKey].totalResults);
-      return;
-    }
-
-    setAllShows([]);
-    setAllShowsPage(1);
-    setAllShowsTotalPages(1);
-    setAdvancedFilterLoading(true);
-
-    const currentRequestId = ++requestIdRef.current;
-
-    try {
-      const res = await fetch(`${API_BASE}/tmdb/collection/${collectionId}?type=tv`, { credentials: 'include' });
-
-      if (currentRequestId !== requestIdRef.current) {
-        return;
-      }
-
-      if (res.ok) {
-        const data = await res.json();
-
-        const transformedShows = (data.parts || []).map((show: any) => ({
-          ...show,
-          poster_url: show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : null,
-          backdrop_url: show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null,
-          year: show.first_air_date ? show.first_air_date.split('-')[0] : null
-        }));
-
-        setFilterCache(prev => ({
-          ...prev,
-          [cacheKey]: { shows: transformedShows, totalResults: transformedShows.length }
-        }));
-
-        setAllShows(transformedShows);
-        setAllShowsTotalPages(1);
-        setAllShowsPage(1);
-        setAllShowsTotalResults(transformedShows.length);
-      }
-    } catch (error) {
-      console.error('Failed to load collection:', error);
-      if (currentRequestId === requestIdRef.current) {
-        setAllShows([]);
-      }
-    } finally {
-      if (currentRequestId === requestIdRef.current) {
-        setAdvancedFilterLoading(false);
-      }
-    }
-  };
-
   const handleCompanySelect = async (companyId: number | null, name: string) => {
     if (!companyId) {
       setSelectedCompany(null);
@@ -551,7 +475,6 @@ export default function TVShows() {
       return;
     }
 
-    setSelectedCollection(null);
     setSelectedCreator(null);
     setSelectedActor(null);
     setShowSearchQuery('');
@@ -647,7 +570,6 @@ export default function TVShows() {
       return;
     }
 
-    setSelectedCollection(null);
     setSelectedCompany(null);
     setSelectedActor(null);
     setShowSearchQuery('');
@@ -716,7 +638,6 @@ export default function TVShows() {
       return;
     }
 
-    setSelectedCollection(null);
     setSelectedCompany(null);
     setSelectedCreator(null);
     setShowSearchQuery('');
@@ -1053,7 +974,7 @@ export default function TVShows() {
     }
 
     // Skip loading if advanced filter OR search is active
-    const hasAdvancedFilter = selectedCollection || selectedCompany || selectedCreator || selectedActor || showSearchQuery.trim() !== '';
+    const hasAdvancedFilter = selectedCompany || selectedCreator || selectedActor || showSearchQuery.trim() !== '';
     if (hasAdvancedFilter) {
       return;
     }
@@ -1206,8 +1127,8 @@ export default function TVShows() {
   // Infinite scroll - consolidated into single hook to avoid conflicts
   const hasMoreGenre = viewMode === 'genre' && genreCurrentPage < genreTotalPages;
 
-  // Check if advanced filters are active (Collection/Creator/Actor/Company - these disable infinite scroll)
-  const hasAdvancedFilter = selectedCollection || selectedCompany || selectedCreator || selectedActor;
+  // Check if advanced filters are active (Creator/Actor/Company - these disable infinite scroll)
+  const hasAdvancedFilter = selectedCompany || selectedCreator || selectedActor;
 
   // Search has its own pagination - enable infinite scroll for search when there are more pages
   const hasMoreSearch = showSearchQuery.trim() !== '' && allShowsPage < allShowsTotalPages;
@@ -1999,13 +1920,11 @@ export default function TVShows() {
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-3">Advanced Discovery</h3>
             <AdvancedFiltersTV
-              onCollectionSelect={handleCollectionSelect}
               onCompanySelect={handleCompanySelect}
               onCreatorSelect={handleCreatorSelect}
               onActorSelect={handleActorSelect}
               onShowSearch={handleShowSearch}
               onClearAll={clearAllAdvancedFilters}
-              selectedCollection={selectedCollection}
               selectedCompany={selectedCompany}
               selectedCreator={selectedCreator}
               selectedActor={selectedActor}

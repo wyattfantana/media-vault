@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, X, Folder, Building2, User, Tv } from 'lucide-react';
+import { Search, X, Building2, User } from 'lucide-react';
 import { API_BASE } from '@/lib/config';
-
-interface Collection {
-  id: number;
-  name: string;
-}
 
 interface Company {
   id: number;
@@ -19,13 +14,11 @@ interface Person {
 }
 
 interface AdvancedFiltersTVProps {
-  onCollectionSelect: (collectionId: number | null, name: string) => void;
   onCompanySelect: (companyId: number | null, name: string) => void;
   onCreatorSelect: (personId: number | null, name: string) => void;
   onActorSelect: (personId: number | null, name: string) => void;
   onShowSearch: (query: string) => void;
   onClearAll: () => void;
-  selectedCollection: { id: number; name: string } | null;
   selectedCompany: { id: number; name: string } | null;
   selectedCreator: { id: number; name: string } | null;
   selectedActor: { id: number; name: string } | null;
@@ -33,19 +26,17 @@ interface AdvancedFiltersTVProps {
 }
 
 export function AdvancedFiltersTV({
-  onCollectionSelect,
   onCompanySelect,
   onCreatorSelect,
   onActorSelect,
   onShowSearch,
   onClearAll,
-  selectedCollection,
   selectedCompany,
   selectedCreator,
   selectedActor,
   showSearchQuery
 }: AdvancedFiltersTVProps) {
-  const [searchType, setSearchType] = useState<'search' | 'collection' | 'network' | 'creator' | 'actor'>('search');
+  const [searchType, setSearchType] = useState<'search' | 'network' | 'creator' | 'actor'>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
@@ -87,9 +78,6 @@ export function AdvancedFiltersTV({
       let endpoint = '';
 
       switch (searchType) {
-        case 'collection':
-          endpoint = `/tmdb/search/collections?query=${encodeURIComponent(searchQuery)}`;
-          break;
         case 'network':
           endpoint = `/tmdb/search/companies?query=${encodeURIComponent(searchQuery)}`;
           break;
@@ -128,9 +116,6 @@ export function AdvancedFiltersTV({
 
   const handleSelect = (item: any) => {
     switch (searchType) {
-      case 'collection':
-        onCollectionSelect(item.id, item.name);
-        break;
       case 'network':
         onCompanySelect(item.id, item.name);
         break;
@@ -146,7 +131,6 @@ export function AdvancedFiltersTV({
   };
 
   const activeFilters = [
-    selectedCollection && { type: 'collection', ...selectedCollection },
     selectedCompany && { type: 'network', ...selectedCompany },
     selectedCreator && { type: 'creator', ...selectedCreator },
     selectedActor && { type: 'actor', ...selectedActor }
@@ -157,18 +141,6 @@ export function AdvancedFiltersTV({
       {/* Active Filters */}
       {activeFilters.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {selectedCollection && (
-            <div className="flex items-center gap-2 bg-purple-900/30 border border-purple-500/50 text-purple-300 px-3 py-1.5 rounded-lg text-sm">
-              <Folder className="w-4 h-4" />
-              <span>{selectedCollection.name}</span>
-              <button
-                onClick={() => onCollectionSelect(null, '')}
-                className="hover:text-purple-100"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
           {selectedCompany && (
             <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-500/50 text-blue-300 px-3 py-1.5 rounded-lg text-sm">
               <Building2 className="w-4 h-4" />
@@ -231,17 +203,6 @@ export function AdvancedFiltersTV({
           Search
         </button>
         <button
-          onClick={() => setSearchType('collection')}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
-            searchType === 'collection'
-              ? 'bg-purple-900/50 text-purple-300 border border-purple-500/50'
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          <Folder className="w-4 h-4" />
-          Collection
-        </button>
-        <button
           onClick={() => setSearchType('network')}
           className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
             searchType === 'network'
@@ -285,7 +246,6 @@ export function AdvancedFiltersTV({
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={
             searchType === 'search' ? 'Search TV shows by title (e.g., Breaking Bad, The Wire)...' :
-            searchType === 'collection' ? 'Search collections (e.g., Star Trek, The Walking Dead)...' :
             searchType === 'network' ? 'Search networks/studios (e.g., HBO, Netflix, AMC)...' :
             searchType === 'creator' ? 'Search creators/showrunners (e.g., Vince Gilligan, David Simon)...' :
             'Search actors (e.g., Bryan Cranston, Peter Dinklage)...'
@@ -304,15 +264,6 @@ export function AdvancedFiltersTV({
         <div className="flex flex-wrap gap-2">
           <span className="text-xs text-gray-500">Try:</span>
           {searchType === 'search' && ['Breaking Bad', 'The Wire', 'Game of Thrones', 'The Sopranos', 'Stranger Things', 'The Office', 'Friends', 'The Crown', 'Succession', 'True Detective'].map(ex => (
-            <button
-              key={ex}
-              onClick={() => setSearchQuery(ex)}
-              className="text-xs px-2 py-1 bg-gray-900 hover:bg-gray-700 text-gray-400 hover:text-gray-300 rounded transition-colors"
-            >
-              {ex}
-            </button>
-          ))}
-          {searchType === 'collection' && ['Star Trek', 'Law & Order', 'CSI', 'The Walking Dead', 'Marvel', 'DC', 'Chicago', 'NCIS', 'Power', 'Yellowstone'].map(ex => (
             <button
               key={ex}
               onClick={() => setSearchQuery(ex)}
@@ -359,14 +310,12 @@ export function AdvancedFiltersTV({
               key={item.id}
               onClick={() => handleSelect(item)}
               className={`w-full px-4 py-3 text-left transition-all flex items-center gap-3 border-b border-gray-800 last:border-b-0 ${
-                searchType === 'collection' ? 'hover:bg-purple-900/30 hover:border-purple-500/50' :
                 searchType === 'network' ? 'hover:bg-blue-900/30 hover:border-blue-500/50' :
                 searchType === 'creator' ? 'hover:bg-green-900/30 hover:border-green-500/50' :
                 searchType === 'actor' ? 'hover:bg-yellow-900/30 hover:border-yellow-500/50' :
                 'hover:bg-gray-800'
               }`}
             >
-              {searchType === 'collection' && <Folder className="w-5 h-5 text-purple-400 flex-shrink-0" />}
               {searchType === 'network' && <Building2 className="w-5 h-5 text-blue-400 flex-shrink-0" />}
               {searchType === 'creator' && <User className="w-5 h-5 text-green-400 flex-shrink-0" />}
               {searchType === 'actor' && <User className="w-5 h-5 text-yellow-400 flex-shrink-0" />}
