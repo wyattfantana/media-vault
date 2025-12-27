@@ -2216,16 +2216,8 @@ export default function TVShows() {
           {/* Results header */}
           <div className="bg-gray-800/50 p-4 rounded-lg border-l-4 border-blue-500">
             {loadingMultiplePages ? (
-              <div className="flex items-center gap-3 py-2">
+              <div className="flex items-center justify-center py-2">
                 <Loader className="w-6 h-6 animate-spin text-blue-400" />
-                <div className="space-y-1">
-                  <div className="text-base font-semibold text-blue-400 animate-pulse">
-                    Loading shows...
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Please wait while we fetch more results
-                  </div>
-                </div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -2294,10 +2286,7 @@ export default function TVShows() {
             <h2 className="text-xl font-bold mb-2">⭐ Top Rated TV Shows (Rating ≥ 7.5)</h2>
             <div className="space-y-1">
               {loadingMultiplePages ? (
-                <div className="flex items-center gap-2 text-sm text-gray-300">
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Loading shows...
-                </div>
+                <Loader className="w-4 h-4 animate-spin text-blue-400" />
               ) : (
                 <>
                   <div className="text-sm text-gray-300">
