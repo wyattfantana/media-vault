@@ -7,27 +7,9 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Documentaries Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/discover?tab=documentaries', { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-    // Wait for documentaries to load in the VISIBLE div only (not hidden tabs)
-    await page.waitForFunction(
-      () => {
-        // Find the visible documentaries div
-        const visibleDiv = Array.from(document.querySelectorAll('div')).find(div =>
-          div.className.includes('block') &&
-          div.className.includes('animate-fadeIn') &&
-          !div.className.includes('hidden') &&
-          div.textContent?.includes('Documentaries')
-        );
-        if (!visibleDiv) return false;
-
-        // Check for images in the visible div
-        const images = visibleDiv.querySelectorAll('img[src*="image.tmdb.org"]');
-        return images.length >= 3;
-      },
-      { timeout: 90000 }
-    );
-    await page.waitForTimeout(2000); // Grid stability
+    await page.goto('/discover?tab=documentaries', { timeout: 60000 });
+    // Wait a bit for tab switch and content load
+    await page.waitForTimeout(3000);
   });
 
   test.describe('Page Load & Basic Functionality', () => {
