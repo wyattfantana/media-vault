@@ -23,7 +23,7 @@ A personal media management system for discovering, downloading, and organizing 
 - **Quality Selection** - Choose 4K, 1080p, 720p, or let it auto-select
 - **qBittorrent Integration** - Direct magnet link handling
 - **Progress Tracking** - Real-time download status in the Downloads page
-- **Auto-Organization** - Files sorted into Movies/, TV/, Documentaries/ folders
+- **Auto-Organization** - Files sorted into Movies/, TV Shows/, Documentaries/ folders
 - **Jellyfin Naming** - Proper naming format (Movie (Year), Show S01E01)
 
 ### Additional Sources
@@ -48,7 +48,8 @@ A personal media management system for discovering, downloading, and organizing 
 - qBittorrent-nox
 - yt-dlp
 - get_iplayer (for BBC content)
-- Docker (for Prowlarr/Bazarr)
+- Docker (for Prowlarr, Bazarr, Sonarr, Radarr, FlareSolverr)
+- Jellyfin (for media streaming)
 
 ---
 
@@ -109,25 +110,103 @@ Create `apps/web/.env`:
 VITE_API_URL=http://localhost:3001
 ```
 
-### 5. Start services
+### 5. Start all services
+
+Run the startup script to launch everything in tmux sessions:
 
 ```bash
-# Start PostgreSQL
-sudo service postgresql start
-
-# Start qBittorrent
-qbittorrent-nox --webui-port=8080 &
-
-# Start Prowlarr (optional, for torrent search)
-docker compose up -d prowlarr
-
-# Start MediaVault
-npm run dev
+~/start-mediavault.sh
 ```
+
+This starts:
+- PostgreSQL database
+- Docker services (Prowlarr, Bazarr, Sonarr, Radarr, FlareSolverr)
+- qBittorrent in a tmux session
+- MediaVault (API + Web + Worker) in a tmux session
+- Jellyfin media server
 
 ### 6. Open browser
 
 Go to **http://localhost:5173** and create an account.
+
+---
+
+## Docker Services
+
+MediaVault uses several Docker containers for media management:
+
+### Prowlarr (Port 9696)
+Indexer manager that aggregates torrent and usenet indexers. When you search for a movie or TV show in MediaVault, Prowlarr queries multiple sources (1337x, ThePirateBay, etc.) simultaneously.
+
+### FlareSolverr (Port 8191)
+Cloudflare bypass proxy. Many torrent sites use Cloudflare protection - FlareSolverr solves the challenges automatically so Prowlarr can access them.
+
+### Sonarr (Port 8989)
+TV show library manager. Tracks your TV show collection and provides metadata to Bazarr for subtitle matching. Required for Bazarr to find subtitles for TV episodes.
+
+### Radarr (Port 7878)
+Movie library manager. Same as Sonarr but for movies. Required for Bazarr to find subtitles for movies.
+
+### Bazarr (Port 6767)
+Subtitle manager that automatically downloads subtitles from providers like OpenSubtitles. Works with Sonarr/Radarr to match subtitles to your media files.
+
+---
+
+## Jellyfin Media Server
+
+Jellyfin is your personal streaming platform - like having your own Netflix.
+
+### How it works
+
+1. **Library Scanning** - Point Jellyfin at your download folders (Movies/, TV Shows/, Documentaries/). It scans the files and fetches metadata, artwork, and descriptions automatically.
+
+2. **Stream Anywhere** - Once scanned, stream to any device:
+   - **Home Network**: Any device on your WiFi - smart TVs, phones, tablets, game consoles
+   - **Apps**: Jellyfin has apps for iOS, Android, Roku, Fire TV, Apple TV, Samsung/LG TVs
+   - **Web**: Access via browser at http://localhost:8096
+
+### Streaming Outside Your Home
+
+To access your media when away from home:
+
+**Option 1: Tailscale (Recommended)**
+
+Tailscale creates a secure mesh VPN between your devices. No port forwarding needed.
+
+1. Install Tailscale on Windows: https://tailscale.com/download/windows
+2. Sign up with Google/Microsoft/GitHub (free)
+3. Install Tailscale on your phone/tablet
+4. Sign in with same account
+
+**WSL2 Setup (if running Jellyfin in Docker on WSL2):**
+
+Tailscale runs on Windows but Jellyfin is in WSL2, so you need subnet routing:
+
+```powershell
+# Run in PowerShell as Admin
+tailscale up --advertise-routes=192.168.0.0/24
+```
+
+Then go to https://login.tailscale.com → find your PC → approve the subnet route.
+
+Now access Jellyfin from anywhere using your local IP:
+```
+http://192.168.x.x:8096
+```
+
+Find your PC's local IP with `ipconfig` in Command Prompt.
+
+**Option 2: Port Forwarding**
+
+Forward port 8096 on your router to your Jellyfin server. Access via your public IP or a dynamic DNS service (DuckDNS, No-IP, etc.).
+
+**Option 3: NAS Setup**
+
+Run MediaVault and Jellyfin on a NAS (Synology, QNAP, Unraid, etc.):
+- Always-on hardware designed for 24/7 operation
+- Built-in remote access features (Synology QuickConnect, etc.)
+- RAID for data protection
+- Lower power consumption than a full PC
 
 ---
 
@@ -137,16 +216,18 @@ Go to **http://localhost:5173** and create an account.
 
 1. Open Prowlarr at http://localhost:9696
 2. Add indexers (1337x, ThePirateBay, etc.)
-3. Copy API key from Settings > General
-4. In MediaVault Settings, enable Prowlarr and paste the API key
+3. For Cloudflare-protected sites, add FlareSolverr as a proxy (http://flaresolverr:8191)
+4. Copy API key from Settings > General
+5. In MediaVault Settings, enable Prowlarr and paste the API key
 
 ### Bazarr (Subtitles)
 
-1. Start Bazarr: `docker compose up -d bazarr`
-2. Open Bazarr at http://localhost:6767
-3. Configure subtitle providers (OpenSubtitles, etc.)
-4. Copy API key from Settings > General
-5. In MediaVault Settings, enable Bazarr and paste the API key
+1. Open Bazarr at http://localhost:6767
+2. Add Sonarr connection (http://sonarr:8989 + API key from Sonarr)
+3. Add Radarr connection (http://radarr:7878 + API key from Radarr)
+4. Configure subtitle providers (OpenSubtitles, etc.)
+5. Copy API key from Settings > General
+6. In MediaVault Settings, enable Bazarr and paste the API key
 
 ### VPN (Mullvad)
 
@@ -160,7 +241,22 @@ Install Mullvad VPN on Windows. MediaVault auto-detects it and provides a sideba
 2. **Filter** - Apply filters for actor, genre, rating, etc.
 3. **Download** - Click a title, search torrents, select quality
 4. **Track** - Monitor progress in Downloads page
-5. **Watch** - Files are organized in your download directory
+5. **Watch** - Open Jellyfin, scan your libraries, and stream to any device
+
+---
+
+## URLs
+
+| Service      | URL                    | Purpose                    |
+|--------------|------------------------|----------------------------|
+| Web UI       | http://localhost:5173  | MediaVault frontend        |
+| API          | http://localhost:3001  | MediaVault backend         |
+| qBittorrent  | http://localhost:8080  | Torrent client             |
+| Jellyfin     | http://localhost:8096  | Media streaming            |
+| Prowlarr     | http://localhost:9696  | Indexer management         |
+| Bazarr       | http://localhost:6767  | Subtitle management        |
+| Sonarr       | http://localhost:8989  | TV show tracking           |
+| Radarr       | http://localhost:7878  | Movie tracking             |
 
 ---
 
@@ -178,13 +274,34 @@ media-vault/
 
 ---
 
+## tmux Sessions
+
+MediaVault runs in tmux sessions so it keeps running after you close the terminal.
+
+```bash
+# View MediaVault logs
+tmux attach -t mediavault
+
+# View qBittorrent logs
+tmux attach -t qbittorrent
+
+# Detach from tmux (keep running)
+Ctrl+B, then D
+
+# Stop everything
+~/stop-mediavault.sh
+```
+
+---
+
 ## Tech Stack
 
 - **Frontend**: React, TypeScript, Vite, TailwindCSS
 - **Backend**: Express, TypeScript, PostgreSQL, TypeORM
 - **Auth**: Better Auth
-- **APIs**: TMDB, Prowlarr, Bazarr, qBittorrent
+- **APIs**: TMDB, Prowlarr, Bazarr, Sonarr, Radarr, qBittorrent
 - **Tools**: yt-dlp, get_iplayer, qBittorrent-nox
+- **Streaming**: Jellyfin
 - **Build**: Turborepo
 
 ---
@@ -203,7 +320,13 @@ lsof -ti:5173 | xargs kill -9
 ```
 
 **Downloads not processing**
-Restart the worker: `npm run dev`
+Restart the worker: `~/start-mediavault.sh`
+
+**Docker services not starting**
+```bash
+sudo service docker start
+docker compose up -d
+```
 
 ---
 
