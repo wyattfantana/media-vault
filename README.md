@@ -55,7 +55,38 @@ A personal media management system for discovering, downloading, and organizing 
 
 ## Installation
 
-### 1. Clone and install
+### Quick Install (Recommended)
+
+```bash
+git clone https://github.com/wyattfantana/media-vault.git
+cd media-vault
+./scripts/install.sh
+```
+
+The install script will:
+- Check prerequisites (Node.js 20+, PostgreSQL)
+- Install npm dependencies
+- Set up PostgreSQL database
+- Create .env files (prompts for TMDB API key and download directory)
+- Run database migrations
+- Create convenience symlinks
+
+Then start MediaVault:
+
+```bash
+~/start-mediavault.sh
+```
+
+Open **http://localhost:5173** and create an account.
+
+---
+
+### Manual Installation
+
+<details>
+<summary>Click to expand manual steps</summary>
+
+#### 1. Clone and install
 
 ```bash
 git clone https://github.com/wyattfantana/media-vault.git
@@ -63,7 +94,7 @@ cd media-vault
 npm install
 ```
 
-### 2. Set up PostgreSQL
+#### 2. Set up PostgreSQL
 
 ```bash
 sudo service postgresql start
@@ -71,7 +102,7 @@ sudo -u postgres psql -c "CREATE USER mediavault WITH PASSWORD 'mediavault123';"
 sudo -u postgres psql -c "CREATE DATABASE mediavault OWNER mediavault;"
 ```
 
-### 3. Run migrations
+#### 3. Run migrations
 
 ```bash
 cd apps/api
@@ -81,7 +112,7 @@ done
 npm run migration:run
 ```
 
-### 4. Configure environment
+#### 4. Configure environment
 
 Create `apps/api/.env`:
 
@@ -110,28 +141,13 @@ Create `apps/web/.env`:
 VITE_API_URL=http://localhost:3001
 ```
 
-### 5. Start all services
-
-Run the startup script to launch everything in tmux sessions:
+#### 5. Start MediaVault
 
 ```bash
-# From project root
-scripts/start-mediavault.sh
-
-# Or use the symlink from anywhere
 ~/start-mediavault.sh
 ```
 
-This starts:
-- PostgreSQL database
-- Docker daemon
-- Docker services (Prowlarr, Bazarr, Sonarr, Radarr, Jellyfin, FlareSolverr)
-- qBittorrent in a tmux session
-- MediaVault (API + Web + Worker) in a tmux session
-
-### 6. Open browser
-
-Go to **http://localhost:5173** and create an account.
+</details>
 
 ---
 
