@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Download, Trash2, ExternalLink, Star, Calendar, Search, Loader, HardDrive, Play } from 'lucide-react';
 import { API_BASE } from '@/lib/config';
 
@@ -48,9 +49,121 @@ export function Favorites() {
   const [downloadUrl, setDownloadUrl] = useState('');
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Prowlarr state (matching Movies/TV/Docs pages)
+  const [prowlarrEnabled, setProwlarrEnabled] = useState(false);
+  const [availableReleases, setAvailableReleases] = useState<any[]>([]);
+  const [loadingReleases, setLoadingReleases] = useState(false);
+  const [selectedRelease, setSelectedRelease] = useState<any | null>(null);
+  const [qualityFilter, setQualityFilter] = useState<string>('1080p');
+  const [packTypeFilter, setPackTypeFilter] = useState<string>('all'); // For TV shows
+  const [downloadingTorrent, setDownloadingTorrent] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+  const [vpnConnected, setVpnConnected] = useState(false);
+  const [checkingVpn, setCheckingVpn] = useState(false);
+
   useEffect(() => {
     fetchBookmarks();
   }, []);
+
+  // Check Prowlarr status and VPN on mount
+  useEffect(() => {
+    const checkProwlarrStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/preferences`, { credentials: 'include' });
+        if (response.ok) {
+          const prefs = await response.json();
+          setProwlarrEnabled(prefs.prowlarr_enabled || false);
+        }
+      } catch (error) {
+        console.error('Failed to check Prowlarr status:', error);
+      }
+    };
+    checkProwlarrStatus();
+  }, []);
+
+  // Check VPN status when modal opens
+  useEffect(() => {
+    if (selectedBookmark && prowlarrEnabled) {
+      checkVpnStatus();
+    }
+  }, [selectedBookmark, prowlarrEnabled]);
+
+  const checkVpnStatus = async () => {
+    setCheckingVpn(true);
+    try {
+      const response = await fetch(`${API_BASE}/vpn/status`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setVpnConnected(data.connected || false);
+      }
+    } catch (error) {
+      console.error('Failed to check VPN status:', error);
+      setVpnConnected(false);
+    } finally {
+      setCheckingVpn(false);
+    }
+  };
+
+  // Helper function to extract quality from torrent title
+  const extractQuality = (title: string): string => {
+    if (title.includes('2160p') || title.includes('4K') || title.includes('UHD')) return '2160p';
+    if (title.includes('1080p')) return '1080p';
+    if (title.includes('720p')) return '720p';
+    if (title.includes('480p')) return '480p';
+    return 'Other';
+  };
+
+  // Helper function for indexer colors (matching Movies/TV/Docs pages)
+  const getIndexerColor = (indexer: string): string => {
+    const indexerLower = indexer.toLowerCase();
+    if (indexerLower.includes('torrentgalaxy')) return 'bg-purple-600/20 text-purple-400';
+    if (indexerLower.includes('1337x')) return 'bg-orange-600/20 text-orange-400';
+    if (indexerLower.includes('piratebay') || indexerLower.includes('pirate bay')) return 'bg-pink-600/20 text-pink-400';
+    if (indexerLower.includes('yts')) return 'bg-red-600/20 text-red-400';
+    if (indexerLower.includes('eztv')) return 'bg-green-600/20 text-green-400';
+    if (indexerLower.includes('torrentdownload')) return 'bg-blue-600/20 text-blue-400';
+    if (indexerLower.includes('rarbg')) return 'bg-emerald-600/20 text-emerald-400';
+    if (indexerLower.includes('kickass')) return 'bg-yellow-600/20 text-yellow-400';
+    if (indexerLower.includes('limetorrents')) return 'bg-lime-600/20 text-lime-400';
+    if (indexerLower.includes('nyaa')) return 'bg-fuchsia-600/20 text-fuchsia-400';
+    return 'bg-indigo-600/20 text-indigo-400'; // Default color
+  };
+
+  // Detect pack type for TV shows (matching TVShows.tsx)
+  const detectPackType = (title: string): string => {
+    const titleLower = title.toLowerCase();
+
+    // Complete series detection
+    if (titleLower.includes('complete') && (titleLower.includes('series') || titleLower.includes('collection'))) {
+      return 'series';
+    }
+    if (/s\d+-s\d+/.test(titleLower)) { // e.g., S01-S08
+      return 'series';
+    }
+
+    // Season pack detection
+    if (titleLower.includes('season') && titleLower.includes('complete')) {
+      return 'season';
+    }
+    if (/s\d+\s*(complete|pack|1080p|720p|2160p)/i.test(title)) { // e.g., S01 Complete, S02 1080p
+      return 'season';
+    }
+
+    // Multi-episode detection
+    if (/s\d+e\d+-e\d+/i.test(title)) { // e.g., S01E01-E05
+      return 'multi';
+    }
+    if (/\d+x\d+-\d+x\d+/i.test(title)) { // e.g., 1x01-1x05
+      return 'multi';
+    }
+
+    // Single episode detection
+    if (/s\d+e\d+/i.test(title) || /\d+x\d+/i.test(title)) {
+      return 'episode';
+    }
+
+    return 'other';
+  };
 
   const fetchBookmarks = async () => {
     try {
@@ -149,26 +262,116 @@ export function Favorites() {
 
   const handleQuickDownload = (bookmark: Bookmark) => {
     setSelectedBookmark(bookmark);
-    // Auto-search torrents
-    searchTorrents(bookmark);
+    setAvailableReleases([]);
+    setDownloadMessage(null);
+    setQualityFilter('1080p');
+    // Don't auto-search, let user click Download button
   };
 
+  // Prowlarr-based torrent search (matching Movies/TV/Docs pages)
+  const browseTorrents = async () => {
+    if (!selectedBookmark) return;
+
+    setLoadingReleases(true);
+    setAvailableReleases([]);
+    setDownloadMessage(null);
+    setQualityFilter('1080p');
+    setPackTypeFilter('all');
+
+    try {
+      // Build search query
+      const searchQuery = `${selectedBookmark.title} ${selectedBookmark.release_year || ''}`.trim();
+      const mediaType = selectedBookmark.media_type === 'tv' ? 'tv' : 'movie';
+
+      const releasesResponse = await fetch(`${API_BASE}/prowlarr/search?query=${encodeURIComponent(searchQuery)}&type=${mediaType}`, {
+        credentials: 'include'
+      });
+
+      if (!releasesResponse.ok) {
+        throw new Error('Failed to search Prowlarr');
+      }
+
+      const releases = await releasesResponse.json();
+      const totalResults = releases.length || 0;
+
+      // Filter out irrelevant results (matching Movies.tsx and TVShows.tsx logic)
+      const titleLower = selectedBookmark.title.toLowerCase();
+      const allKeywords = titleLower.split(/[\s:]+/).filter((word: string) => word.length > 2);
+
+      // Filter out adult content
+      const adultKeywords = ['xxx', 'onlyfans', 'nfbusty', 'girlsoutwest', 'girlsrimming', 'playboy'];
+
+      const filteredReleases = releases.filter((r: any) => {
+        const releaseTitleLower = (r.title || '').toLowerCase();
+
+        // Filter out adult content
+        if (adultKeywords.some(keyword => releaseTitleLower.includes(keyword))) {
+          return false;
+        }
+
+        // Match keywords
+        const matchedKeywords = allKeywords.filter((keyword: string) => releaseTitleLower.includes(keyword));
+        const matchPercentage = matchedKeywords.length / allKeywords.length;
+
+        if (allKeywords.length > 2) {
+          // Require at least 50% overall match
+          if (matchPercentage < 0.5) return false;
+
+          // Also require at least one keyword from beyond the first two words
+          const uniqueKeywords = allKeywords.slice(2);
+          const hasUniqueMatch = uniqueKeywords.some((keyword: string) => releaseTitleLower.includes(keyword));
+          return hasUniqueMatch;
+        }
+
+        // For short titles (1-2 words), require higher match percentage
+        return matchPercentage >= 0.5;
+      });
+
+      // Map results to expected format
+      const formattedReleases = filteredReleases.map((r: any) => ({
+        guid: r.guid,
+        title: r.title,
+        indexerId: r.indexerId,
+        indexer: r.indexer,
+        size: r.size,
+        seeders: r.seeders || 0,
+        leechers: r.leechers || 0,
+        magnetUrl: r.magnetUrl,
+        downloadUrl: r.downloadUrl,
+        publishDate: r.publishDate,
+      }));
+
+      setAvailableReleases(formattedReleases);
+
+      if (formattedReleases.length === 0) {
+        if (totalResults > 0) {
+          setDownloadMessage(`⚠️ Found ${totalResults} results but none matched "${selectedBookmark.title}". Try adding more indexers in Prowlarr.`);
+        } else {
+          setDownloadMessage(`⚠️ No torrents found. This may not be available on your indexers.`);
+        }
+      }
+    } catch (error) {
+      console.error('Prowlarr search error:', error);
+      setDownloadMessage('❌ Failed to search torrents. Check Prowlarr settings.');
+    } finally {
+      setLoadingReleases(false);
+    }
+  };
+
+  // Legacy search function (kept for fallback)
   const searchTorrents = async (bookmark: Bookmark) => {
     setSearchingTorrents(true);
     setTorrentSearchError(null);
     setTorrentResults([]);
 
     try {
-      // Clean up title for better torrent search results
-      // Remove colons, parentheses, and other special chars that cause issues
       let cleanTitle = bookmark.title
-        .replace(/:/g, '')  // Remove colons
-        .replace(/\([^)]*\)/g, '')  // Remove anything in parentheses
-        .replace(/[^\w\s]/g, ' ')  // Remove special characters except spaces
-        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+        .replace(/:/g, '')
+        .replace(/\([^)]*\)/g, '')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
 
-      // Limit to first 4-5 words to avoid overly long queries
       const words = cleanTitle.split(' ');
       if (words.length > 5) {
         cleanTitle = words.slice(0, 5).join(' ');
@@ -187,15 +390,14 @@ export function Favorites() {
       }
 
       const data = await res.json();
-      console.log('[Favorites] Torrent search results:', data);
       setTorrentResults(data.results || []);
 
       if (data.results.length === 0) {
-        setTorrentSearchError('No torrents found. Try manual download below.');
+        setTorrentSearchError('No torrents found.');
       }
     } catch (err) {
       console.error('Torrent search error:', err);
-      setTorrentSearchError('Failed to search torrents. Try manual download below.');
+      setTorrentSearchError('Failed to search torrents.');
     } finally {
       setSearchingTorrents(false);
     }
@@ -787,15 +989,14 @@ export function Favorites() {
         </div>
       )}
 
-      {/* Download Modal */}
+      {/* Download Modal - Prowlarr-based (matching Movies/TV/Docs pages) */}
       {selectedBookmark && (
         <div
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => {
             setSelectedBookmark(null);
-            setTorrentResults([]);
-            setTorrentSearchError(null);
-            setDownloadUrl('');
+            setAvailableReleases([]);
+            setDownloadMessage(null);
           }}
         >
           <div
@@ -841,71 +1042,247 @@ export function Favorites() {
               )}
 
               <div className="space-y-4">
-                {/* Torrent Search Results */}
-                {searchingTorrents && (
-                  <div className="bg-gray-900/50 border border-blue-500/30 rounded-lg p-6 text-center">
-                    <Loader className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-400" />
-                    <p className="text-blue-400">Searching torrents...</p>
+                {/* VPN Warning */}
+                {prowlarrEnabled && !vpnConnected && !checkingVpn && (
+                  <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                    <p className="text-sm text-yellow-300">
+                      ⚠️ VPN is not connected. Please enable your VPN before downloading torrents.
+                    </p>
                   </div>
                 )}
 
-                {torrentSearchError && (
-                  <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
-                    {torrentSearchError}
+                {/* Download Success/Error Message */}
+                {downloadMessage && (
+                  <div className={`border rounded-lg p-4 transition-all duration-300 ${
+                    downloadMessage.startsWith('✅')
+                      ? 'bg-green-900/30 border-green-400/50 shadow-lg shadow-green-500/20'
+                      : downloadMessage.startsWith('⚠️')
+                      ? 'bg-yellow-900/20 border-yellow-500/30'
+                      : 'bg-red-900/20 border-red-500/30'
+                  }`}>
+                    <p className={`text-sm ${
+                      downloadMessage.startsWith('✅')
+                        ? 'text-green-200 font-semibold'
+                        : downloadMessage.startsWith('⚠️')
+                        ? 'text-yellow-300'
+                        : 'text-red-300'
+                    }`}>
+                      {downloadMessage}
+                      {downloadMessage.startsWith('✅') && (
+                        <>, <Link to="/downloads" className="underline font-bold hover:text-green-100 transition-colors">click here to see your downloads</Link></>
+                      )}
+                    </p>
                   </div>
                 )}
 
-                {torrentResults.length > 0 && (
+                {/* Download Button - Search Prowlarr */}
+                {prowlarrEnabled && availableReleases.length === 0 && (
+                  <button
+                    onClick={() => browseTorrents()}
+                    disabled={loadingReleases || !vpnConnected || checkingVpn}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
+                  >
+                    {checkingVpn ? (
+                      <>
+                        <Loader className="w-6 h-6 animate-spin" />
+                        Checking VPN...
+                      </>
+                    ) : loadingReleases ? (
+                      <>
+                        <Loader className="w-6 h-6 animate-spin" />
+                        Searching Torrents...
+                      </>
+                    ) : !vpnConnected ? (
+                      <>
+                        <Download className="w-6 h-6" />
+                        VPN Required
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-6 h-6" />
+                        Download
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* Prowlarr not enabled message */}
+                {!prowlarrEnabled && (
+                  <div className="bg-gray-900/50 border border-gray-600 rounded-lg p-4 text-center">
+                    <p className="text-gray-400 mb-2">Prowlarr is not configured.</p>
+                    <Link to="/settings" className="text-brand-400 hover:text-brand-300 underline">
+                      Configure Prowlarr in Settings →
+                    </Link>
+                  </div>
+                )}
+
+                {/* Prowlarr Torrent Results */}
+                {availableReleases.length > 0 && (
                   <div className="bg-gray-900/50 border border-green-500/30 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <h3 className="text-lg font-semibold text-green-400 mb-3">
-                      Found {torrentResults.length} Torrents (sorted by seeds)
+                      Found {availableReleases.filter(r => {
+                        const quality = extractQuality(r.title);
+                        const packType = detectPackType(r.title);
+                        const qualityMatch = qualityFilter === 'all' || quality === qualityFilter;
+                        const packMatch = selectedBookmark?.media_type !== 'tv' || packTypeFilter === 'all' || packType === packTypeFilter;
+                        return qualityMatch && packMatch;
+                      }).length} Torrents
                     </h3>
+
+                    {/* Quality Filter Buttons */}
+                    <div className="flex gap-2 mb-3 flex-wrap">
+                      {['all', '2160p', '1080p', '720p', 'Other'].map((quality) => {
+                        const count = quality === 'all'
+                          ? availableReleases.length
+                          : availableReleases.filter(r => extractQuality(r.title) === quality).length;
+
+                        if (count === 0 && quality !== 'all') return null;
+
+                        return (
+                          <button
+                            key={quality}
+                            onClick={() => {
+                              setQualityFilter(quality);
+                              setPackTypeFilter('all');
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              qualityFilter === quality
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            {quality === 'all' ? 'All' : quality} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Pack Type Filter Buttons - TV Shows only */}
+                    {selectedBookmark?.media_type === 'tv' && (
+                      <>
+                        <div className="border-t border-gray-700 my-3"></div>
+                        <div className="flex gap-2 mb-3 flex-wrap items-center">
+                          {[
+                            { value: 'all', label: 'All' },
+                            { value: 'series', label: 'Complete Series' },
+                            { value: 'season', label: 'Seasons' },
+                            { value: 'multi', label: 'Multi-Episode' },
+                            { value: 'episode', label: 'Episodes' }
+                          ].map((packType) => {
+                            const count = availableReleases.filter(r => {
+                              const quality = extractQuality(r.title);
+                              const pack = detectPackType(r.title);
+                              const qualityMatch = qualityFilter === 'all' || quality === qualityFilter;
+                              const packMatch = packType.value === 'all' || pack === packType.value;
+                              return qualityMatch && packMatch;
+                            }).length;
+
+                            if (count === 0 && packType.value !== 'all') return null;
+
+                            return (
+                              <button
+                                key={packType.value}
+                                onClick={() => setPackTypeFilter(packType.value)}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                                  packTypeFilter === packType.value
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                }`}
+                              >
+                                {packType.label} ({count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
                     <div className="space-y-2">
-                      {torrentResults.map((torrent: any, index: number) => (
-                        <div
-                          key={index}
-                          onClick={() => selectTorrent(torrent.magnet)}
-                          className={`bg-gray-800 hover:bg-gray-700 border rounded-lg p-3 cursor-pointer transition-colors ${
-                            downloadUrl === torrent.magnet ? 'border-green-500' : 'border-gray-700 hover:border-green-500'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-white truncate mb-1">{torrent.title}</p>
-                              <div className="flex items-center gap-3 text-xs text-gray-400">
-                                <span className={`px-2 py-1 rounded ${
-                                  torrent.source === '1337x' ? 'bg-orange-600/20 text-orange-400' :
-                                  torrent.source === 'piratebay' ? 'bg-purple-600/20 text-purple-400' :
-                                  'bg-indigo-600/20 text-indigo-400'
-                                }`}>
-                                  {torrent.source}
-                                </span>
-                                {torrent.size && <span>{torrent.size}</span>}
-                                {torrent.seeds !== undefined && (
-                                  <span className="text-green-400">↑ {torrent.seeds}</span>
-                                )}
-                                {torrent.peers !== undefined && (
-                                  <span className="text-red-400">↓ {torrent.peers}</span>
-                                )}
+                      {[...availableReleases]
+                        .filter(r => {
+                          const quality = extractQuality(r.title);
+                          const packType = detectPackType(r.title);
+                          const qualityMatch = qualityFilter === 'all' || quality === qualityFilter;
+                          const packMatch = selectedBookmark?.media_type !== 'tv' || packTypeFilter === 'all' || packType === packTypeFilter;
+                          return qualityMatch && packMatch;
+                        })
+                        .sort((a, b) => (b.seeders || 0) - (a.seeders || 0))
+                        .map((release, index) => {
+                          const sizeInGB = release.size ? (release.size / 1073741824).toFixed(1) : 'Unknown';
+                          const seeders = release.seeders || 0;
+                          const leechers = release.leechers || 0;
+                          const indexer = release.indexer || 'Unknown';
+
+                          return (
+                            <div
+                              key={index}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (downloadingTorrent) return;
+
+                                setSelectedRelease(release);
+                                setDownloadingTorrent(true);
+
+                                try {
+                                  const category = selectedBookmark.media_type === 'movie' ? 'Movies' :
+                                                  selectedBookmark.media_type === 'tv' ? 'TV Shows' : 'Documentaries';
+
+                                  const response = await fetch(`${API_BASE}/torrents/download`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({
+                                      magnetUrl: release.magnetUrl,
+                                      downloadUrl: release.downloadUrl,
+                                      title: release.title,
+                                      category,
+                                      tmdb_id: selectedBookmark.tmdb_id,
+                                      tmdb_media_type: selectedBookmark.media_type,
+                                    })
+                                  });
+
+                                  if (response.ok) {
+                                    setDownloadMessage(`✅ ${selectedBookmark.title} is now downloading`);
+                                    setAvailableReleases([]);
+                                    fetchBookmarks(); // Refresh to update download status
+                                    setTimeout(() => setDownloadMessage(null), 10000);
+                                  } else if (response.status === 409) {
+                                    setDownloadMessage(`⚠️ This torrent is already in your downloads`);
+                                    setTimeout(() => setDownloadMessage(null), 5000);
+                                  } else {
+                                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                                    throw new Error(errorData.error || 'Failed to download');
+                                  }
+                                } catch (error: any) {
+                                  setDownloadMessage(`❌ ${error.message}`);
+                                  setTimeout(() => setDownloadMessage(null), 5000);
+                                } finally {
+                                  setDownloadingTorrent(false);
+                                  setSelectedRelease(null);
+                                }
+                              }}
+                              className={`bg-gray-800 border border-gray-700 rounded-lg p-3 transition-colors ${
+                                downloadingTorrent ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700 hover:border-green-500 cursor-pointer'
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-white truncate mb-1">{release.title}</p>
+                                  <div className="flex items-center gap-3 text-xs text-gray-400">
+                                    <span className={`px-2 py-1 rounded font-medium ${getIndexerColor(indexer)}`}>
+                                      {indexer}
+                                    </span>
+                                    <span>{sizeInGB} GB</span>
+                                    <span className="text-green-400 font-semibold">↑ {seeders}</span>
+                                    <span className="text-red-400">↓ {leechers}</span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      ))}
+                          );
+                        })}
                     </div>
                   </div>
-                )}
-
-                {/* Download Button */}
-                {downloadUrl && (
-                  <button
-                    ref={downloadButtonRef}
-                    onClick={submitDownload}
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-4 rounded-lg font-semibold transition-colors shadow-lg text-lg"
-                  >
-                    <Download className="w-6 h-6" />
-                    Download Selected Torrent
-                  </button>
                 )}
               </div>
             </div>
