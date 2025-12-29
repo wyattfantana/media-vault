@@ -115,15 +115,19 @@ VITE_API_URL=http://localhost:3001
 Run the startup script to launch everything in tmux sessions:
 
 ```bash
+# From project root
+scripts/start-mediavault.sh
+
+# Or use the symlink from anywhere
 ~/start-mediavault.sh
 ```
 
 This starts:
 - PostgreSQL database
-- Docker services (Prowlarr, Bazarr, Sonarr, Radarr, FlareSolverr)
+- Docker daemon
+- Docker services (Prowlarr, Bazarr, Sonarr, Radarr, Jellyfin, FlareSolverr)
 - qBittorrent in a tmux session
 - MediaVault (API + Web + Worker) in a tmux session
-- Jellyfin media server
 
 ### 6. Open browser
 
@@ -268,6 +272,9 @@ media-vault/
 │   ├── api/        # Express backend (port 3001)
 │   ├── web/        # React frontend (port 5173)
 │   └── worker/     # Background download processor
+├── scripts/
+│   ├── start-mediavault.sh  # Start all services
+│   └── stop-mediavault.sh   # Stop all services
 ├── data/           # Docker volume data (Prowlarr, Bazarr, etc.)
 └── docker-compose.yml
 ```
@@ -289,7 +296,8 @@ tmux attach -t qbittorrent
 Ctrl+B, then D
 
 # Stop everything
-~/stop-mediavault.sh
+scripts/stop-mediavault.sh
+# Or: ~/stop-mediavault.sh
 ```
 
 ---
@@ -320,7 +328,7 @@ lsof -ti:5173 | xargs kill -9
 ```
 
 **Downloads not processing**
-Restart the worker: `~/start-mediavault.sh`
+Restart the worker: `scripts/start-mediavault.sh`
 
 **Docker services not starting**
 ```bash
