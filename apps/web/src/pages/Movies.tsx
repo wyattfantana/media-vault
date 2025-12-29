@@ -1544,6 +1544,8 @@ export default function Movies() {
           category: category,
           formattedPath: formattedPath.formattedPath,
           jellyfinFormat: formattedPath,
+          tmdb_id: movie.id,
+          tmdb_media_type: 'movie',
           metadata: {
             tmdb_id: movie.id,
             imdb_id: movie.imdb_id,
@@ -2657,7 +2659,7 @@ export default function Movies() {
                 )}
 
                 {/* Download Button */}
-                {prowlarrEnabled && (
+                {prowlarrEnabled && availableReleases.length === 0 && (
                   <button
                     onClick={() => browseTorrents()}
                     disabled={loadingReleases || !vpnConnected || checkingVpn}
@@ -2752,6 +2754,8 @@ export default function Movies() {
                                       downloadUrl: release.downloadUrl,
                                       title: release.title,
                                       category: 'Movies',
+                                      tmdb_id: selectedMovie?.id,
+                                      tmdb_media_type: 'movie',
                                     })
                                   });
 

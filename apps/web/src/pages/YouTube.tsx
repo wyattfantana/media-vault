@@ -35,10 +35,7 @@ interface Preset {
 }
 
 export function YouTube() {
-  const [inputUrl, setInputUrl] = useState('');
-  const [type, setType] = useState<'channel' | 'playlist'>('channel');
-  const [searchMode, setSearchMode] = useState<'url' | 'search'>('url');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null);
@@ -92,8 +89,8 @@ export function YouTube() {
           checkBookmark(state.currentUrl);
         }
         if (state.currentType) setCurrentType(state.currentType);
-        if (state.inputUrl) setInputUrl(state.inputUrl);
-        if (state.type) setType(state.type);
+        if (state.searchInput) setSearchInput(state.searchInput);
+        else if (state.inputUrl) setSearchInput(state.inputUrl);
         if (state.hasMore !== undefined) setHasMore(state.hasMore);
       } catch (err) {
         console.error('Failed to restore YouTube state:', err);
@@ -110,13 +107,12 @@ export function YouTube() {
         videos,
         currentUrl,
         currentType,
-        inputUrl,
-        type,
+        searchInput,
         hasMore
       };
       sessionStorage.setItem('youtube-page-state', JSON.stringify(state));
     }
-  }, [channelInfo, videos, currentUrl, currentType, inputUrl, type, hasMore]);
+  }, [channelInfo, videos, currentUrl, currentType, searchInput, hasMore]);
 
   // Auto-browse when URL parameter is present (from Favorites page)
   useEffect(() => {
@@ -124,10 +120,7 @@ export function YouTube() {
     const urlParam = urlParams.get('url');
     // Only auto-load if it's a YouTube URL
     if (urlParam && !autoTriggered && (urlParam.includes('youtube.com') || urlParam.includes('youtu.be'))) {
-      setInputUrl(urlParam);
-      // Determine if it's a channel or playlist
-      const isPlaylist = urlParam.includes('/playlist');
-      setType(isPlaylist ? 'playlist' : 'channel');
+      setSearchInput(urlParam);
       setAutoTriggered(true);
     }
   }, [autoTriggered]);
@@ -180,11 +173,11 @@ export function YouTube() {
 
   // Trigger browse after state is set
   useEffect(() => {
-    if (autoTriggered && inputUrl) {
+    if (autoTriggered && searchInput) {
       // Create a synthetic form submit
       handleBrowse({ preventDefault: () => {} } as React.FormEvent);
     }
-  }, [autoTriggered, inputUrl]);
+  }, [autoTriggered, searchInput]);
 
   const checkBookmark = async (url: string) => {
     try {
@@ -256,18 +249,22 @@ export function YouTube() {
   const handleBrowse = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Handle search mode
-    if (searchMode === 'search') {
-      if (!searchQuery.trim()) return;
+    const trimmedInput = searchInput.trim();
+    if (!trimmedInput) return;
 
+    const isYouTubeUrl = trimmedInput.includes('youtube.com') || trimmedInput.includes('youtu.be');
+
+    if (!isYouTubeUrl) {
       setLoading(true);
       setChannelInfo(null);
       setVideos([]);
       setHasMore(false);
+      setCurrentUrl('');
+      setCurrentType('channel');
 
       try {
         const res = await fetch(
-          `${API_BASE}/search/youtube?q=${encodeURIComponent(searchQuery)}&limit=50`,
+          `${API_BASE}/search/youtube?q=${encodeURIComponent(trimmedInput)}&limit=50`,
           { credentials: 'include' }
         );
 
@@ -287,28 +284,53 @@ export function YouTube() {
       return;
     }
 
-    // Handle URL mode (existing logic)
-    if (!inputUrl.trim()) return;
-
     setLoading(true);
     setChannelInfo(null);
     setVideos([]);
     setHasMore(false);
 
     // Clean channel URL (without /videos or trailing slash) for channel info
-    let cleanUrl = inputUrl.trim().replace(/\/videos$/, '').replace(/\/$/, '');
+    const isPlaylist = /[?&]list=/.test(trimmedInput) || trimmedInput.includes('/playlist');
+    const isVideo = !isPlaylist && (trimmedInput.includes('watch?') || trimmedInput.includes('youtu.be/'));
+
+    if (isVideo) {
+      try {
+        const res = await fetch(
+          `${API_BASE}/search/extract?url=${encodeURIComponent(trimmedInput)}&limit=100`,
+          { credentials: 'include' }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setVideos(data.videos || []);
+          setHasMore(false);
+          setCurrentUrl(trimmedInput);
+        } else {
+          alert('Failed to load content');
+        }
+      } catch (err) {
+        console.error('Browse error:', err);
+        alert('Failed to load content');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const resolvedType = isPlaylist ? 'playlist' : 'channel';
+    let cleanUrl = trimmedInput.replace(/\/videos$/, '').replace(/\/$/, '');
 
     // Videos URL includes /videos tab for consistent playlist results
     let videosUrl = cleanUrl;
-    if (type === 'channel' && !videosUrl.includes('/playlist')) {
+    if (resolvedType === 'channel' && !videosUrl.includes('/playlist')) {
       videosUrl = cleanUrl + '/videos';
     }
 
     setCurrentUrl(videosUrl);
-    setCurrentType(type);
+    setCurrentType(resolvedType);
 
     try {
-      if (type === 'channel') {
+      if (resolvedType === 'channel') {
         // Get channel videos first (this is more reliable)
         const videosRes = await fetch(
           `${API_BASE}/search/youtube/channel/videos?url=${encodeURIComponent(videosUrl)}&limit=100`,
@@ -765,112 +787,34 @@ export function YouTube() {
     <div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-100 mb-2">YouTube</h1>
-        <p className="text-gray-400">Search videos or browse channels and playlists</p>
+        <p className="text-gray-400">Search YouTube or paste a channel, playlist, or video link</p>
       </div>
 
       {/* Browse/Search Form */}
       <form onSubmit={handleBrowse} className="card mb-6">
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Mode
+            Search or YouTube URL
           </label>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                value="url"
-                checked={searchMode === 'url'}
-                onChange={(e) => setSearchMode(e.target.value as 'url' | 'search')}
-                className="text-brand-600 focus:ring-brand-500"
-              />
-              <span className="text-sm text-gray-300">Browse by URL</span>
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                value="search"
-                checked={searchMode === 'search'}
-                onChange={(e) => setSearchMode(e.target.value as 'url' | 'search')}
-                className="text-brand-600 focus:ring-brand-500"
-              />
-              <span className="text-sm text-gray-300">Search Videos</span>
-            </label>
-          </div>
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search terms or paste a YouTube channel, playlist, or video URL"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            required
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Works with keywords, channels, playlists, and video links.
+          </p>
         </div>
-
-        {searchMode === 'url' ? (
-          <>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Type
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    value="channel"
-                    checked={type === 'channel'}
-                    onChange={(e) => setType(e.target.value as 'channel' | 'playlist')}
-                    className="text-brand-600 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-gray-300">Channel</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    value="playlist"
-                    checked={type === 'playlist'}
-                    onChange={(e) => setType(e.target.value as 'channel' | 'playlist')}
-                    className="text-brand-600 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-gray-300">Playlist</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                {type === 'channel' ? 'Channel URL' : 'Playlist URL'}
-              </label>
-              <input
-                type="url"
-                value={inputUrl}
-                onChange={(e) => setInputUrl(e.target.value)}
-                placeholder={
-                  type === 'channel'
-                    ? 'https://www.youtube.com/@channelname or https://www.youtube.com/c/channelname'
-                    : 'https://www.youtube.com/playlist?list=...'
-                }
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                required
-              />
-            </div>
-          </>
-        ) : (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Search Query
-            </label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Enter keywords to search YouTube..."
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-gray-100 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-              required
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Search for videos across all of YouTube (up to 50 results)
-            </p>
-          </div>
-        )}
 
         <button
           type="submit"
           disabled={loading}
           className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50"
         >
-          {loading ? 'Loading...' : searchMode === 'search' ? 'Search' : 'Browse'}
+          {loading ? 'Loading...' : 'Search'}
         </button>
       </form>
 
@@ -879,8 +823,8 @@ export function YouTube() {
         <div className="card mb-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-2">{channelInfo.name}</h2>
-              <div className="flex gap-4 text-sm text-gray-600">
+              <h2 className="text-2xl font-bold text-white mb-2">{channelInfo.name}</h2>
+              <div className="flex gap-4 text-sm text-gray-200">
                 {channelInfo.channelName && (
                   <span>by {channelInfo.channelName}</span>
                 )}
@@ -958,7 +902,7 @@ export function YouTube() {
             <div className="flex gap-3">
               <button
                 onClick={toggleSelectAll}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700"
               >
                 {selectedVideos.size === videos.length ? 'Deselect All' : 'Select All'}
               </button>
@@ -967,7 +911,7 @@ export function YouTube() {
                 <button
                   onClick={downloadSelected}
                   disabled={bulkDownloading}
-                  className="px-4 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50"
+                  className="px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 disabled:opacity-50"
                 >
                   {bulkDownloading ? 'Downloading...' : `Download Selected (${selectedVideos.size})`}
                 </button>
@@ -1121,11 +1065,11 @@ export function YouTube() {
 
       {/* Download Modal */}
       {showDownloadModal && selectedVideo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Download Settings</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700">
+            <h3 className="text-lg font-semibold mb-4 text-gray-100">Download Settings</h3>
 
-            <p className="text-sm text-gray-700 mb-4">
+            <p className="text-sm text-gray-300 mb-4">
               <strong>{selectedVideo.title}</strong>
             </p>
 
@@ -1137,7 +1081,7 @@ export function YouTube() {
                 <select
                   value={selectedPreset}
                   onChange={(e) => handlePresetChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 >
                   <option value="">Manual Settings</option>
                   {presets.map(preset => (
@@ -1157,7 +1101,7 @@ export function YouTube() {
               <select
                 value={category}
                 onChange={(e) => handleCategoryChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               >
                 <option value="movies">Movies</option>
                 <option value="tv">TV Shows</option>
@@ -1178,7 +1122,7 @@ export function YouTube() {
                   value={customFolder}
                   onChange={(e) => setCustomFolder(e.target.value)}
                   placeholder="e.g., DJ Mixes, Podcasts, etc."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 text-gray-100 placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   required
                 />
               </div>
@@ -1193,7 +1137,7 @@ export function YouTube() {
                 <select
                   value={quality}
                   onChange={(e) => setQuality(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 >
                   <option value="best">Best Quality</option>
                   <option value="2160p">2160p (4K)</option>
@@ -1216,7 +1160,7 @@ export function YouTube() {
                 <select
                   value={audioFormat}
                   onChange={(e) => setAudioFormat(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 >
                   <option value="mp3">MP3 (Most Compatible)</option>
                   <option value="m4a">M4A (iTunes/Apple)</option>
@@ -1233,7 +1177,7 @@ export function YouTube() {
                 <select
                   value={videoFormat}
                   onChange={(e) => setVideoFormat(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 text-gray-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 >
                   <option value="mp4">MP4 (Most Compatible)</option>
                   <option value="webm">WebM (Modern)</option>
@@ -1258,7 +1202,7 @@ export function YouTube() {
                   setCustomFolder('');
                   setSelectedPreset('');
                 }}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-100 rounded-lg hover:bg-gray-600"
               >
                 Cancel
               </button>

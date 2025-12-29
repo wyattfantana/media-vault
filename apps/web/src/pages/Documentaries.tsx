@@ -1703,6 +1703,8 @@ export default function Documentaries() {
                                         downloadUrl: release.downloadUrl,
                                         title: release.title,
                                         category: 'Documentaries',
+                                        tmdb_id: selectedDocumentary?.id,
+                                        tmdb_media_type: 'documentary',
                                       })
                                     });
 

@@ -207,9 +207,9 @@ export function Search() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {results.map((result, index) => (
-              <div key={`${result.source}-${result.id}-${index}`} className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+              <div key={`${result.source}-${result.id}-${index}`} className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
                 {/* Thumbnail */}
-                <div className="relative aspect-video bg-gray-200">
+                <div className="relative aspect-video bg-gray-900">
                   {result.thumbnail && (
                     <img
                       src={result.thumbnail}
@@ -239,28 +239,28 @@ export function Search() {
 
                 {/* Content */}
                 <div className="p-3">
-                  <h3 className="font-medium text-sm line-clamp-2 mb-1">
+                  <h3 className="font-medium text-sm line-clamp-2 mb-1 text-gray-100">
                     {result.title}
                   </h3>
 
-                  <p className="text-xs text-gray-600 mb-2">
+                  <p className="text-xs text-gray-300 mb-2">
                     {result.source === 'bbc_iplayer' ? result.channel : result.uploader}
                   </p>
 
                   {result.source !== 'bbc_iplayer' && result.viewCount && (
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-gray-400 mb-2">
                       {formatViewCount(result.viewCount)}
                     </p>
                   )}
 
                   {result.source === 'bbc_iplayer' && result.available && (
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-gray-400 mb-2">
                       Expires in {result.available}
                     </p>
                   )}
 
                   {result.description && (
-                    <p className="text-xs text-gray-600 line-clamp-2 mb-3">
+                    <p className="text-xs text-gray-400 line-clamp-2 mb-3">
                       {result.description}
                     </p>
                   )}

@@ -348,10 +348,10 @@ export function Browse() {
             <div
               key={programme.pid}
               ref={index === filteredAndSortedProgrammes.length - 1 ? lastProgrammeRef : null}
-              className="group cursor-pointer bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              className="group cursor-pointer bg-gray-800 rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
               {/* Thumbnail */}
-              <div className="relative aspect-video bg-gray-200 overflow-hidden">
+              <div className="relative aspect-video bg-gray-900 overflow-hidden">
                 {programme.thumbnail ? (
                   <img
                     src={programme.thumbnail.replace('/192xn/', '/512x288/')}
@@ -399,10 +399,10 @@ export function Browse() {
 
               {/* Info */}
               <div className="p-3">
-                <h3 className="font-semibold text-sm line-clamp-1 mb-1">{programme.name}</h3>
-                <p className="text-xs text-gray-600 line-clamp-1 mb-2">{programme.episode}</p>
+                <h3 className="font-semibold text-sm line-clamp-1 mb-1 text-gray-100">{programme.name}</h3>
+                <p className="text-xs text-gray-300 line-clamp-1 mb-2">{programme.episode}</p>
                 <p className="text-xs text-gray-400 line-clamp-2 leading-tight">{programme.description}</p>
-                <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
                   <span className="flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />

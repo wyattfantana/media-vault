@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Settings as SettingsIcon,
   Server,
@@ -139,7 +140,12 @@ interface StorageStats {
 type TabKey = 'vpn' | 'jellyfin' | 'arr' | 'subtitles' | 'storage';
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState<TabKey>('vpn');
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as TabKey | null;
+  const validTabs: TabKey[] = ['vpn', 'jellyfin', 'arr', 'subtitles', 'storage'];
+  const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'vpn';
+
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [vpnStatus, setVpnStatus] = useState<VPNStatus | null>(null);

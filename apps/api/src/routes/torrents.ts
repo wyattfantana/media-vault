@@ -4,6 +4,7 @@ import { torrentSearchService } from '../services/torrent-search.service.js';
 import { qbittorrentService } from '../services/qbittorrent.service.js';
 import { tmdbService } from '../services/tmdb.service.js';
 import { AppDataSource } from '../data-source.js';
+import { extractMagnetInfoHash } from '../utils/magnet.js';
 import crypto from 'crypto';
 
 export const torrentsRouter = express.Router();
@@ -53,7 +54,7 @@ torrentsRouter.post('/search', requireAuth, async (req, res) => {
 torrentsRouter.post('/download', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const { magnetUrl, downloadUrl, title, category } = req.body;
+    const { magnetUrl, downloadUrl, title, category, tmdb_id, tmdb_media_type } = req.body;
 
     if (!magnetUrl && !downloadUrl) {
       return res.status(400).json({ error: 'magnetUrl or downloadUrl is required' });
@@ -64,10 +65,7 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
     // Extract torrent hash from magnet link FIRST (before adding to qBittorrent)
     let torrentHash: string | null = null;
     if (magnetUrl && magnetUrl.includes('btih:')) {
-      const match = magnetUrl.match(/btih:([a-fA-F0-9]{40})/i);
-      if (match) {
-        torrentHash = match[1].toLowerCase();
-      }
+      torrentHash = extractMagnetInfoHash(magnetUrl);
     }
 
     // Check if this torrent already exists in our database BEFORE adding to qBittorrent
@@ -164,10 +162,27 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
         }
       }
 
-      // Try to match torrent title to TMDB
-      let tmdbId: number | null = null;
-      let tmdbMediaType: 'movie' | 'tv' | null = null;
-      let thumbnail: string | null = null;
+    // Try to match torrent title to TMDB (or use provided TMDB metadata)
+    let tmdbId: number | null = tmdb_id ?? null;
+    let tmdbMediaType: 'movie' | 'tv' | 'documentary' | null = tmdb_media_type ?? null;
+    let thumbnail: string | null = null;
+
+    if (tmdbId && tmdbMediaType) {
+      try {
+        const lookupType = tmdbMediaType === 'documentary' ? 'movie' : tmdbMediaType;
+        const details = lookupType === 'tv'
+          ? await tmdbService.getTVShowDetails(tmdbId, userId)
+          : await tmdbService.getMovieDetails(tmdbId, userId);
+
+        if (details?.poster_path) {
+          thumbnail = tmdbService.getImageUrl(details.poster_path, 'w200');
+        }
+      } catch (err) {
+        console.error('[TorrentsAPI] TMDB lookup by ID failed:', err);
+      }
+    }
+
+    if (!tmdbId || !tmdbMediaType) {
       try {
         console.log(`[TorrentsAPI] Searching TMDB for: ${title}`);
         const tmdbMatch = await tmdbService.findMediaForTitle(title || '', userId);
@@ -182,8 +197,16 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
       } catch (err) {
         console.error('[TorrentsAPI] TMDB search failed:', err);
       }
+    }
 
       // Create download record in database
+      const downloadMetadata = {
+        category,
+        magnetLink: magnetUrl || null,
+        downloadUrl: downloadUrl || null,
+        ...(torrentHash ? { torrentHash } : {})
+      };
+
       await AppDataSource
         .createQueryBuilder()
         .insert()
@@ -195,7 +218,8 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
           downloader: 'qbittorrent',
           status: 'downloading',
           progress: 0,
-          metadata: torrentHash ? { torrentHash, category } : { category },
+          metadata: downloadMetadata,
+          category: categoryName,
           tmdb_id: tmdbId,
           tmdb_media_type: tmdbMediaType,
           thumbnail: thumbnail,

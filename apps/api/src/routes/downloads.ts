@@ -8,6 +8,7 @@ import { jellyfinFormatter } from '../services/jellyfin-formatter.service.js';
 import { jellyfinService } from '../services/jellyfin.service.js';
 import { tmdbService } from '../services/tmdb.service.js';
 import { AppDataSource } from '../data-source.js';
+import { extractMagnetInfoHash } from '../utils/magnet.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -87,7 +88,8 @@ downloadsRouter.get('/', requireAuth, async (req, res) => {
       // Add TMDB thumbnail if we have tmdb_id
       if (download.tmdb_id && download.tmdb_media_type && !download.thumbnail) {
         try {
-          const posterPath = download.tmdb_media_type === 'movie'
+          const isMovieType = download.tmdb_media_type === 'movie' || download.tmdb_media_type === 'documentary';
+          const posterPath = isMovieType
             ? (await tmdbService.getMovieDetails(download.tmdb_id, userId))?.poster_path
             : (await tmdbService.getTVShowDetails(download.tmdb_id, userId))?.poster_path;
 
@@ -193,7 +195,8 @@ downloadsRouter.post('/', requireAuth, async (req, res) => {
       // For torrents, we'll use the URL as title for now
       // We'll update it once qBittorrent fetches the metadata
       title = url.startsWith('magnet:') ? 'Torrent Download' : url.split('/').pop() || 'Torrent Download';
-      metadata = { isTorrent: true, magnetLink: url };
+      const torrentHash = extractMagnetInfoHash(url);
+      metadata = { isTorrent: true, magnetLink: url, ...(torrentHash ? { torrentHash } : {}) };
     } else {
       try {
         if (downloader === 'yt-dlp') {
@@ -448,10 +451,64 @@ downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
     const shouldDeleteFiles = deleteFiles === 'true';
     let deletedFilePath: string | null = null;
 
-    // If user wants to delete files, find and delete them
-    if (shouldDeleteFiles && download.status === 'completed') {
+    const metadata = (() => {
+      if (!download.metadata) return {};
+      if (typeof download.metadata === 'string') {
+        try {
+          return JSON.parse(download.metadata);
+        } catch {
+          return {};
+        }
+      }
+      return download.metadata;
+    })();
+
+    const deleteFileWithRelated = async (filePath: string) => {
       try {
-        // Find the media entry for this download
+        const stats = await fs.stat(filePath);
+        deletedFilePath = deletedFilePath || filePath;
+
+        if (stats.isDirectory()) {
+          await fs.rm(filePath, { recursive: true, force: true });
+          console.log(`[Delete] Deleted directory: ${filePath}`);
+          return;
+        }
+
+        await fs.unlink(filePath);
+        console.log(`[Delete] Deleted file: ${filePath}`);
+
+        const dir = path.dirname(filePath);
+        const baseName = path.basename(filePath, path.extname(filePath));
+
+        try {
+          const files = await fs.readdir(dir);
+          const relatedFiles = files.filter(f => {
+            const nameWithoutExt = path.basename(f, path.extname(f));
+            return nameWithoutExt === baseName && f !== path.basename(filePath);
+          });
+
+          for (const file of relatedFiles) {
+            const relatedPath = path.join(dir, file);
+            try {
+              await fs.unlink(relatedPath);
+              console.log(`[Delete] Deleted related file: ${relatedPath}`);
+            } catch (err) {
+              console.error(`[Delete] Failed to delete related file ${relatedPath}:`, err);
+            }
+          }
+        } catch (err) {
+          console.error(`[Delete] Failed to scan directory for related files:`, err);
+        }
+      } catch (err: any) {
+        if (err?.code !== 'ENOENT') {
+          console.error(`[Delete] Failed to delete path ${filePath}:`, err);
+        }
+      }
+    };
+
+    // If user wants to delete files, find and delete them
+    if (shouldDeleteFiles) {
+      try {
         const media = await AppDataSource
           .createQueryBuilder()
           .select('*')
@@ -459,44 +516,24 @@ downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
           .where('m.download_id = :downloadId', { downloadId: id })
           .getRawOne();
 
-        if (media && media.file_path) {
-          deletedFilePath = media.file_path;
-          console.log(`[Delete] Deleting file: ${media.file_path}`);
+        const downloadDir = process.env.DOWNLOAD_DIR || '/mnt/d/MediaVault';
+        const candidatePaths = new Set<string>();
 
-          // Delete the main file
-          try {
-            await fs.unlink(media.file_path);
-            console.log(`[Delete] Deleted main file: ${media.file_path}`);
-          } catch (err: any) {
-            console.error(`[Delete] Failed to delete main file:`, err);
-          }
+        if (media?.file_path) {
+          candidatePaths.add(media.file_path);
+        }
+        if (download.output_path) {
+          candidatePaths.add(download.output_path);
+        }
+        if (download.formatted_path) {
+          candidatePaths.add(path.join(downloadDir, download.formatted_path));
+        }
 
-          // Delete related files (subtitles, metadata, etc.)
-          const dir = path.dirname(media.file_path);
-          const baseName = path.basename(media.file_path, path.extname(media.file_path));
+        for (const filePath of candidatePaths) {
+          await deleteFileWithRelated(filePath);
+        }
 
-          try {
-            const files = await fs.readdir(dir);
-            const relatedFiles = files.filter(f => {
-              const nameWithoutExt = path.basename(f, path.extname(f));
-              // Match files with same base name (subtitles, .nfo, etc.)
-              return nameWithoutExt === baseName && f !== path.basename(media.file_path);
-            });
-
-            for (const file of relatedFiles) {
-              const filePath = path.join(dir, file);
-              try {
-                await fs.unlink(filePath);
-                console.log(`[Delete] Deleted related file: ${filePath}`);
-              } catch (err) {
-                console.error(`[Delete] Failed to delete related file ${filePath}:`, err);
-              }
-            }
-          } catch (err) {
-            console.error(`[Delete] Failed to scan directory for related files:`, err);
-          }
-
-          // Delete the media database entry
+        if (media?.id) {
           await AppDataSource
             .createQueryBuilder()
             .delete()
@@ -506,17 +543,45 @@ downloadsRouter.delete('/:id', requireAuth, async (req, res) => {
         }
       } catch (err) {
         console.error('[Delete] Failed to delete media files:', err);
-        // Continue with download deletion even if file deletion fails
       }
     }
 
     // If it's a qBittorrent download, also remove from qBittorrent
-    if (download.downloader === 'qbittorrent' && download.metadata?.torrentHash) {
+    if (download.downloader === 'qbittorrent') {
       try {
-        await qbittorrentService.deleteTorrent(
-          download.metadata.torrentHash,
-          shouldDeleteFiles
-        );
+        let torrentHash = metadata?.torrentHash as string | undefined;
+        if (!torrentHash) {
+          const magnetSource = metadata?.magnetLink || download.url || '';
+          torrentHash = extractMagnetInfoHash(magnetSource) || undefined;
+        }
+
+        if (!torrentHash) {
+          try {
+            const torrents = await qbittorrentService.getTorrents();
+            const normalize = (value: string) =>
+              value
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+            const normalizedTitle = normalize(download.title || '');
+            const normalizedCategory = normalize(download.category || '');
+            const match = torrents.find(t => {
+              const torrentName = normalize(t.name || '');
+              if (!normalizedTitle || !torrentName) return false;
+              if (normalizedCategory && normalize(t.category || '') !== normalizedCategory) return false;
+              return torrentName.includes(normalizedTitle) || normalizedTitle.includes(torrentName);
+            });
+            if (match) {
+              torrentHash = match.hash;
+            }
+          } catch (err) {
+            console.error('Failed to match torrent by name:', err);
+          }
+        }
+
+        if (torrentHash) {
+          await qbittorrentService.deleteTorrent(torrentHash, shouldDeleteFiles);
+        }
       } catch (err) {
         console.error('Failed to delete torrent from qBittorrent:', err);
         // Continue with database deletion even if qBittorrent deletion fails

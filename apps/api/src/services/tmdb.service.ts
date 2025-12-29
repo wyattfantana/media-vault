@@ -334,11 +334,12 @@ export class TMDBService {
   /**
    * Get TV show details
    */
-  async getTVShowDetails(tvId: number): Promise<TMDBTVShowDetails> {
+  async getTVShowDetails(tvId: number, userId?: string): Promise<TMDBTVShowDetails> {
     try {
+      const apiKey = await this.getApiKey(userId);
       const response = await axios.get(`${TMDB_BASE_URL}/tv/${tvId}`, {
         params: {
-          api_key: this.apiKey
+          api_key: apiKey
         }
       });
 

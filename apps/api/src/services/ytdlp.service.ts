@@ -330,7 +330,7 @@ export class YtDlpService extends EventEmitter {
                 viewCount: info.view_count || 0,
                 likeCount: info.like_count || 0,
                 formats: [],
-                url: info.url || info.webpage_url || ''
+                url: info.webpage_url || info.url || ''
               });
             } catch (err) {
               console.error('Failed to parse search result:', err);

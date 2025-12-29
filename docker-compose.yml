@@ -1,6 +1,32 @@
 version: '3.8'
 
 services:
+  # Jellyfin - Media server
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ./data/jellyfin/config:/config
+      - ./data/jellyfin/config/index.html:/usr/share/jellyfin/web/index.html
+      - ./data/jellyfin/config/ratings:/usr/share/jellyfin/web/ratings
+      - ./data/jellyfin/cache:/cache
+      - /mnt/d/MediaVault:/data
+      - /mnt/d/MediaVault:/media
+      - /mnt/d/MediaVault/Movies:/movies
+      - /mnt/d/MediaVault/TV Shows:/tv
+      - /mnt/d/MediaVault/Documentaries:/documentaries
+      - /mnt/d/MediaVault/Music:/music
+      - /mnt/d/MediaVault/iplayer:/iplayer
+    ports:
+      - 8096:8096
+    restart: unless-stopped
+    networks:
+      - mediavault
+
   # Prowlarr - Indexer manager (manages torrent/usenet indexers for *arr apps)
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest

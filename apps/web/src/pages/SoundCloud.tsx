@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { TrackCardSkeleton } from '../components/VideoCardSkeleton';
 import { API_BASE } from '@/lib/config';
 
@@ -52,11 +53,15 @@ export function SoundCloud() {
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
   const [presets, setPresets] = useState<Preset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [bulkDownloading, setBulkDownloading] = useState(false);
   const [loadingTrackCount, setLoadingTrackCount] = useState(false);
   const [bookmarking, setBookmarking] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [showLoadAllConfirm, setShowLoadAllConfirm] = useState(false);
   const [loadAllProgress, setLoadAllProgress] = useState(0);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+  const [downloadingTracks, setDownloadingTracks] = useState<Set<string>>(new Set());
+  const [downloadedTracks, setDownloadedTracks] = useState<Map<string, string>>(new Map()); // trackId -> message
 
   // Restore state from sessionStorage on mount
   useEffect(() => {
@@ -468,9 +473,70 @@ export function SoundCloud() {
     }
   };
 
-  const handleDownload = (track: Track) => {
-    setSelectedTrack(track);
-    setShowDownloadModal(true);
+  const handleDownload = async (track: Track) => {
+    // SoundCloud auto-downloads to Music folder without modal
+    // Set loading state for this specific track
+    setDownloadingTracks(prev => new Set(prev).add(track.id));
+
+    try {
+      const res = await fetch(`${API_BASE}/downloads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          url: track.url,
+          downloader: 'yt-dlp',
+          category: 'music', // Always use music folder for SoundCloud
+          customFolder: undefined
+        })
+      });
+
+      // Remove loading state
+      setDownloadingTracks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(track.id);
+        return newSet;
+      });
+
+      if (res.ok) {
+        // Set success message for this track
+        setDownloadedTracks(prev => new Map(prev).set(track.id, '✅ Downloading'));
+        // Clear after 5 seconds
+        setTimeout(() => {
+          setDownloadedTracks(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(track.id);
+            return newMap;
+          });
+        }, 5000);
+      } else {
+        const error = await res.json();
+        setDownloadedTracks(prev => new Map(prev).set(track.id, `❌ ${error.error || 'Failed'}`));
+        setTimeout(() => {
+          setDownloadedTracks(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(track.id);
+            return newMap;
+          });
+        }, 5000);
+      }
+    } catch (err) {
+      // Remove loading state
+      setDownloadingTracks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(track.id);
+        return newSet;
+      });
+
+      setDownloadedTracks(prev => new Map(prev).set(track.id, '❌ Failed'));
+      setTimeout(() => {
+        setDownloadedTracks(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(track.id);
+          return newMap;
+        });
+      }, 5000);
+    }
   };
 
   const confirmDownload = async () => {
@@ -520,12 +586,51 @@ export function SoundCloud() {
     });
   };
 
-  const selectAllTracks = () => {
-    setSelectedTracks(new Set(tracks.map(t => t.id)));
+  const toggleSelectAll = () => {
+    if (selectedTracks.size === tracks.length) {
+      setSelectedTracks(new Set());
+    } else {
+      setSelectedTracks(new Set(tracks.map(t => t.id)));
+    }
   };
 
-  const deselectAllTracks = () => {
+  const downloadSelected = async () => {
+    if (selectedTracks.size === 0) return;
+
+    setBulkDownloading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    const selectedTracksList = tracks.filter(t => selectedTracks.has(t.id));
+
+    for (const track of selectedTracksList) {
+      try {
+        const res = await fetch(`${API_BASE}/downloads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            url: track.url,
+            downloader: 'yt-dlp',
+            category: 'music',
+            customFolder: undefined
+          })
+        });
+
+        if (res.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    setBulkDownloading(false);
     setSelectedTracks(new Set());
+
+    alert(`Bulk download complete!\n\nQueued: ${successCount}\nFailed: ${failCount}\n\nDownloads will start automatically.`);
   };
 
   const formatDuration = (seconds?: number) => {
@@ -606,9 +711,9 @@ export function SoundCloud() {
 
             {/* Artist Details */}
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{artistInfo.name}</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">{artistInfo.name}</h2>
 
-              <div className="flex gap-4 text-sm text-gray-600 mb-4">
+              <div className="flex gap-4 text-sm text-white mb-4">
                 {artistInfo.followerCount > 0 && (
                   <span>{formatCount(artistInfo.followerCount)} followers</span>
                 )}
@@ -684,16 +789,77 @@ export function SoundCloud() {
         </div>
       )}
 
+      {/* Download Message */}
+      {downloadMessage && (
+        <div className={`border rounded-lg p-4 mb-6 transition-all duration-300 ${
+          downloadMessage.startsWith('✅')
+            ? 'bg-green-900/30 border-green-400/50 shadow-lg shadow-green-500/20 animate-pulse'
+            : downloadMessage.startsWith('⚠️')
+            ? 'bg-yellow-900/20 border-yellow-500/30'
+            : 'bg-red-900/20 border-red-500/30'
+        }`}>
+          <p className={`${
+            downloadMessage.startsWith('✅') ? 'text-base font-semibold' : 'text-sm'
+          } ${
+            downloadMessage.startsWith('✅')
+              ? 'text-green-200'
+              : downloadMessage.startsWith('⚠️')
+              ? 'text-yellow-300'
+              : 'text-red-300'
+          }`}>
+            {downloadMessage}
+            {downloadMessage.startsWith('✅') && (
+              <>, <Link to="/downloads" className="underline font-bold hover:text-green-100 transition-colors">click here to see your downloads</Link></>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Tracks Grid */}
       {!loading && tracks.length > 0 && (
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">
-            {tracks.length} track{tracks.length !== 1 ? 's' : ''}
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">
+              {tracks.length} track{tracks.length !== 1 ? 's' : ''}
+              {selectedTracks.size > 0 && (
+                <span className="ml-3 text-sm text-brand-600">
+                  ({selectedTracks.size} selected)
+                </span>
+              )}
+            </h2>
+
+            <div className="flex gap-3">
+              <button
+                onClick={toggleSelectAll}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700"
+              >
+                {selectedTracks.size === tracks.length ? 'Deselect All' : 'Select All'}
+              </button>
+
+              {selectedTracks.size > 0 && (
+                <button
+                  onClick={downloadSelected}
+                  disabled={bulkDownloading}
+                  className="px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 disabled:opacity-50"
+                >
+                  {bulkDownloading ? 'Downloading...' : `Download Selected (${selectedTracks.size})`}
+                </button>
+              )}
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {tracks.map((track, index) => (
-              <div key={`${track.id}-${index}`} className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+              <div key={`${track.id}-${index}`} className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow relative">
+                {/* Selection Checkbox */}
+                <div className="absolute top-2 left-2 z-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedTracks.has(track.id)}
+                    onChange={() => toggleTrackSelection(track.id)}
+                    className="w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                  />
+                </div>
                 {/* Thumbnail */}
                 <div className="relative aspect-square bg-gray-200">
                   {track.thumbnail && track.thumbnail.startsWith('http') ? (
@@ -729,6 +895,37 @@ export function SoundCloud() {
                       </svg>
                     </div>
                   )}
+
+                  {/* Loading Spinner Overlay */}
+                  {downloadingTracks.has(track.id) && (
+                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                      <svg className="animate-spin h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Success/Error Message Overlay */}
+                  {downloadedTracks.has(track.id) && (
+                    <div className={`absolute inset-0 flex items-center justify-center ${
+                      downloadedTracks.get(track.id)?.startsWith('✅')
+                        ? 'bg-green-600 bg-opacity-90'
+                        : 'bg-red-600 bg-opacity-90'
+                    }`}>
+                      <div className="text-center px-4">
+                        <p className="text-white font-semibold text-lg mb-2">
+                          {downloadedTracks.get(track.id)}
+                        </p>
+                        {downloadedTracks.get(track.id)?.startsWith('✅') && (
+                          <Link to="/downloads" className="text-white text-sm underline hover:text-gray-200">
+                            View Downloads
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {track.duration && track.duration > 0 && (
                     <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
                       {formatDuration(track.duration)}

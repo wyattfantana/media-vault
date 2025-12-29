@@ -1404,6 +1404,8 @@ export default function TVShows() {
           category: category,
           formattedPath: formattedPath.formattedPath,
           jellyfinFormat: formattedPath,
+          tmdb_id: show.id,
+          tmdb_media_type: 'tv',
           metadata: {
             tmdb_id: show.id,
             imdb_id: show.imdb_id,
@@ -2440,7 +2442,7 @@ export default function TVShows() {
                 )}
 
                 {/* Download Button */}
-                {prowlarrEnabled && (
+                {prowlarrEnabled && availableReleases.length === 0 && (
                   <button
                     onClick={() => browseTorrents()}
                     disabled={loadingReleases || !vpnConnected || checkingVpn}
@@ -2590,6 +2592,8 @@ export default function TVShows() {
                                       downloadUrl: release.downloadUrl,
                                       title: release.title,
                                       category: 'TV Shows',
+                                      tmdb_id: selectedShow?.id,
+                                      tmdb_media_type: 'tv',
                                     })
                                   });
 

@@ -101,3 +101,6 @@ logs/
 
 # Downloaded media files
 downloads/
+
+# Docker volume data
+data/
