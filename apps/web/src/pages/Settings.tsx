@@ -3,16 +3,19 @@ import {
   Settings as SettingsIcon,
   Server,
   HardDrive,
-  Shield,
   Save,
   AlertCircle,
   ShieldCheck,
-  Plus,
-  Trash2,
   Film,
-  Tv,
   Search,
-  Captions
+  Captions,
+  Trash2,
+  Folder,
+  FileVideo,
+  RefreshCw,
+  CheckSquare,
+  Square,
+  AlertTriangle
 } from 'lucide-react';
 import { API_BASE } from '@/lib/config';
 
@@ -31,11 +34,6 @@ interface UserPreferences {
   // Jellyfin Integration
   jellyfin_server_url: string | null;
   jellyfin_api_key: string | null;
-  jellyfin_library_paths: Array<{
-    name: string;
-    path: string;
-  }>;
-  jellyfin_auto_scan: boolean;
 
   // Notification Preferences
   notifications_enabled: boolean;
@@ -43,24 +41,11 @@ interface UserPreferences {
   notify_download_failed: boolean;
   notification_sound: boolean;
 
-  // Storage Management
-  storage_limit_gb: number | null;
-  auto_cleanup_enabled: boolean;
-  auto_cleanup_days: number;
 
   // Behavior Settings
   auto_organize_files: boolean;
   auto_fetch_thumbnails: boolean;
   keep_download_history_days: number;
-
-  // Privacy/Advanced
-  youtube_cookies_path: string | null;
-
-  // API Keys & Paths
-  tmdb_api_key: string | null;
-  download_directory: string;
-  ytdlp_path: string;
-  get_iplayer_path: string;
 
   // VPN Preferences
   vpn_enabled: boolean;
@@ -96,11 +81,6 @@ interface StorageInfo {
     bytes: number;
     gb: string;
   };
-  limit: {
-    bytes: number | null;
-    gb: number | null;
-    percentage: string | null;
-  };
 }
 
 interface VPNStatus {
@@ -121,7 +101,42 @@ interface VPNStatus {
   localNetworkAccessible?: boolean;
 }
 
-type TabKey = 'vpn' | 'jellyfin' | 'arr' | 'subtitles' | 'storage' | 'privacy';
+interface StorageItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  sizeFormatted: string;
+  modified: string;
+  childCount?: number;
+}
+
+interface StorageBrowseResponse {
+  category: string;
+  path: string;
+  items: StorageItem[];
+  totalSize: number;
+  totalSizeFormatted: string;
+  itemCount: number;
+}
+
+interface StorageStats {
+  categories: Array<{
+    category: string;
+    folder: string;
+    path: string;
+    size: number;
+    sizeFormatted: string;
+    itemCount: number;
+  }>;
+  total: {
+    size: number;
+    sizeFormatted: string;
+    itemCount: number;
+  };
+}
+
+type TabKey = 'vpn' | 'jellyfin' | 'arr' | 'subtitles' | 'storage';
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<TabKey>('vpn');
@@ -137,14 +152,33 @@ export function Settings() {
   const [showProwlarrKey, setShowProwlarrKey] = useState(false);
   const [showBazarrKey, setShowBazarrKey] = useState(false);
 
+  // Storage management state
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+  const [browseData, setBrowseData] = useState<StorageBrowseResponse | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('Movies');
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [storageMessage, setStorageMessage] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteAllCategory, setDeleteAllCategory] = useState<string | null>(null);
+
   useEffect(() => {
     fetchPreferences();
     if (activeTab === 'storage') {
-      fetchStorageInfo();
+      fetchStorageStats();
+      fetchBrowseData(selectedCategory);
     } else if (activeTab === 'vpn') {
       fetchVPNStatus();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'storage') {
+      fetchBrowseData(selectedCategory);
+      setSelectedPaths(new Set()); // Clear selection when changing category
+    }
+  }, [selectedCategory]);
 
   const fetchPreferences = async () => {
     try {
@@ -176,6 +210,145 @@ export function Settings() {
     }
   };
 
+  // Storage management functions
+  const fetchStorageStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/storage/stats`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStorageStats(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch storage stats:', err);
+    }
+  };
+
+  const fetchBrowseData = async (category: string) => {
+    setStorageLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/storage/browse?category=${encodeURIComponent(category)}`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBrowseData(data);
+      }
+    } catch (err) {
+      console.error('Failed to browse storage:', err);
+    } finally {
+      setStorageLoading(false);
+    }
+  };
+
+  const togglePathSelection = (path: string) => {
+    const newSelected = new Set(selectedPaths);
+    if (newSelected.has(path)) {
+      newSelected.delete(path);
+    } else {
+      newSelected.add(path);
+    }
+    setSelectedPaths(newSelected);
+  };
+
+  const selectAll = () => {
+    if (!browseData) return;
+    const allPaths = new Set(browseData.items.map(item => item.path));
+    setSelectedPaths(allPaths);
+  };
+
+  const selectNone = () => {
+    setSelectedPaths(new Set());
+  };
+
+  const deleteSelectedFiles = async () => {
+    if (selectedPaths.size === 0) return;
+
+    setDeleteLoading(true);
+    setStorageMessage('Deleting files...');
+
+    try {
+      const res = await fetch(`${API_BASE}/storage/files`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ paths: Array.from(selectedPaths) })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setStorageMessage(`Deleted ${data.deletedCount} items (${data.deletedSizeFormatted})`);
+        setSelectedPaths(new Set());
+        // Refresh data
+        fetchStorageStats();
+        fetchBrowseData(selectedCategory);
+        setTimeout(() => setStorageMessage(''), 5000);
+      } else {
+        const error = await res.json();
+        setStorageMessage(`Error: ${error.error}`);
+      }
+    } catch (err) {
+      console.error('Failed to delete files:', err);
+      setStorageMessage('Failed to delete files');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const deleteAllInCategory = async (category: string) => {
+    setDeleteLoading(true);
+    setStorageMessage(`Deleting all files in ${category}...`);
+
+    try {
+      const res = await fetch(`${API_BASE}/storage/category/${encodeURIComponent(category)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ confirm: 'DELETE_ALL' })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setStorageMessage(`Deleted ${data.deletedCount} items (${data.deletedSizeFormatted}) from ${category}`);
+        setSelectedPaths(new Set());
+        // Refresh data
+        fetchStorageStats();
+        fetchBrowseData(selectedCategory);
+        setTimeout(() => setStorageMessage(''), 5000);
+      } else {
+        const error = await res.json();
+        setStorageMessage(`Error: ${error.error}`);
+      }
+    } catch (err) {
+      console.error('Failed to delete category:', err);
+      setStorageMessage('Failed to delete category');
+    } finally {
+      setDeleteLoading(false);
+      setDeleteAllCategory(null);
+    }
+  };
+
+  const getSelectedSize = (): string => {
+    if (!browseData) return '0 B';
+    let total = 0;
+    browseData.items.forEach(item => {
+      if (selectedPaths.has(item.path)) {
+        total += item.size;
+      }
+    });
+    return formatBytes(total);
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const savePreferences = async () => {
     if (!preferences) return;
 
@@ -201,28 +374,6 @@ export function Settings() {
       setSaveMessage('Failed to save settings');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleCleanup = async () => {
-    if (!preferences?.auto_cleanup_days) return;
-    if (!confirm(`Delete all files older than ${preferences.auto_cleanup_days} days?`)) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/preferences/cleanup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ days: preferences.auto_cleanup_days })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        alert(`Deleted ${data.deleted_count} files`);
-        fetchStorageInfo();
-      }
-    } catch (err) {
-      console.error('Failed to cleanup:', err);
     }
   };
 
@@ -399,41 +550,12 @@ export function Settings() {
     setPreferences({ ...preferences, [key]: value });
   };
 
-  const addLibraryPath = () => {
-    if (!preferences) return;
-    const newPath = { name: '', path: '' };
-    setPreferences({
-      ...preferences,
-      jellyfin_library_paths: [...preferences.jellyfin_library_paths, newPath]
-    });
-  };
-
-  const removeLibraryPath = (index: number) => {
-    if (!preferences) return;
-    const updatedPaths = preferences.jellyfin_library_paths.filter((_, i) => i !== index);
-    setPreferences({
-      ...preferences,
-      jellyfin_library_paths: updatedPaths
-    });
-  };
-
-  const updateLibraryPath = (index: number, field: 'name' | 'path', value: string) => {
-    if (!preferences) return;
-    const updatedPaths = [...preferences.jellyfin_library_paths];
-    updatedPaths[index] = { ...updatedPaths[index], [field]: value };
-    setPreferences({
-      ...preferences,
-      jellyfin_library_paths: updatedPaths
-    });
-  };
-
   const tabs = [
     { key: 'vpn' as TabKey, label: 'VPN', icon: ShieldCheck },
     { key: 'jellyfin' as TabKey, label: 'Jellyfin', icon: Server },
     { key: 'arr' as TabKey, label: 'Torrents', icon: Film },
     { key: 'subtitles' as TabKey, label: 'Subtitles', icon: Captions },
     { key: 'storage' as TabKey, label: 'Storage', icon: HardDrive },
-    { key: 'privacy' as TabKey, label: 'Advanced', icon: Shield },
   ];
 
   if (loading) {
@@ -694,71 +816,10 @@ export function Settings() {
                 </ul>
               </div>
 
-              <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={preferences.jellyfin_auto_scan}
-                    onChange={(e) => updatePreference('jellyfin_auto_scan', e.target.checked)}
-                    className="w-4 h-4 accent-blue-600"
-                  />
-                  <span className="text-sm text-gray-300">Auto-scan library after downloads</span>
-                </label>
-              </div>
-
-              <div className="border-t border-gray-700 pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-medium">Library Paths</h3>
-                  <button
-                    onClick={addLibraryPath}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Path
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {preferences.jellyfin_library_paths.map((libPath, index) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-[200px_1fr_auto] gap-3 items-end bg-gray-900/50 p-3 rounded-lg">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">Name</label>
-                        <input
-                          type="text"
-                          placeholder="Movies"
-                          value={libPath.name}
-                          onChange={(e) => updateLibraryPath(index, 'name', e.target.value)}
-                          className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">Path</label>
-                        <input
-                          type="text"
-                          placeholder="/media/movies"
-                          value={libPath.path}
-                          onChange={(e) => updateLibraryPath(index, 'path', e.target.value)}
-                          className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <button
-                          onClick={() => removeLibraryPath(index)}
-                          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                          title="Remove path"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {preferences.jellyfin_library_paths.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      No library paths configured. Click "Add Path" to create one.
-                    </div>
-                  )}
-                </div>
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <p className="text-sm text-gray-400">
+                  <strong>Auto-scan:</strong> Jellyfin libraries are automatically scanned after downloads complete when configured.
+                </p>
               </div>
             </div>
           </div>
@@ -1030,202 +1091,250 @@ export function Settings() {
         {/* Storage Management Tab */}
         {activeTab === 'storage' && (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">Storage Management</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Storage Management</h2>
+              <button
+                onClick={() => { fetchStorageStats(); fetchBrowseData(selectedCategory); }}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </button>
+            </div>
 
-            {storageInfo && (
-              <div className="bg-gray-900 rounded-lg p-6 mb-6">
-                <h3 className="text-lg font-medium mb-4">Current Usage</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  {storageInfo.by_category.map((cat) => (
-                    <div key={cat.category} className="bg-gray-800 p-4 rounded-lg">
-                      <div className="text-sm text-gray-400">{cat.category}</div>
-                      <div className="text-2xl font-bold text-white">{cat.gb} GB</div>
-                      <div className="text-xs text-gray-500">{cat.file_count} files</div>
-                    </div>
+            {/* Storage Stats Overview */}
+            {storageStats && (
+              <div className="bg-gray-900 rounded-lg p-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {storageStats.categories.map((cat) => (
+                    <button
+                      key={cat.category}
+                      onClick={() => setSelectedCategory(cat.category)}
+                      className={`p-3 rounded-lg text-left transition-colors ${
+                        selectedCategory === cat.category
+                          ? 'bg-blue-600 ring-2 ring-blue-400'
+                          : 'bg-gray-800 hover:bg-gray-700'
+                      }`}
+                    >
+                      <div className="text-xs text-gray-400">{cat.category}</div>
+                      <div className="text-lg font-bold text-white">{cat.sizeFormatted}</div>
+                      <div className="text-xs text-gray-500">{cat.itemCount} items</div>
+                    </button>
                   ))}
                 </div>
-                <div className="border-t border-gray-700 pt-4">
-                  <div className="flex justify-between items-center">
+                <div className="border-t border-gray-700 mt-4 pt-3">
+                  <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-400">Total Storage Used</span>
-                    <span className="text-2xl font-bold text-white">{storageInfo.total.gb} GB</span>
+                    <span className="text-lg font-bold text-white">{storageStats.total.sizeFormatted}</span>
                   </div>
-                  {storageInfo.limit.percentage && (
-                    <div className="mt-2">
-                      <div className="bg-gray-700 rounded-full h-3">
-                        <div
-                          className={`h-3 rounded-full ${
-                            parseFloat(storageInfo.limit.percentage) > 90 ? 'bg-red-500' :
-                            parseFloat(storageInfo.limit.percentage) > 75 ? 'bg-yellow-500' :
-                            'bg-green-500'
-                          }`}
-                          style={{ width: `${Math.min(parseFloat(storageInfo.limit.percentage), 100)}%` }}
-                        />
-                      </div>
-                      <div className="text-sm text-gray-400 mt-1">
-                        {storageInfo.limit.percentage}% of {storageInfo.limit.gb} GB limit
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Storage Limit (GB)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Unlimited"
-                  value={preferences.storage_limit_gb || ''}
-                  onChange={(e) => updatePreference('storage_limit_gb', e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">Leave empty for unlimited storage</p>
+            {/* Status Message */}
+            {storageMessage && (
+              <div className={`border rounded-lg p-3 ${
+                storageMessage.includes('Error')
+                  ? 'bg-red-900/20 border-red-500/30 text-red-300'
+                  : storageMessage.includes('Deleting')
+                  ? 'bg-yellow-900/20 border-yellow-500/30 text-yellow-300'
+                  : 'bg-green-900/20 border-green-500/30 text-green-300'
+              }`}>
+                <p className="text-sm">{storageMessage}</p>
+              </div>
+            )}
+
+            {/* File Browser */}
+            <div className="bg-gray-900 rounded-lg border border-gray-700">
+              {/* Actions Bar */}
+              <div className="flex items-center justify-between p-3 border-b border-gray-700">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={selectedPaths.size === browseData?.items.length ? selectNone : selectAll}
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    {selectedPaths.size === browseData?.items.length && browseData?.items.length > 0 ? (
+                      <CheckSquare className="w-4 h-4 text-blue-400" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                    {selectedPaths.size > 0 ? `${selectedPaths.size} selected` : 'Select All'}
+                  </button>
+                  {selectedPaths.size > 0 && (
+                    <span className="text-sm text-gray-500">({getSelectedSize()})</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedPaths.size > 0 && (
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={deleteLoading}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm disabled:opacity-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Selected
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setDeleteAllCategory(selectedCategory)}
+                    disabled={deleteLoading || !browseData?.items.length}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-red-600 text-white rounded-lg transition-colors text-sm disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete All in {selectedCategory}
+                  </button>
+                </div>
               </div>
 
-              <label className="flex items-center gap-3 p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={preferences.auto_cleanup_enabled}
-                  onChange={(e) => updatePreference('auto_cleanup_enabled', e.target.checked)}
-                  className="w-5 h-5 accent-blue-600"
-                />
-                <div>
-                  <div className="font-medium text-white">Enable Auto-Cleanup</div>
-                  <div className="text-sm text-gray-400">Automatically delete old files</div>
-                </div>
-              </label>
+              {/* File List */}
+              <div className="max-h-[400px] overflow-y-auto">
+                {storageLoading ? (
+                  <div className="p-8 text-center text-gray-400">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                    Loading files...
+                  </div>
+                ) : browseData?.items.length === 0 ? (
+                  <div className="p-8 text-center text-gray-400">
+                    <Folder className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No files in {selectedCategory}</p>
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-gray-800 sticky top-0">
+                      <tr>
+                        <th className="w-10 px-3 py-2"></th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-gray-400 uppercase">Name</th>
+                        <th className="text-right px-3 py-2 text-xs font-medium text-gray-400 uppercase w-24">Size</th>
+                        <th className="text-right px-3 py-2 text-xs font-medium text-gray-400 uppercase w-36">Modified</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {browseData?.items.map((item) => (
+                        <tr
+                          key={item.path}
+                          onClick={() => togglePathSelection(item.path)}
+                          className={`cursor-pointer transition-colors ${
+                            selectedPaths.has(item.path)
+                              ? 'bg-blue-900/30'
+                              : 'hover:bg-gray-800/50'
+                          }`}
+                        >
+                          <td className="px-3 py-2">
+                            {selectedPaths.has(item.path) ? (
+                              <CheckSquare className="w-4 h-4 text-blue-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-gray-600" />
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              {item.isDirectory ? (
+                                <Folder className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                              ) : (
+                                <FileVideo className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                              )}
+                              <span className="text-sm text-white truncate">{item.name}</span>
+                              {item.isDirectory && item.childCount !== undefined && (
+                                <span className="text-xs text-gray-500">({item.childCount} items)</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-right text-sm text-gray-400">{item.sizeFormatted}</td>
+                          <td className="px-3 py-2 text-right text-sm text-gray-500">
+                            {new Date(item.modified).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
 
-              {preferences.auto_cleanup_enabled && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Delete files older than (days): {preferences.auto_cleanup_days}
-                  </label>
-                  <input
-                    type="range"
-                    min="7"
-                    max="365"
-                    value={preferences.auto_cleanup_days}
-                    onChange={(e) => updatePreference('auto_cleanup_days', parseInt(e.target.value))}
-                    className="w-full accent-blue-600"
-                  />
+              {/* Footer */}
+              {browseData && browseData.items.length > 0 && (
+                <div className="p-3 border-t border-gray-700 text-sm text-gray-400 flex justify-between">
+                  <span>{browseData.itemCount} items</span>
+                  <span>Total: {browseData.totalSizeFormatted}</span>
                 </div>
               )}
-
-              <button
-                onClick={handleCleanup}
-                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
-              >
-                Run Cleanup Now
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Privacy/Advanced Tab */}
-        {activeTab === 'privacy' && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
-
-            {/* API Keys Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium border-b border-gray-700 pb-2">API Keys</h3>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  TMDB API Key
-                </label>
-                <input
-                  type="password"
-                  placeholder="Your TMDB API key"
-                  value={preferences.tmdb_api_key || ''}
-                  onChange={(e) => updatePreference('tmdb_api_key', e.target.value || null)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  For movie/TV thumbnails and metadata. Get free API key at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">themoviedb.org/settings/api</a>
-                </p>
-              </div>
-
             </div>
 
-            {/* Paths Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium border-b border-gray-700 pb-2">Tool Paths</h3>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Download Directory
-                </label>
-                <input
-                  type="text"
-                  placeholder="/home/beerm/media-vault/downloads"
-                  value={preferences.download_directory}
-                  onChange={(e) => updatePreference('download_directory', e.target.value)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Base directory where all downloads are saved
-                </p>
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+                <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700">
+                  <div className="flex items-center gap-3 mb-4">
+                    <AlertTriangle className="w-8 h-8 text-red-400" />
+                    <h3 className="text-lg font-semibold">Delete {selectedPaths.size} items?</h3>
+                  </div>
+                  <p className="text-gray-400 mb-4">
+                    This will permanently delete {selectedPaths.size} selected items ({getSelectedSize()}).
+                    This action cannot be undone.
+                  </p>
+                  <div className="max-h-32 overflow-y-auto mb-4 text-sm text-gray-500">
+                    {Array.from(selectedPaths).slice(0, 10).map(path => (
+                      <div key={path} className="truncate">{path.split('/').pop()}</div>
+                    ))}
+                    {selectedPaths.size > 10 && (
+                      <div className="text-gray-600">...and {selectedPaths.size - 10} more</div>
+                    )}
+                  </div>
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={deleteSelectedFiles}
+                      disabled={deleteLoading}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {deleteLoading ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
               </div>
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  yt-dlp Path
-                </label>
-                <input
-                  type="text"
-                  placeholder="/home/beerm/bin/yt-dlp"
-                  value={preferences.ytdlp_path}
-                  onChange={(e) => updatePreference('ytdlp_path', e.target.value)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Full path to yt-dlp executable (for YouTube downloads)
-                </p>
+            {/* Delete All Category Modal */}
+            {deleteAllCategory && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+                <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700">
+                  <div className="flex items-center gap-3 mb-4">
+                    <AlertTriangle className="w-8 h-8 text-red-400" />
+                    <h3 className="text-lg font-semibold">Delete ALL in {deleteAllCategory}?</h3>
+                  </div>
+                  <p className="text-gray-400 mb-4">
+                    This will permanently delete ALL files in the {deleteAllCategory} category.
+                    This action cannot be undone.
+                  </p>
+                  <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-red-300">
+                      <strong>Warning:</strong> This will delete{' '}
+                      {storageStats?.categories.find(c => c.category === deleteAllCategory)?.sizeFormatted || 'all data'}{' '}
+                      ({storageStats?.categories.find(c => c.category === deleteAllCategory)?.itemCount || 0} items)
+                    </p>
+                  </div>
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={() => setDeleteAllCategory(null)}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => deleteAllInCategory(deleteAllCategory)}
+                      disabled={deleteLoading}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {deleteLoading ? 'Deleting...' : 'Delete All'}
+                    </button>
+                  </div>
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  get_iplayer Path
-                </label>
-                <input
-                  type="text"
-                  placeholder="/home/beerm/bin/get_iplayer"
-                  value={preferences.get_iplayer_path}
-                  onChange={(e) => updatePreference('get_iplayer_path', e.target.value)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Full path to get_iplayer executable (for BBC iPlayer downloads)
-                </p>
-              </div>
-            </div>
-
-            {/* Privacy Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium border-b border-gray-700 pb-2">Privacy</h3>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  YouTube Cookies File Path
-                </label>
-                <input
-                  type="text"
-                  placeholder="/path/to/cookies.txt"
-                  value={preferences.youtube_cookies_path || ''}
-                  onChange={(e) => updatePreference('youtube_cookies_path', e.target.value || null)}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  For age-restricted videos. Export cookies from your browser using a cookies.txt extension.
-                </p>
-              </div>
-
-            </div>
+            )}
           </div>
         )}
       </div>
