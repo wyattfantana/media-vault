@@ -8,8 +8,9 @@ import { Reddit } from './Reddit';
 import Movies from './Movies';
 import TVShows from './TVShows';
 import Documentaries from './Documentaries';
+import Audiobooks from './Audiobooks';
 
-type Tab = 'youtube' | 'bbc' | 'soundcloud' | 'tiktok' | 'twitch' | 'reddit' | 'movies' | 'tvshows' | 'documentaries';
+type Tab = 'youtube' | 'bbc' | 'soundcloud' | 'tiktok' | 'twitch' | 'reddit' | 'movies' | 'tvshows' | 'documentaries' | 'audiobooks';
 
 export function Discover() {
   // Restore last active tab from URL parameter FIRST, then localStorage, default to 'movies'
@@ -17,7 +18,7 @@ export function Discover() {
     // ALWAYS prioritize URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['youtube', 'bbc', 'soundcloud', 'tiktok', 'twitch', 'reddit', 'movies', 'tvshows', 'documentaries'].includes(tabParam)) {
+    if (tabParam && ['youtube', 'bbc', 'soundcloud', 'tiktok', 'twitch', 'reddit', 'movies', 'tvshows', 'documentaries', 'audiobooks'].includes(tabParam)) {
       return tabParam as Tab;
     }
     // Fall back to localStorage only if no URL param
@@ -29,6 +30,7 @@ export function Discover() {
     { id: 'movies' as const, label: 'Movies', icon: '🎬', description: 'Browse' },
     { id: 'tvshows' as const, label: 'TV Shows', icon: '📺', description: 'Series' },
     { id: 'documentaries' as const, label: 'Documentaries', icon: '🎞️', description: 'Films' },
+    { id: 'audiobooks' as const, label: 'Audiobooks', icon: '🎧', description: 'Listen' },
     { id: 'bbc' as const, label: 'BBC iPlayer', logo: '/images/bbc-iplayer.svg' },
     { id: 'youtube' as const, label: 'YouTube', logo: '/images/youtube.svg' },
     { id: 'soundcloud' as const, label: 'SoundCloud', logo: '/images/soundcloud.svg' },
@@ -97,8 +99,8 @@ export function Discover() {
                     </div>
                   )}
                 </button>
-                {/* Separator after Documentaries (index 2) and SoundCloud (index 5) */}
-                {(index === 2 || index === 5) && (
+                {/* Separator after Audiobooks (index 3) and SoundCloud (index 6) */}
+                {(index === 3 || index === 6) && (
                   <div className="w-px bg-gray-700 self-stretch my-2" />
                 )}
               </React.Fragment>
@@ -118,6 +120,9 @@ export function Discover() {
         </div>
         <div className={activeTab === 'documentaries' ? 'block animate-fadeIn' : 'hidden'}>
           <Documentaries />
+        </div>
+        <div className={activeTab === 'audiobooks' ? 'block animate-fadeIn' : 'hidden'}>
+          <Audiobooks />
         </div>
         <div className={activeTab === 'youtube' ? 'block animate-fadeIn' : 'hidden'}>
           <YouTube />
