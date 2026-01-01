@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, Trash2, ExternalLink, Star, Calendar, Search, Loader, HardDrive, Play } from 'lucide-react';
+import { Download, Trash2, ExternalLink, Star, Calendar, Search, Loader, HardDrive, Play, Headphones, BookOpen, User } from 'lucide-react';
 import { API_BASE } from '@/lib/config';
 
 interface Bookmark {
@@ -20,6 +20,14 @@ interface Bookmark {
   release_year?: number;
   vote_average?: number;
   backdrop_url?: string;
+  // Audiobook fields
+  external_id?: string;
+  metadata?: {
+    authors?: string[];
+    year?: number;
+    subjects?: string[];
+    external_id?: string;
+  };
   // Download status
   download_status?: {
     is_downloaded: boolean;
@@ -236,6 +244,7 @@ export function Favorites() {
     tmdb_movie: bookmarks.filter(b => b.type === 'tmdb_movie').length,
     tmdb_tv: bookmarks.filter(b => b.type === 'tmdb_tv').length,
     tmdb_documentary: bookmarks.filter(b => b.type === 'tmdb_documentary').length,
+    audiobook: bookmarks.filter(b => b.type === 'audiobook').length,
     other: bookmarks.filter(b => b.type === 'other').length,
     downloaded: bookmarks.filter(b => b.download_status?.is_downloaded === true).length,
     not_downloaded: bookmarks.filter(b => !b.download_status?.is_downloaded).length
@@ -603,6 +612,70 @@ export function Favorites() {
     );
   };
 
+  const renderAudiobookCard = (bookmark: Bookmark) => {
+    const coverUrl = bookmark.thumbnail
+      ? `${API_BASE}/audiobooks/cover?url=${encodeURIComponent(bookmark.thumbnail)}`
+      : null;
+
+    return (
+      <div key={bookmark.id} className="card hover:shadow-xl transition-shadow flex flex-col h-full">
+        {/* Cover */}
+        <div className="aspect-[2/3] relative overflow-hidden rounded-lg mb-3 flex-shrink-0">
+          {coverUrl ? (
+            <img
+              src={coverUrl}
+              alt={bookmark.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-purple-900 to-gray-800 flex items-center justify-center">
+              <BookOpen className="w-12 h-12 text-purple-400/50" />
+            </div>
+          )}
+
+          {/* Purple audiobook badge */}
+          <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded shadow flex items-center gap-1">
+            <Headphones className="w-3 h-3" />
+            Audiobook
+          </div>
+        </div>
+
+        {/* Content wrapper */}
+        <div className="flex flex-col flex-grow">
+          {/* Title */}
+          <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem] mb-2">
+            {bookmark.title}
+          </h3>
+
+          {/* Author */}
+          {bookmark.description && (
+            <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+              <User className="w-4 h-4" />
+              <span className="line-clamp-1">{bookmark.description}</span>
+            </div>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-grow"></div>
+
+          {/* Actions */}
+          <div className="flex gap-2 mt-auto">
+            <button
+              onClick={() => handleDelete(bookmark.id)}
+              className="flex-1 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">
       <div className="text-gray-500">Loading bookmarks...</div>
@@ -613,7 +686,7 @@ export function Favorites() {
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-100">Favorites</h1>
-        <p className="text-gray-400 mt-1">Your bookmarked channels, playlists, movies, shows, and documentaries</p>
+        <p className="text-gray-400 mt-1">Your bookmarked channels, playlists, movies, shows, documentaries, and audiobooks</p>
       </div>
 
       {/* Filters and View Mode */}
@@ -645,6 +718,12 @@ export function Favorites() {
             className={`px-4 py-2 rounded-lg text-sm ${filter === 'tmdb_documentary' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
           >
             Documentaries ({stats.tmdb_documentary})
+          </button>
+          <button
+            onClick={() => setFilter('audiobook')}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === 'audiobook' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          >
+            Audiobooks ({stats.audiobook})
           </button>
           <button
             onClick={() => setFilter('youtube_channel')}
@@ -730,6 +809,11 @@ export function Favorites() {
             // Render TMDB cards differently from YouTube/SoundCloud cards
             if (bookmark.type.startsWith('tmdb_')) {
               return renderTMDBCard(bookmark);
+            }
+
+            // Render audiobook cards
+            if (bookmark.type === 'audiobook') {
+              return renderAudiobookCard(bookmark);
             }
 
             // Render YouTube/SoundCloud cards (existing logic)

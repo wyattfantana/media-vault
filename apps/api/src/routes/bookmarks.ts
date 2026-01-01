@@ -215,7 +215,9 @@ bookmarksRouter.post('/', requireAuth, async (req, res) => {
       media_type,
       release_year,
       vote_average,
-      backdrop_url
+      backdrop_url,
+      // Audiobook-specific fields
+      external_id
     } = req.body;
 
     // Validate TMDB bookmarks
@@ -235,6 +237,32 @@ bookmarksRouter.post('/', requireAuth, async (req, res) => {
           userId,
           tmdbId: tmdb_id,
           mediaType: media_type
+        })
+        .getRawOne();
+
+      if (existing) {
+        return res.status(409).json({
+          error: 'Already in watchlist',
+          bookmark: existing
+        });
+      }
+    } else if (type === 'audiobook') {
+      // Validate audiobook bookmarks
+      if (!external_id || !title) {
+        return res.status(400).json({
+          error: 'external_id and title are required for audiobook bookmarks'
+        });
+      }
+
+      // Check for duplicate audiobook bookmark
+      const existing = await AppDataSource
+        .createQueryBuilder()
+        .select('*')
+        .from('bookmarks', 'b')
+        .where('b.user_id = :userId AND b.external_id = :externalId AND b.type = :type', {
+          userId,
+          externalId: external_id,
+          type: 'audiobook'
         })
         .getRawOne();
 
@@ -288,7 +316,9 @@ bookmarksRouter.post('/', requireAuth, async (req, res) => {
         media_type: media_type || null,
         release_year: release_year || null,
         vote_average: vote_average || null,
-        backdrop_url: backdrop_url || null
+        backdrop_url: backdrop_url || null,
+        // Audiobook fields
+        external_id: external_id || null
       })
       .returning('*')
       .execute();
