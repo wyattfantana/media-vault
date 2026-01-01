@@ -123,9 +123,34 @@ router.get('/genre/:genreId/batch', async (req, res) => {
   }
 });
 
+// In-memory cache for cover images (LRU-style with max size)
+const coverCache = new Map<string, { data: Buffer; contentType: string; timestamp: number }>();
+const COVER_CACHE_MAX_SIZE = 500; // Max number of cached covers
+const COVER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
+
+function cleanupCoverCache() {
+  const now = Date.now();
+  // Remove expired entries
+  for (const [key, value] of coverCache.entries()) {
+    if (now - value.timestamp > COVER_CACHE_TTL) {
+      coverCache.delete(key);
+    }
+  }
+  // If still over limit, remove oldest entries
+  if (coverCache.size > COVER_CACHE_MAX_SIZE) {
+    const entries = Array.from(coverCache.entries())
+      .sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toRemove = entries.slice(0, coverCache.size - COVER_CACHE_MAX_SIZE);
+    for (const [key] of toRemove) {
+      coverCache.delete(key);
+    }
+  }
+}
+
 /**
  * Proxy cover images to avoid client-side timeouts
  * GET /api/v1/audiobooks/cover?url=https://...
+ * Includes server-side caching for faster repeated loads
  */
 router.get('/cover', async (req, res) => {
   try {
@@ -146,6 +171,16 @@ router.get('/cover', async (req, res) => {
       return res.status(400).json({ error: 'Host not allowed' });
     }
 
+    // Check cache first
+    const cached = coverCache.get(url);
+    if (cached && Date.now() - cached.timestamp < COVER_CACHE_TTL) {
+      res.setHeader('Content-Type', cached.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('X-Cache', 'HIT');
+      return res.send(cached.data);
+    }
+
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
       timeout: 8000,
@@ -155,11 +190,17 @@ router.get('/cover', async (req, res) => {
     });
 
     const contentType = response.headers['content-type'] || 'image/jpeg';
+    const data = Buffer.from(response.data);
+
+    // Cache the response
+    coverCache.set(url, { data, contentType, timestamp: Date.now() });
+    cleanupCoverCache();
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.send(Buffer.from(response.data));
+    res.setHeader('X-Cache', 'MISS');
+    res.send(data);
   } catch (error) {
     const placeholderSvg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">

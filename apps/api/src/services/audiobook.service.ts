@@ -83,7 +83,7 @@ export class AudiobookService {
         authors: doc.author_name || [],
         authorKeys: doc.author_key || [],
         coverUrl: doc.cover_i
-          ? `${OPEN_LIBRARY_COVERS}/b/id/${doc.cover_i}-L.jpg`
+          ? `${OPEN_LIBRARY_COVERS}/b/id/${doc.cover_i}-M.jpg`
           : null,
         year: doc.first_publish_year || null,
         subjects: (doc.subject || []).slice(0, 5),
@@ -126,7 +126,7 @@ export class AudiobookService {
         authors: work.authors?.map((a: any) => a.name) || [],
         authorKeys: work.authors?.map((a: any) => a.key?.replace('/authors/', '')) || [],
         coverUrl: work.cover_id
-          ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_id}-L.jpg`
+          ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_id}-M.jpg`
           : null,
         year: work.first_publish_year || null,
         subjects: (work.subject || []).slice(0, 5),
@@ -179,9 +179,9 @@ export class AudiobookService {
           authors: work.author_name || [],
           authorKeys: work.author_key || [],
           coverUrl: work.cover_i
-            ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_i}-L.jpg`
+            ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_i}-M.jpg`
             : work.cover_id
-            ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_id}-L.jpg`
+            ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_id}-M.jpg`
             : null,
           year: work.first_publish_year || null,
           subjects: [],
@@ -247,7 +247,7 @@ export class AudiobookService {
       // Get cover
       let coverUrl = null;
       if (data.covers && data.covers.length > 0) {
-        coverUrl = `${OPEN_LIBRARY_COVERS}/b/id/${data.covers[0]}-L.jpg`;
+        coverUrl = `${OPEN_LIBRARY_COVERS}/b/id/${data.covers[0]}-M.jpg`;
       }
 
       return {

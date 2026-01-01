@@ -13,12 +13,13 @@ const CATEGORY_FOLDERS: Record<string, string> = {
   'Movies': 'Movies',
   'TV Shows': 'TV Shows',
   'Documentaries': 'Documentaries',
+  'Audiobooks': 'Audiobooks',
   'Music': 'Music',
   'iPlayer': 'iplayer',
 };
 
-// Media file extensions
-const MEDIA_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mp3', '.flac', '.wav', '.aac', '.ogg', '.m4a'];
+// Media file extensions (including .m4b for audiobooks)
+const MEDIA_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mp3', '.flac', '.wav', '.aac', '.ogg', '.m4a', '.m4b'];
 
 // Middleware to check authentication
 const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {

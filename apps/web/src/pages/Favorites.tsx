@@ -69,6 +69,14 @@ export function Favorites() {
   const [vpnConnected, setVpnConnected] = useState(false);
   const [checkingVpn, setCheckingVpn] = useState(false);
 
+  // Audiobook modal state
+  const [selectedAudiobook, setSelectedAudiobook] = useState<Bookmark | null>(null);
+  const [audiobookTorrents, setAudiobookTorrents] = useState<any[]>([]);
+  const [loadingAudiobookTorrents, setLoadingAudiobookTorrents] = useState(false);
+  const [audiobookTorrentError, setAudiobookTorrentError] = useState<string | null>(null);
+  const [downloadingAudiobookTorrent, setDownloadingAudiobookTorrent] = useState<string | null>(null);
+  const [audiobookDownloadMessage, setAudiobookDownloadMessage] = useState<string | null>(null);
+
   useEffect(() => {
     fetchBookmarks();
   }, []);
@@ -267,6 +275,138 @@ export function Favorites() {
     if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(2)} MB`;
     if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(2)} KB`;
     return `${bytes} B`;
+  };
+
+  // Audiobook download modal handler
+  const handleAudiobookDownload = async (bookmark: Bookmark) => {
+    setSelectedAudiobook(bookmark);
+    setAudiobookTorrents([]);
+    setAudiobookTorrentError(null);
+    setLoadingAudiobookTorrents(true);
+    setAudiobookDownloadMessage(null);
+
+    try {
+      // Build search query with title and author
+      const searchTerms = [bookmark.title];
+      if (bookmark.description) {
+        // Author is stored in description
+        searchTerms.push(bookmark.description.split(',')[0]); // First author
+      }
+      const query = searchTerms.join(' ') + ' audiobook';
+
+      const res = await fetch(
+        `${API_BASE}/prowlarr/search?query=${encodeURIComponent(query)}&type=audio`,
+        { credentials: 'include' }
+      );
+
+      if (!res.ok) throw new Error('Failed to search torrents');
+
+      const results = await res.json();
+
+      // Filter for audiobook results
+      const audiobookResults = results.filter((r: any) => {
+        const titleLower = r.title.toLowerCase();
+        return (
+          titleLower.includes('audiobook') ||
+          titleLower.includes('audio book') ||
+          titleLower.includes('unabridged') ||
+          titleLower.includes('abridged') ||
+          titleLower.includes('narrated') ||
+          titleLower.includes('mp3') ||
+          titleLower.includes('m4b') ||
+          r.categories?.some((c: any) =>
+            c.name?.toLowerCase().includes('audio') ||
+            c.id === 3030 ||
+            c.id === 3000
+          )
+        );
+      });
+
+      const mapped = audiobookResults.map((r: any, i: number) => ({
+        id: `${r.guid || i}-${Date.now()}`,
+        title: r.title,
+        indexer: r.indexer || 'Unknown',
+        size: r.size || 0,
+        seeders: r.seeders || 0,
+        leechers: r.leechers || 0,
+        magnetUrl: r.magnetUrl,
+        downloadUrl: r.downloadUrl,
+      }));
+
+      mapped.sort((a: any, b: any) => b.seeders - a.seeders);
+      setAudiobookTorrents(mapped);
+
+      if (mapped.length === 0) {
+        setAudiobookTorrentError('No audiobook torrents found. Try a different search.');
+      }
+    } catch (err: any) {
+      setAudiobookTorrentError(err.message || 'Failed to search for torrents');
+    } finally {
+      setLoadingAudiobookTorrents(false);
+    }
+  };
+
+  const handleAudiobookTorrentDownload = async (torrent: any) => {
+    if (downloadingAudiobookTorrent) return;
+
+    setDownloadingAudiobookTorrent(torrent.id);
+    try {
+      // Build thumbnail URL for audiobook (use cover proxy)
+      const audiobookThumbnail = selectedAudiobook?.thumbnail
+        ? `${API_BASE}/audiobooks/cover?url=${encodeURIComponent(selectedAudiobook.thumbnail)}`
+        : null;
+
+      const response = await fetch(`${API_BASE}/torrents/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          magnetUrl: torrent.magnetUrl,
+          downloadUrl: torrent.downloadUrl,
+          title: torrent.title,
+          category: 'Audiobooks',
+          thumbnail: audiobookThumbnail
+        })
+      });
+
+      if (response.ok) {
+        setAudiobookDownloadMessage(`✅ ${selectedAudiobook?.title || torrent.title} is now downloading`);
+        setTimeout(() => {
+          setAudiobookDownloadMessage(null);
+          setSelectedAudiobook(null);
+        }, 3000);
+        fetchBookmarks();
+      } else if (response.status === 409) {
+        setAudiobookDownloadMessage('⚠️ Already in downloads');
+        setTimeout(() => setAudiobookDownloadMessage(null), 3000);
+      } else {
+        throw new Error('Failed to start download');
+      }
+    } catch (err: any) {
+      setAudiobookDownloadMessage(`❌ ${err.message}`);
+      setTimeout(() => setAudiobookDownloadMessage(null), 5000);
+    } finally {
+      setDownloadingAudiobookTorrent(null);
+    }
+  };
+
+  const getAudiobookIndexerColor = (indexer: string): string => {
+    const indexerLower = indexer.toLowerCase();
+    if (indexerLower.includes('mam') || indexerLower.includes('myanonamouse')) return 'bg-purple-600/20 text-purple-400';
+    if (indexerLower.includes('audiobookbay')) return 'bg-orange-600/20 text-orange-400';
+    if (indexerLower.includes('librivox')) return 'bg-green-600/20 text-green-400';
+    if (indexerLower.includes('piratebay')) return 'bg-pink-600/20 text-pink-400';
+    if (indexerLower.includes('1337x')) return 'bg-orange-600/20 text-orange-400';
+    if (indexerLower.includes('torrentgalaxy')) return 'bg-purple-600/20 text-purple-400';
+    return 'bg-indigo-600/20 text-indigo-400';
+  };
+
+  const formatAudiobookSize = (bytes: number): string => {
+    if (!bytes) return 'Unknown';
+    const gb = bytes / (1024 * 1024 * 1024);
+    if (gb >= 1) return `${gb.toFixed(1)} GB`;
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(0)} MB`;
   };
 
   const handleQuickDownload = (bookmark: Bookmark) => {
@@ -631,16 +771,10 @@ export function Favorites() {
               }}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-purple-900 to-gray-800 flex items-center justify-center">
-              <BookOpen className="w-12 h-12 text-purple-400/50" />
+            <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+              <BookOpen className="w-12 h-12 text-gray-400" />
             </div>
           )}
-
-          {/* Purple audiobook badge */}
-          <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded shadow flex items-center gap-1">
-            <Headphones className="w-3 h-3" />
-            Audiobook
-          </div>
         </div>
 
         {/* Content wrapper */}
@@ -648,11 +782,21 @@ export function Favorites() {
           {/* Title */}
           <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem] mb-2">
             {bookmark.title}
+            {bookmark.metadata?.year && (
+              <span className="text-gray-500 ml-2">({bookmark.metadata.year})</span>
+            )}
           </h3>
+
+          {/* Type badge - matching TMDB style */}
+          <div className="mb-2">
+            <span className="inline-block px-2 py-1 text-xs rounded bg-purple-100 text-purple-700">
+              Audiobook
+            </span>
+          </div>
 
           {/* Author */}
           {bookmark.description && (
-            <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+            <div className="flex items-center gap-2 text-sm text-gray-400 mb-3">
               <User className="w-4 h-4" />
               <span className="line-clamp-1">{bookmark.description}</span>
             </div>
@@ -661,14 +805,24 @@ export function Favorites() {
           {/* Spacer */}
           <div className="flex-grow"></div>
 
-          {/* Actions */}
+          {/* Actions - matching TMDB style */}
           <div className="flex gap-2 mt-auto">
             <button
-              onClick={() => handleDelete(bookmark.id)}
-              className="flex-1 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors flex items-center justify-center gap-2"
+              onClick={() => handleAudiobookDownload(bookmark)}
+              className="flex-1 flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded transition-colors"
             >
-              <Trash2 className="w-4 h-4" />
-              Remove
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download
+            </button>
+            <button
+              onClick={() => handleDelete(bookmark.id)}
+              className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </button>
           </div>
         </div>
@@ -1369,6 +1523,126 @@ export function Favorites() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audiobook Download Modal */}
+      {selectedAudiobook && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedAudiobook(null)}
+        >
+          <div
+            className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex gap-6 p-6">
+              {selectedAudiobook.thumbnail ? (
+                <img
+                  src={`${API_BASE}/audiobooks/cover?url=${encodeURIComponent(selectedAudiobook.thumbnail)}`}
+                  alt={selectedAudiobook.title}
+                  className="w-32 h-48 object-cover rounded-lg shadow-lg flex-shrink-0"
+                />
+              ) : (
+                <div className="w-32 h-48 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="w-12 h-12 text-gray-400" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-2xl font-bold mb-2">{selectedAudiobook.title}</h2>
+                {selectedAudiobook.description && (
+                  <div className="flex items-center gap-2 text-gray-400 mb-2">
+                    <User className="w-4 h-4" />
+                    <span>{selectedAudiobook.description}</span>
+                  </div>
+                )}
+                {selectedAudiobook.metadata?.year && (
+                  <div className="flex items-center gap-2 text-gray-400 mb-4">
+                    <Calendar className="w-4 h-4" />
+                    <span>{selectedAudiobook.metadata.year}</span>
+                  </div>
+                )}
+                <span className="inline-block px-2 py-1 text-xs rounded bg-purple-100 text-purple-700">
+                  Audiobook
+                </span>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-700 p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Download className="w-5 h-5 text-purple-400" />
+                Available Downloads
+              </h3>
+
+              {/* Download message */}
+              {audiobookDownloadMessage && (
+                <div className={`mb-4 border rounded-lg p-4 ${
+                  audiobookDownloadMessage.startsWith('✅')
+                    ? 'bg-green-900/30 border-green-400/50'
+                    : audiobookDownloadMessage.startsWith('⚠️')
+                    ? 'bg-yellow-900/20 border-yellow-500/30'
+                    : 'bg-red-900/20 border-red-500/30'
+                }`}>
+                  <p className={`text-sm ${
+                    audiobookDownloadMessage.startsWith('✅')
+                      ? 'text-green-200'
+                      : audiobookDownloadMessage.startsWith('⚠️')
+                      ? 'text-yellow-300'
+                      : 'text-red-300'
+                  }`}>
+                    {audiobookDownloadMessage}
+                  </p>
+                </div>
+              )}
+
+              {loadingAudiobookTorrents && (
+                <div className="text-center py-8">
+                  <Loader className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm">Searching for audiobook torrents...</p>
+                </div>
+              )}
+
+              {audiobookTorrentError && !loadingAudiobookTorrents && (
+                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 text-yellow-300 text-sm">
+                  {audiobookTorrentError}
+                </div>
+              )}
+
+              {!loadingAudiobookTorrents && audiobookTorrents.length > 0 && (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {audiobookTorrents.map((torrent: any) => (
+                    <div
+                      key={torrent.id}
+                      className={`bg-gray-900/50 border border-gray-700 rounded-lg p-3 transition-all ${
+                        downloadingAudiobookTorrent ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700 hover:border-purple-500/50 cursor-pointer'
+                      }`}
+                      onClick={() => handleAudiobookTorrentDownload(torrent)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white mb-1 line-clamp-2">{torrent.title}</p>
+                          <div className="flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded font-medium ${getAudiobookIndexerColor(torrent.indexer)}`}>
+                              {torrent.indexer}
+                            </span>
+                            <span>{formatAudiobookSize(torrent.size)}</span>
+                            <span className="text-green-400 font-semibold">↑ {torrent.seeders}</span>
+                            <span className="text-red-400">↓ {torrent.leechers}</span>
+                          </div>
+                        </div>
+                        {downloadingAudiobookTorrent === torrent.id ? (
+                          <Loader className="w-5 h-5 animate-spin text-purple-400 flex-shrink-0" />
+                        ) : (
+                          <Download className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
             </div>
           </div>
         </div>

@@ -71,13 +71,21 @@ export default function Audiobooks() {
   // Bookmarks
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
 
-  // Load initial data
+  // Load initial data - use ref to prevent double-mount in React Strict Mode
+  const hasInitialized = React.useRef(false);
   useEffect(() => {
-    checkVpnStatus();
-    fetchGenres();
-    fetchBookmarks();
-    // Load all books by default (no genre filter)
-    loadInitialBooks(null);
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    const init = async () => {
+      checkVpnStatus();
+      fetchBookmarks();
+      await fetchGenres();
+      // Delay to let API settle before batch requests
+      await new Promise(r => setTimeout(r, 300));
+      loadInitialBooks(null);
+    };
+    init();
   }, []);
 
   const checkVpnStatus = async () => {
@@ -141,15 +149,33 @@ export default function Audiobooks() {
           setCurrentPage(data.page || 10);
         }
       } else {
-        // Load "all books" from multiple popular genres
-        const popularGenres = ['fiction', 'science_fiction', 'fantasy', 'mystery', 'thriller', 'romance', 'history', 'biography'];
-        const promises = popularGenres.map(g =>
-          fetch(`${API_BASE}/audiobooks/genre/${g}/batch?startPage=1&numPages=3&limit=20`, { credentials: 'include' })
-            .then(r => r.ok ? r.json() : { results: [], total: 0 })
-            .catch(() => ({ results: [], total: 0 }))
+        // Load "all books" from popular genres - load in smaller batches to avoid overwhelming the API
+        const popularGenres = ['fiction', 'science_fiction', 'fantasy', 'mystery', 'thriller', 'romance', 'history', 'horror'];
+
+        // Load in two batches of 4 to reduce parallel load
+        const batch1 = popularGenres.slice(0, 4);
+        const batch2 = popularGenres.slice(4);
+
+        const results1 = await Promise.all(
+          batch1.map(g =>
+            fetch(`${API_BASE}/audiobooks/genre/${g}/batch?startPage=1&numPages=3&limit=20`, { credentials: 'include' })
+              .then(r => r.ok ? r.json() : { results: [], total: 0 })
+              .catch(() => ({ results: [], total: 0 }))
+          )
         );
 
-        const results = await Promise.all(promises);
+        // Delay between batches to avoid rate limiting
+        await new Promise(r => setTimeout(r, 500));
+
+        const results2 = await Promise.all(
+          batch2.map(g =>
+            fetch(`${API_BASE}/audiobooks/genre/${g}/batch?startPage=1&numPages=3&limit=20`, { credentials: 'include' })
+              .then(r => r.ok ? r.json() : { results: [], total: 0 })
+              .catch(() => ({ results: [], total: 0 }))
+          )
+        );
+
+        const results = [...results1, ...results2];
 
         // Combine and deduplicate all books
         const allBooks = results.flatMap(r => r.results || []);
@@ -355,6 +381,11 @@ export default function Audiobooks() {
 
     setDownloadingTorrent(torrent.id);
     try {
+      // Build thumbnail URL for audiobook (use cover proxy)
+      const audiobookThumbnail = selectedBook?.coverUrl
+        ? `${API_BASE}/audiobooks/cover?url=${encodeURIComponent(selectedBook.coverUrl)}`
+        : null;
+
       const response = await fetch(`${API_BASE}/torrents/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -363,7 +394,8 @@ export default function Audiobooks() {
           magnetUrl: torrent.magnetUrl,
           downloadUrl: torrent.downloadUrl,
           title: torrent.title,
-          category: 'Audiobooks'
+          category: 'Audiobooks',
+          thumbnail: audiobookThumbnail
         })
       });
 
@@ -466,6 +498,8 @@ export default function Audiobooks() {
           <img
             src={coverSrc}
             alt={book.title}
+            loading="lazy"
+            decoding="async"
             className="w-full h-72 object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
@@ -550,6 +584,47 @@ export default function Audiobooks() {
               placeholder="Search audiobooks by title or author..."
               className="w-full bg-gray-800 text-white pl-10 pr-4 py-3 rounded-lg border border-gray-700 focus:border-purple-500 focus:outline-none"
             />
+          </div>
+
+          {/* Popular Authors */}
+          <div className="mt-4">
+            <p className="text-xs text-gray-500 mb-2">Popular Authors:</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                'Stephen King',
+                'Agatha Christie',
+                'George Orwell',
+                'Aldous Huxley',
+                'Ray Bradbury',
+                'Philip K. Dick',
+                'Franz Kafka',
+                'Fyodor Dostoevsky',
+                'Kurt Vonnegut',
+                'H.G. Wells',
+                'Isaac Asimov',
+                'Arthur C. Clarke',
+                'Margaret Atwood',
+                'J.R.R. Tolkien',
+                'Ernest Hemingway',
+                'Leo Tolstoy',
+                'Jules Verne',
+                'Edgar Allan Poe',
+                'H.P. Lovecraft',
+                'Bram Stoker'
+              ].map(author => (
+                <button
+                  key={author}
+                  onClick={() => setSearchQuery(author)}
+                  className={`px-3 py-1 text-xs rounded-full transition-all ${
+                    searchQuery === author
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-800 text-gray-400 hover:bg-purple-600/30 hover:text-purple-300 border border-gray-700 hover:border-purple-500/50'
+                  }`}
+                >
+                  {author}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

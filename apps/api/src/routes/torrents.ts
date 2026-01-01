@@ -54,7 +54,7 @@ torrentsRouter.post('/search', requireAuth, async (req, res) => {
 torrentsRouter.post('/download', requireAuth, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const { magnetUrl, downloadUrl, title, category, tmdb_id, tmdb_media_type } = req.body;
+    const { magnetUrl, downloadUrl, title, category, tmdb_id, tmdb_media_type, thumbnail: providedThumbnail } = req.body;
 
     if (!magnetUrl && !downloadUrl) {
       return res.status(400).json({ error: 'magnetUrl or downloadUrl is required' });
@@ -140,20 +140,42 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
       console.log(`[TorrentsAPI] Torrent added successfully: ${title || url}`)
 
       // Wait a moment for qBittorrent to process the torrent
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // If we don't have the hash yet, try to find it in qBittorrent by matching the title
+      // If we don't have the hash yet, try to find it in qBittorrent
       if (!torrentHash) {
         try {
           const torrents = await qbittorrentService.getTorrents();
-          // Search for torrent by name (more reliable than taking torrents[0])
-          const matchingTorrent = torrents.find(t =>
-            t.name && title && t.name.toLowerCase().includes(title.toLowerCase().slice(0, 20))
+
+          // Sort by added_on descending to get most recently added first
+          torrents.sort((a, b) => (b.added_on || 0) - (a.added_on || 0));
+
+          // Try multiple matching strategies:
+          // 1. Match by title (partial match)
+          let matchingTorrent = torrents.find(t =>
+            t.name && title && (
+              t.name.toLowerCase().includes(title.toLowerCase().slice(0, 20)) ||
+              title.toLowerCase().includes(t.name.toLowerCase().slice(0, 20))
+            )
           );
+
+          // 2. If no match and torrent was just added, take the most recent one
+          if (!matchingTorrent && torrents.length > 0) {
+            const mostRecent = torrents[0];
+            const addedRecently = mostRecent.added_on && (Date.now() / 1000 - mostRecent.added_on) < 30;
+            if (addedRecently) {
+              matchingTorrent = mostRecent;
+              console.log(`[TorrentsAPI] Using most recently added torrent: ${mostRecent.name}`);
+            }
+          }
 
           if (matchingTorrent) {
             torrentHash = matchingTorrent.hash;
-            console.log(`[TorrentsAPI] Found torrent by name match: ${torrentHash}`);
+            // Update title to actual torrent name for better display
+            if (matchingTorrent.name && matchingTorrent.name !== title) {
+              title = matchingTorrent.name;
+            }
+            console.log(`[TorrentsAPI] Found torrent hash: ${torrentHash}`);
           } else {
             console.warn(`[TorrentsAPI] Could not find torrent hash for: ${title}`);
           }
@@ -165,9 +187,12 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
     // Try to match torrent title to TMDB (or use provided TMDB metadata)
     let tmdbId: number | null = tmdb_id ?? null;
     let tmdbMediaType: 'movie' | 'tv' | 'documentary' | null = tmdb_media_type ?? null;
-    let thumbnail: string | null = null;
+    let thumbnail: string | null = providedThumbnail || null;
 
-    if (tmdbId && tmdbMediaType) {
+    // If thumbnail provided (e.g., audiobooks), skip TMDB lookup
+    if (thumbnail) {
+      console.log(`[TorrentsAPI] Using provided thumbnail: ${thumbnail.substring(0, 50)}...`);
+    } else if (tmdbId && tmdbMediaType) {
       try {
         const lookupType = tmdbMediaType === 'documentary' ? 'movie' : tmdbMediaType;
         const details = lookupType === 'tv'
@@ -182,7 +207,8 @@ torrentsRouter.post('/download', requireAuth, async (req, res) => {
       }
     }
 
-    if (!tmdbId || !tmdbMediaType) {
+    // Only search TMDB if we don't have a thumbnail (skip for audiobooks etc.)
+    if (!thumbnail && (!tmdbId || !tmdbMediaType)) {
       try {
         console.log(`[TorrentsAPI] Searching TMDB for: ${title}`);
         const tmdbMatch = await tmdbService.findMediaForTitle(title || '', userId);
