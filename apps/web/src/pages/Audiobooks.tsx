@@ -37,24 +37,40 @@ interface TorrentResult {
 
 type ViewMode = 'browse' | 'search';
 
+// Helper to get saved browse state synchronously
+const getSavedBrowseState = () => {
+  try {
+    const saved = localStorage.getItem('audiobooksBrowseState');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    // Ignore parse errors
+  }
+  return null;
+};
+
 export default function Audiobooks() {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
 
-  // Book catalog state
-  const [books, setBooks] = useState<Book[]>([]);
+  // Initialize state from localStorage synchronously to avoid flash of loading
+  const savedState = getSavedBrowseState();
+
+  // Book catalog state - restore from localStorage if available
+  const [books, setBooks] = useState<Book[]>(() => savedState?.books || []);
   const [searchResults, setSearchResults] = useState<Book[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
-  const [selectedGenre, setSelectedGenre] = useState<Genre | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedGenre, setSelectedGenre] = useState<Genre | null>(() => savedState?.selectedGenre || null);
+  const [loading, setLoading] = useState(() => !savedState?.books?.length);
   const [searchLoading, setSearchLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalResults, setTotalResults] = useState(0);
+  // Pagination state - restore from localStorage if available
+  const [currentPage, setCurrentPage] = useState(() => savedState?.page || 1);
+  const [totalPages, setTotalPages] = useState(() => savedState?.totalPages || 1);
+  const [totalResults, setTotalResults] = useState(() => savedState?.totalResults || 0);
 
   // Selected book for download modal
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -71,8 +87,12 @@ export default function Audiobooks() {
   // Bookmarks
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
 
-  // Load initial data - use ref to prevent double-mount in React Strict Mode
+  // State persistence refs
   const hasInitialized = React.useRef(false);
+  const restoringScroll = React.useRef(false);
+  const scrollPositionSaved = React.useRef(false);
+
+  // Load initial data - use ref to prevent double-mount in React Strict Mode
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
@@ -81,11 +101,77 @@ export default function Audiobooks() {
       checkVpnStatus();
       fetchBookmarks();
       await fetchGenres();
+
+      // State was already restored synchronously in useState initializers
+      // Only load fresh if there was no saved state
+      if (savedState?.books?.length) {
+        console.log('[Audiobooks Mount] Using restored state:', { bookCount: savedState.books.length });
+        restoringScroll.current = true;
+
+        // Restore scroll position after a short delay to ensure content is rendered
+        setTimeout(() => {
+          if (typeof savedState.scrollY === 'number') {
+            window.scrollTo(0, savedState.scrollY);
+          }
+          restoringScroll.current = false;
+        }, 100);
+        return; // Don't load initial books if we restored state
+      }
+
       // Delay to let API settle before batch requests
       await new Promise(r => setTimeout(r, 300));
       loadInitialBooks(null);
     };
     init();
+  }, []);
+
+  // Save browse state to localStorage when it changes
+  useEffect(() => {
+    if (restoringScroll.current || books.length === 0) return;
+
+    const browseState = {
+      books,
+      page: currentPage,
+      totalPages,
+      totalResults,
+      selectedGenre,
+      scrollY: window.scrollY
+    };
+
+    localStorage.setItem('audiobooksBrowseState', JSON.stringify(browseState));
+  }, [books, currentPage, totalPages, totalResults, selectedGenre]);
+
+  // Save scroll position on scroll events
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      if (restoringScroll.current) return;
+
+      const savedState = localStorage.getItem('audiobooksBrowseState');
+      if (savedState) {
+        try {
+          const state = JSON.parse(savedState);
+          state.scrollY = window.scrollY;
+          localStorage.setItem('audiobooksBrowseState', JSON.stringify(state));
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    };
+
+    const handleScroll = () => {
+      if (restoringScroll.current) return;
+      // Debounce scroll saves
+      if (!scrollPositionSaved.current) {
+        scrollPositionSaved.current = true;
+        setTimeout(() => {
+          saveScrollPosition();
+          scrollPositionSaved.current = false;
+        }, 200);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const checkVpnStatus = async () => {
@@ -455,7 +541,12 @@ export default function Audiobooks() {
             external_id: book.id,
             title: book.title,
             description: book.authors.join(', '),
-            thumbnail: book.coverUrl
+            thumbnail: book.coverUrl,
+            metadata: {
+              year: book.year,
+              authors: book.authors,
+              subjects: book.subjects
+            }
           })
         });
         setBookmarkedIds(prev => new Set(prev).add(book.id));

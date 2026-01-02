@@ -77,19 +77,19 @@ export class AudiobookService {
         timeout: 10000,
       });
 
-      const results: AudiobookResult[] = response.data.docs.map((doc: any) => ({
-        id: doc.key?.replace('/works/', '') || '',
-        title: doc.title || 'Unknown Title',
-        authors: doc.author_name || [],
-        authorKeys: doc.author_key || [],
-        coverUrl: doc.cover_i
-          ? `${OPEN_LIBRARY_COVERS}/b/id/${doc.cover_i}-M.jpg`
-          : null,
-        year: doc.first_publish_year || null,
-        subjects: (doc.subject || []).slice(0, 5),
-        workKey: doc.key || '',
-        editionCount: doc.edition_count || 1,
-      }));
+      const results: AudiobookResult[] = response.data.docs
+        .filter((doc: any) => doc.cover_i) // Only include books with covers
+        .map((doc: any) => ({
+          id: doc.key?.replace('/works/', '') || '',
+          title: doc.title || 'Unknown Title',
+          authors: doc.author_name || [],
+          authorKeys: doc.author_key || [],
+          coverUrl: `${OPEN_LIBRARY_COVERS}/b/id/${doc.cover_i}-M.jpg`,
+          year: doc.first_publish_year || null,
+          subjects: (doc.subject || []).slice(0, 5),
+          workKey: doc.key || '',
+          editionCount: doc.edition_count || 1,
+        }));
 
       return {
         results,
@@ -120,19 +120,19 @@ export class AudiobookService {
       const workCount = response.data.work_count || 0;
       const totalPages = Math.ceil(workCount / limit);
 
-      const books: AudiobookResult[] = (response.data.works || []).map((work: any) => ({
-        id: work.key?.replace('/works/', '') || '',
-        title: work.title || 'Unknown Title',
-        authors: work.authors?.map((a: any) => a.name) || [],
-        authorKeys: work.authors?.map((a: any) => a.key?.replace('/authors/', '')) || [],
-        coverUrl: work.cover_id
-          ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_id}-M.jpg`
-          : null,
-        year: work.first_publish_year || null,
-        subjects: (work.subject || []).slice(0, 5),
-        workKey: work.key || '',
-        editionCount: work.edition_count || 1,
-      }));
+      const books: AudiobookResult[] = (response.data.works || [])
+        .filter((work: any) => work.cover_id) // Only include books with covers
+        .map((work: any) => ({
+          id: work.key?.replace('/works/', '') || '',
+          title: work.title || 'Unknown Title',
+          authors: work.authors?.map((a: any) => a.name) || [],
+          authorKeys: work.authors?.map((a: any) => a.key?.replace('/authors/', '')) || [],
+          coverUrl: `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_id}-M.jpg`,
+          year: work.first_publish_year || null,
+          subjects: (work.subject || []).slice(0, 5),
+          workKey: work.key || '',
+          editionCount: work.edition_count || 1,
+        }));
 
       // Cache the work count for this subject
       subjectCountCache.set(subject, { count: workCount, timestamp: Date.now() });
@@ -173,21 +173,21 @@ export class AudiobookService {
       });
 
       if (response.data.works) {
-        return response.data.works.map((work: any) => ({
-          id: work.key?.replace('/works/', '') || '',
-          title: work.title || 'Unknown Title',
-          authors: work.author_name || [],
-          authorKeys: work.author_key || [],
-          coverUrl: work.cover_i
-            ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_i}-M.jpg`
-            : work.cover_id
-            ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_id}-M.jpg`
-            : null,
-          year: work.first_publish_year || null,
-          subjects: [],
-          workKey: work.key || '',
-          editionCount: work.edition_count || 1,
-        }));
+        return response.data.works
+          .filter((work: any) => work.cover_i || work.cover_id) // Only include books with covers
+          .map((work: any) => ({
+            id: work.key?.replace('/works/', '') || '',
+            title: work.title || 'Unknown Title',
+            authors: work.author_name || [],
+            authorKeys: work.author_key || [],
+            coverUrl: work.cover_i
+              ? `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_i}-M.jpg`
+              : `${OPEN_LIBRARY_COVERS}/b/id/${work.cover_id}-M.jpg`,
+            year: work.first_publish_year || null,
+            subjects: [],
+            workKey: work.key || '',
+            editionCount: work.edition_count || 1,
+          }));
       }
 
       // Fallback to fiction if trending doesn't work
